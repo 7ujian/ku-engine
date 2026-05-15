@@ -1,0 +1,30 @@
+{
+  "name": "ku",
+  "version": "0.1.0",
+  "description": "CLI-based 2D game engine for AI agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "ku": "dist/bin/ku.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/matter-js": "^0.20.2",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.1.0"
+  },
+  "dependencies": {
+    "@kmamal/sdl": "^0.11.13",
+    "@napi-rs/canvas": "^1.0.0",
+    "commander": "^14.0.3",
+    "matter-js": "^0.20.0",
+    "ws": "^8.20.1"
+  }
+}
