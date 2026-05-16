@@ -9,10 +9,14 @@ export interface ScriptFilter {
 export interface ScriptAction {
   set?: string;
   to?: unknown;
+  set_on?: string;
+  key?: string;
   move?: { x?: number; y?: number };
   spawn?: string;
   at?: { x?: number; y?: number };
   as?: string;
+  properties?: PropertyMap;
+  scripts?: ScriptRule[];
   destroy?: string;
   emit?: string;
   data?: Record<string, unknown>;
@@ -21,6 +25,7 @@ export interface ScriptAction {
   stop?: string;
   log?: string;
   call?: string;
+  move_toward?: { x?: number; y?: number; speed?: number };
 }
 
 export interface ScriptRule {

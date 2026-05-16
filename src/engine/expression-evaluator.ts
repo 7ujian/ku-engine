@@ -36,7 +36,7 @@ function resolveExpr(expr: string, properties: PropertyMap, context: Record<stri
   }
 
   // Simple arithmetic: x + 10, speed * 2, x + speed
-  const arithMatch = expr.match(/^([\w.]+)\s*([+\-*/])\s*([\w.]+|-?\d+(?:\.\d+)?)$/);
+  const arithMatch = expr.match(/^([\w.]+)\s*([+\-*/%])\s*([\w.]+|-?\d+(?:\.\d+)?)$/);
   if (arithMatch) {
     const left = getPropertyRef(arithMatch[1], properties, context);
     const rightStr = arithMatch[3];
@@ -48,6 +48,7 @@ function resolveExpr(expr: string, properties: PropertyMap, context: Record<stri
         case '-': return left - right;
         case '*': return left * right;
         case '/': return left / right;
+        case '%': return left % right;
       }
     }
     return left;

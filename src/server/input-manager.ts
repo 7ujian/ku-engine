@@ -27,6 +27,18 @@ export class InputManager {
     this.scripts.evaluateEvent('on_axis', { name, value });
   }
 
+  touchStart(x: number, y: number, pointerId: number): void {
+    this.scripts.evaluateEvent('on_touch_start', { x, y, pointerId });
+  }
+
+  touchMove(x: number, y: number, pointerId: number): void {
+    this.scripts.evaluateEvent('on_touch_move', { x, y, pointerId });
+  }
+
+  touchEnd(x: number, y: number, pointerId: number): void {
+    this.scripts.evaluateEvent('on_touch_end', { x, y, pointerId });
+  }
+
   isKeyDown(key: string): boolean {
     return this.keys.has(key);
   }

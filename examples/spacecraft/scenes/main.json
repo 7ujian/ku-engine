@@ -1,0 +1,293 @@
+{
+  "scene": "spacecraft",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "wall_left",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 32, "height": 720, "radius": 0,
+          "x": -16, "y": 320
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "wall_right",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 32, "height": 720, "radius": 0,
+          "x": 376, "y": 320
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "wall_top",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 400, "height": 32, "radius": 0,
+          "x": 180, "y": -16
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "wall_bottom",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 400, "height": 32, "radius": 0,
+          "x": 180, "y": 656
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "player",
+        "type": "RigidBody",
+        "properties": {
+          "x": 180, "y": 560,
+          "mass": 1,
+          "velocity": { "x": 0, "y": 0 },
+          "gravity_scale": 0,
+          "linear_damping": 0,
+          "moving_left": false,
+          "moving_right": false,
+          "moving_up": false,
+          "moving_down": false,
+          "dead": false,
+          "score": 0
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_key", "filter": { "key": "LEFT" },  "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_left",  "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "LEFT" },  "actions": [ { "set": "moving_left",  "to": false } ] },
+          { "event": "on_key", "filter": { "key": "RIGHT" }, "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_right", "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "RIGHT" }, "actions": [ { "set": "moving_right", "to": false } ] },
+          { "event": "on_key", "filter": { "key": "UP" },    "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_up",    "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "UP" },    "actions": [ { "set": "moving_up",    "to": false } ] },
+          { "event": "on_key", "filter": { "key": "DOWN" },  "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_down",  "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "DOWN" },  "actions": [ { "set": "moving_down",  "to": false } ] },
+          { "event": "on_frame", "condition": { "moving_left": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": -4 } ] },
+          { "event": "on_frame", "condition": { "moving_right": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": 4 } ] },
+          { "event": "on_frame", "condition": { "moving_left": { "neq": true }, "moving_right": { "neq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": 0 } ] },
+          { "event": "on_frame", "condition": { "moving_up": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": -4 } ] },
+          { "event": "on_frame", "condition": { "moving_down": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": 4 } ] },
+          { "event": "on_frame", "condition": { "moving_up": { "neq": true }, "moving_down": { "neq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": 0 } ] },
+          { "event": "on_frame", "condition": { "dead": { "eq": true } }, "actions": [ { "set": "velocity.x", "to": 0 }, { "set": "velocity.y", "to": 0 } ] },
+          { "event": "on_frame", "condition": { "dead": { "neq": true } }, "actions": [ { "set": "score", "to": "{{score + 1}}" } ] },
+          {
+            "event": "on_collision",
+            "filter": { "with": "enemy" },
+            "condition": { "dead": { "neq": true } },
+            "actions": [
+              { "set": "dead", "to": true },
+              { "set": "velocity.x", "to": 0 },
+              { "set": "velocity.y", "to": 0 },
+              { "log": "GAME OVER! Score: {{score}}" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "enemy_0",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 24, "height": 24, "radius": 0,
+          "x": 80, "y": -50,
+          "speed": 1.5, "drift": 0, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_1",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 20, "height": 20, "radius": 0,
+          "x": 200, "y": -160,
+          "speed": 2, "drift": 0.3, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_2",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 28, "height": 28, "radius": 0,
+          "x": 300, "y": -280,
+          "speed": 1.8, "drift": -0.3, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_3",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 22, "height": 22, "radius": 0,
+          "x": 140, "y": -390,
+          "speed": 2.2, "drift": 0, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_4",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 26, "height": 26, "radius": 0,
+          "x": 260, "y": -500,
+          "speed": 1.6, "drift": 0.5, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_5",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 18, "height": 18, "radius": 0,
+          "x": 100, "y": -620,
+          "speed": 2.5, "drift": -0.4, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_6",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 24, "height": 24, "radius": 0,
+          "x": 180, "y": -740,
+          "speed": 2, "drift": 0.2, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "enemy_7",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 32, "height": 32, "radius": 0,
+          "x": 320, "y": -860,
+          "speed": 1.2, "drift": 0, "laps": 0,
+          "tags": ["enemy"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
+            { "set": "y", "to": -30 },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "laps", "to": "{{laps + 1}}" },
+            { "set": "speed", "to": "{{speed + 0.15}}" }
+          ] }
+        ]
+      },
+      {
+        "id": "score_label",
+        "type": "Label",
+        "properties": {
+          "text": "SCORE: 0",
+          "font_size": 18,
+          "color": "#00ff88",
+          "x": 10,
+          "y": 15,
+          "score": 0
+        },
+        "children": [],
+        "scripts": [
+          {
+            "event": "on_frame",
+            "actions": [
+              { "set": "score", "to": "{{score + 1}}" },
+              { "set": "text", "to": "SCORE: {{score}}" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "title_label",
+        "type": "Label",
+        "properties": {
+          "text": "SPACECRAFT  Arrow keys to move",
+          "font_size": 14,
+          "color": "#888888",
+          "x": 10,
+          "y": 620
+        },
+        "children": [],
+        "scripts": []
+      }
+    ],
+    "scripts": []
+  }
+}

@@ -9,6 +9,7 @@ type CollisionCallback = (event: string, data: Record<string, unknown>) => void;
 
 export class CollisionEvents {
   private prevPairs = new Map<string, CollisionPair>();
+  private prevAreaPairs = new Map<string, CollisionPair>();
   private tree: SceneTree;
   private onCollision: CollisionCallback;
 
@@ -42,8 +43,33 @@ export class CollisionEvents {
     }
   }
 
+  /** Call each frame with current area overlaps. Fires on_area_enter and on_area_exit. */
+  updateAreas(currentPairs: CollisionPair[]): void {
+    const currentKeys = new Set<string>();
+
+    for (const pair of currentPairs) {
+      const key = pairKey(pair.nodeA, pair.nodeB);
+      currentKeys.add(key);
+      const isNew = !this.prevAreaPairs.has(key);
+
+      if (isNew) {
+        this.fireCollision('on_area_enter', pair);
+      }
+
+      this.prevAreaPairs.set(key, pair);
+    }
+
+    for (const [key, pair] of this.prevAreaPairs) {
+      if (!currentKeys.has(key)) {
+        this.fireCollision('on_area_exit', pair);
+        this.prevAreaPairs.delete(key);
+      }
+    }
+  }
+
   reset(): void {
     this.prevPairs.clear();
+    this.prevAreaPairs.clear();
   }
 
   private fireCollision(event: string, pair: CollisionPair): void {

@@ -49,6 +49,9 @@ export const createRigidBody = factory('RigidBody', {
   velocity: { x: 0, y: 0 },
   gravity_scale: 1,
   linear_damping: 0,
+  width: 32,
+  height: 32,
+  color: '#ffff00',
 });
 
 export const createArea = factory('Area', {
@@ -60,6 +63,7 @@ export const createCollisionShape = factory('CollisionShape', {
   width: 32,
   height: 32,
   radius: 0,
+  color: '#33cc33',
 });
 
 export const createCamera2D = factory('Camera2D', {

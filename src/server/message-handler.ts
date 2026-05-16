@@ -197,6 +197,19 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       return { result: { axis: { name, value } } };
     }
 
+    case 'input.touch': {
+      requirePlay(mode);
+      if (!inputManager) throw new Error('no input manager');
+      const phase = payload.phase as string;
+      const x = payload.x as number;
+      const y = payload.y as number;
+      const pointerId = (payload.pointerId as number) ?? 0;
+      if (phase === 'start') inputManager.touchStart(x, y, pointerId);
+      else if (phase === 'move') inputManager.touchMove(x, y, pointerId);
+      else if (phase === 'end') inputManager.touchEnd(x, y, pointerId);
+      return { result: { touch: { phase, x, y, pointerId } } };
+    }
+
     // Query
     case 'query.scene':
       return { result: tree.root.toJSON() };

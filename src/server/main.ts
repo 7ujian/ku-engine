@@ -68,6 +68,11 @@ async function main(): Promise<void> {
       if (down) input.keyDown(key);
       else input.keyUp(key);
     });
+    renderer.setTouchHandler((phase, x, y, pointerId) => {
+      if (phase === 'start') input.touchStart(x, y, pointerId);
+      else if (phase === 'move') input.touchMove(x, y, pointerId);
+      else if (phase === 'end') input.touchEnd(x, y, pointerId);
+    });
     await renderer.open('ku');
 
     // Wire syncClient to scripts/physics for delta application

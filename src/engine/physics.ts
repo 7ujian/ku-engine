@@ -11,7 +11,7 @@ export class PhysicsWorld {
   constructor(tree: SceneTree) {
     this.tree = tree;
     this.engine = Matter.Engine.create();
-    this.engine.gravity.y = 1;
+    this.engine.gravity.y = 0;
     this.engine.gravity.scale = 0.003;
   }
 
@@ -28,6 +28,19 @@ export class PhysicsWorld {
   }
 
   step(dt: number): void {
+    // Apply per-body gravity before Engine.update so positions reflect it
+    const gScale = this.engine.gravity.scale;
+    for (const body of this.bodyMap.values()) {
+      if (body.isStatic) continue;
+      const gs = (body.plugin as Record<string, unknown> | undefined)?.gravityScale as number ?? 1;
+      if (gs !== 0) {
+        Matter.Body.setVelocity(body, {
+          x: body.velocity.x,
+          y: body.velocity.y + gs * gScale * dt,
+        });
+      }
+    }
+
     Matter.Engine.update(this.engine, dt);
     this.syncToTree();
   }
@@ -74,6 +87,8 @@ export class PhysicsWorld {
     const collisions: Array<{ nodeA: string; nodeB: string }> = [];
     const events = Matter.Detector.collisions(detector);
     for (const pair of events) {
+      // Skip sensor-only overlaps (Area nodes)
+      if (pair.bodyA.isSensor && pair.bodyB.isSensor) continue;
       const idA = pair.bodyA.label;
       const idB = pair.bodyB.label;
       if (idA && idB) {
@@ -83,21 +98,52 @@ export class PhysicsWorld {
     return collisions;
   }
 
+  getAreaOverlaps(): Array<{ nodeA: string; nodeB: string }> {
+    const bodies = Matter.Composite.allBodies(this.engine.world);
+    const detector = Matter.Detector.create({ bodies });
+    const overlaps: Array<{ nodeA: string; nodeB: string }> = [];
+    const events = Matter.Detector.collisions(detector);
+    for (const pair of events) {
+      // Only include pairs where at least one body is a sensor (Area)
+      if (!pair.bodyA.isSensor && !pair.bodyB.isSensor) continue;
+      const idA = pair.bodyA.label;
+      const idB = pair.bodyB.label;
+      if (idA && idB) {
+        overlaps.push({ nodeA: idA, nodeB: idB });
+      }
+    }
+    return overlaps;
+  }
+
   private syncBody(node: Node): void {
     const existing = this.bodyMap.get(node.id);
     const x = (node.getProperty('x') as number) ?? 0;
     const y = (node.getProperty('y') as number) ?? 0;
     const mass = (node.getProperty('mass') as number) ?? 1;
+    const w = (node.getProperty('width') as number) ?? 32;
+    const h = (node.getProperty('height') as number) ?? 32;
+    const gravityScale = (node.getProperty('gravity_scale') as number) ?? 1;
 
     if (existing) {
       Matter.Body.setPosition(existing, { x, y });
       return;
     }
 
-    const body = Matter.Bodies.rectangle(x, y, 32, 32, {
+    const body = Matter.Bodies.rectangle(x, y, w, h, {
       label: node.id,
       mass,
+      plugin: { gravityScale },
+      collisionFilter: {
+        category: (node.getProperty('collision_layer') as number) ?? 0x0001,
+        mask: (node.getProperty('collision_mask') as number) ?? 0xFFFF,
+      },
     });
+
+    // Sync initial velocity
+    const vx = (node.getPropertyByPath('velocity.x') as number) ?? 0;
+    const vy = (node.getPropertyByPath('velocity.y') as number) ?? 0;
+    Matter.Body.setVelocity(body, { x: vx, y: vy });
+
     Matter.Composite.add(this.engine.world, body);
     this.bodyMap.set(node.id, body);
   }
@@ -127,11 +173,15 @@ export class PhysicsWorld {
     const height = (node.getProperty('height') as number) ?? 32;
 
     let body: Matter.Body;
+    const collisionFilter = {
+      category: (node.getProperty('collision_layer') as number) ?? 0x0001,
+      mask: (node.getProperty('collision_mask') as number) ?? 0xFFFF,
+    };
     if (shape === 'circle') {
       const radius = (node.getProperty('radius') as number) ?? 16;
-      body = Matter.Bodies.circle(x, y, radius, { label: node.id, isStatic: true });
+      body = Matter.Bodies.circle(x, y, radius, { label: node.id, isStatic: true, collisionFilter });
     } else {
-      body = Matter.Bodies.rectangle(x, y, width, height, { label: node.id, isStatic: true });
+      body = Matter.Bodies.rectangle(x, y, width, height, { label: node.id, isStatic: true, collisionFilter });
     }
 
     Matter.Composite.add(this.engine.world, body);
@@ -154,6 +204,10 @@ export class PhysicsWorld {
       label: node.id,
       isStatic: true,
       isSensor: true,
+      collisionFilter: {
+        category: (node.getProperty('collision_layer') as number) ?? 0x0001,
+        mask: (node.getProperty('collision_mask') as number) ?? 0xFFFF,
+      },
     });
     Matter.Composite.add(this.engine.world, body);
     this.bodyMap.set(node.id, body);

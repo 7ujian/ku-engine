@@ -18,6 +18,7 @@ export class GameLoop {
   private physicsEnabled: boolean;
   private collisionEvents: CollisionEvents;
   private prevSnapshot: Record<string, Record<string, unknown>> | null = null;
+  private timers = new Map<string, { elapsed: number; fired: boolean }>();
 
   constructor(
     tree: SceneTree,
@@ -62,6 +63,7 @@ export class GameLoop {
     }
     this.physics.destroy();
     this.collisionEvents.reset();
+    this.timers.clear();
   }
 
   pause(): void {
@@ -121,8 +123,15 @@ export class GameLoop {
       // Collision events: on_collision (enter) and on_collision_exit
       const collisions = this.physics.getCollisions();
       this.collisionEvents.update(collisions);
+
+      // Area overlap events: on_area_enter and on_area_exit
+      const areaOverlaps = this.physics.getAreaOverlaps();
+      this.collisionEvents.updateAreas(areaOverlaps);
     }
     this.scripts.evaluateEvent('on_frame', { frame: this.frame });
+
+    // Timer events
+    this.tickTimers();
 
     if (this.renderer) {
       if (!this.renderer.isOpen()) {
@@ -140,5 +149,32 @@ export class GameLoop {
       snap[node.id] = { ...node.properties };
     });
     return snap;
+  }
+
+  private tickTimers(): void {
+    const dt = 1000 / this.fps;
+    this.tree.traverse((node) => {
+      if (node.type !== 'Timer') return;
+      const autostart = (node.getProperty('autostart') as boolean) ?? false;
+      const playing = (node.getProperty('playing') as boolean) ?? autostart;
+      if (!playing) return;
+
+      const waitTime = ((node.getProperty('wait_time') as number) ?? 1) * 1000;
+      const oneShot = (node.getProperty('one_shot') as boolean) ?? false;
+
+      let state = this.timers.get(node.id);
+      if (!state) {
+        state = { elapsed: 0, fired: false };
+        this.timers.set(node.id, state);
+      }
+
+      state.elapsed += dt;
+      if (state.elapsed >= waitTime) {
+        if (oneShot && state.fired) return;
+        state.fired = true;
+        state.elapsed = 0;
+        this.scripts.evaluateEvent('on_timer', { timer: node.id });
+      }
+    });
   }
 }

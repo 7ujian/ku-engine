@@ -9,6 +9,7 @@ import { LabelRenderer } from './label-renderer.js';
 import type { PropertyMap } from '../engine/types.js';
 
 type KeyHandler = (key: string, down: boolean) => void;
+type TouchHandler = (phase: 'start' | 'move' | 'end', x: number, y: number, pointerId: number) => void;
 
 function normalizeKeyName(key: string): string {
   const map: Record<string, string> = {
@@ -40,6 +41,7 @@ export class Renderer {
   private labelRenderer: LabelRenderer;
   private lastTime = 0;
   private onKey: KeyHandler | null = null;
+  private onTouch: TouchHandler | null = null;
 
   constructor(width = 640, height = 480) {
     this.width = width;
@@ -53,6 +55,10 @@ export class Renderer {
 
   setKeyHandler(handler: KeyHandler): void {
     this.onKey = handler;
+  }
+
+  setTouchHandler(handler: TouchHandler): void {
+    this.onTouch = handler;
   }
 
   async open(title = 'ku'): Promise<void> {
@@ -78,6 +84,24 @@ export class Renderer {
       if (this.onKey && event.key) {
         this.onKey(normalizeKeyName(event.key), false);
       }
+    });
+
+    // Touch / pointer events (SDL normalized 0-1 coordinates)
+    (this.window as any).on('fingerDown', (event: { x: number; y: number; fingerId: number }) => {
+      if (this.onTouch) this.onTouch('start', event.x * this.width, event.y * this.height, event.fingerId);
+    });
+
+    (this.window as any).on('fingerMove', (event: { x: number; y: number; fingerId: number }) => {
+      if (this.onTouch) this.onTouch('move', event.x * this.width, event.y * this.height, event.fingerId);
+    });
+
+    (this.window as any).on('fingerUp', (event: { x: number; y: number; fingerId: number }) => {
+      if (this.onTouch) this.onTouch('end', event.x * this.width, event.y * this.height, event.fingerId);
+    });
+
+    // Mouse as pointer (desktop fallback)
+    (this.window as any).on('mouseMove', (event: { x: number; y: number }) => {
+      if (this.onTouch) this.onTouch('move', event.x, event.y, 0);
     });
   }
 
@@ -173,20 +197,30 @@ export class Renderer {
       case 'TileMap':
         this.tilemapRenderer.drawTilemap(node, x, y);
         break;
-      case 'RigidBody':
-        // Draw as colored rect for debug/standalone visibility
-        this.ctx.fillStyle = '#ffff00';
-        const rbW = 30;
-        const rbH = 24;
+      case 'RigidBody': {
+        const color = (node.getProperty('color') as string) ?? '#ffff00';
+        const rbW = (node.getProperty('width') as number) ?? 30;
+        const rbH = (node.getProperty('height') as number) ?? 24;
+        this.ctx.fillStyle = color;
         this.ctx.fillRect(x - rbW / 2, y - rbH / 2, rbW, rbH);
         break;
-      case 'CollisionShape':
-        // Draw pipes/ground as colored rects
-        this.ctx.fillStyle = '#33cc33';
+      }
+      case 'CollisionShape': {
+        const color = (node.getProperty('color') as string) ?? '#33cc33';
         const csW = (node.getProperty('width') as number) ?? 32;
         const csH = (node.getProperty('height') as number) ?? 32;
+        this.ctx.fillStyle = color;
         this.ctx.fillRect(x - csW / 2, y - csH / 2, csW, csH);
         break;
+      }
+      case 'Area': {
+        const color = (node.getProperty('color') as string) ?? 'rgba(0, 255, 255, 0.2)';
+        const aW = (node.getProperty('width') as number) ?? 32;
+        const aH = (node.getProperty('height') as number) ?? 32;
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x - aW / 2, y - aH / 2, aW, aH);
+        break;
+      }
     }
   }
 
