@@ -39,14 +39,22 @@ export async function editCommand(projectDir: string, scene?: string): Promise<v
   const args = ['--mode', 'edit', '--dir', projectDir, '--port', '21200'];
   if (scene) args.push('--scene', scene);
 
-  const child = fork(serverPath, args, { detached: true, stdio: 'ignore' });
-  child.unref();
+  const child = fork(serverPath, args, { stdio: 'ignore' });
 
   await waitForInstance(projectDir, 'edit', 3000);
   await setAttachedInstance(projectDir, 'edit');
 
   const disc2 = await readDiscovery(projectDir);
   printJson({ ok: true, data: { status: 'started', pid: disc2.edit!.pid, port: disc2.edit!.port } });
+
+  // Keep CLI alive — Ctrl-C kills the editor child too
+  const onSigint = () => {
+    child.kill('SIGTERM');
+    process.exit(0);
+  };
+  process.on('SIGINT', onSigint);
+
+  child.on('exit', () => process.exit(0));
 }
 
 export async function stopCommand(projectDir: string, instance?: string): Promise<void> {

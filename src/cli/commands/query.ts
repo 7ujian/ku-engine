@@ -14,6 +14,18 @@ export async function queryNodes(projectDir: string, type?: string): Promise<voi
   printJson(resp.payload);
 }
 
+export async function queryDiff(projectDir: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const resp = await sendCommand('localhost', port, makeMessage('query.diff'));
+  printJson(resp.payload);
+}
+
+export async function queryCollisions(projectDir: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const resp = await sendCommand('localhost', port, makeMessage('query.collisions'));
+  printJson(resp.payload);
+}
+
 async function getPort(projectDir: string): Promise<number> {
   const inst = await getAttachedInstance(projectDir);
   return findInstancePort(projectDir, inst);

@@ -25,6 +25,7 @@ export interface ScriptAction {
 
 export interface ScriptRule {
   event: string;
+  name?: string;
   filter?: ScriptFilter;
   condition?: Record<string, Record<string, unknown>>;
   actions: ScriptAction[];

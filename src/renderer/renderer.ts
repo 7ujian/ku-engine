@@ -2,22 +2,57 @@ import sdl from '@kmamal/sdl';
 import { createCanvas, loadImage, type Canvas, type Image } from '@napi-rs/canvas';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
+import { findCamera, type CameraState } from './camera.js';
+import { SpriteRenderer } from './sprite-renderer.js';
+import { TilemapRenderer } from './tilemap-renderer.js';
+import { LabelRenderer } from './label-renderer.js';
 import type { PropertyMap } from '../engine/types.js';
+
+type KeyHandler = (key: string, down: boolean) => void;
+
+function normalizeKeyName(key: string): string {
+  const map: Record<string, string> = {
+    ' ': 'SPACE',
+    'ArrowUp': 'UP',
+    'ArrowDown': 'DOWN',
+    'ArrowLeft': 'LEFT',
+    'ArrowRight': 'RIGHT',
+    'Enter': 'ENTER',
+    'Escape': 'ESCAPE',
+    'Shift': 'SHIFT',
+    'Control': 'CONTROL',
+    'Alt': 'ALT',
+    'Tab': 'TAB',
+    'Backspace': 'BACKSPACE',
+  };
+  return map[key] ?? key.toUpperCase();
+}
 
 export class Renderer {
   private window: ReturnType<typeof sdl.video.createWindow> | null = null;
   private canvas: Canvas;
   private ctx: ReturnType<Canvas['getContext']>;
-  private textureCache = new Map<string, Image>();
   private running = false;
   private width: number;
   private height: number;
+  private spriteRenderer: SpriteRenderer;
+  private tilemapRenderer: TilemapRenderer;
+  private labelRenderer: LabelRenderer;
+  private lastTime = 0;
+  private onKey: KeyHandler | null = null;
 
   constructor(width = 640, height = 480) {
     this.width = width;
     this.height = height;
     this.canvas = createCanvas(width, height);
     this.ctx = this.canvas.getContext('2d');
+    this.spriteRenderer = new SpriteRenderer(this.ctx);
+    this.tilemapRenderer = new TilemapRenderer(this.ctx);
+    this.labelRenderer = new LabelRenderer(this.ctx);
+  }
+
+  setKeyHandler(handler: KeyHandler): void {
+    this.onKey = handler;
   }
 
   async open(title = 'ku'): Promise<void> {
@@ -27,9 +62,22 @@ export class Renderer {
       height: this.height,
     });
     this.running = true;
+    this.lastTime = Date.now();
 
     this.window.on('close', () => {
       this.running = false;
+    });
+
+    (this.window as any).on('keyDown', (event: { key: string | null; repeat: number }) => {
+      if (this.onKey && event.key && !event.repeat) {
+        this.onKey(normalizeKeyName(event.key), true);
+      }
+    });
+
+    (this.window as any).on('keyUp', (event: { key: string | null }) => {
+      if (this.onKey && event.key) {
+        this.onKey(normalizeKeyName(event.key), false);
+      }
     });
   }
 
@@ -45,39 +93,67 @@ export class Renderer {
     this.window = null;
   }
 
-  draw(tree: SceneTree): void {
+  async draw(tree: SceneTree): Promise<void> {
     if (!this.isOpen()) return;
 
+    const now = Date.now();
+    const dt = now - this.lastTime;
+    this.lastTime = now;
+
     const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.width, this.height);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, this.width, this.height);
 
     // Find active camera
-    let camX = 0;
-    let camY = 0;
-    let camZoom = 1;
-    tree.traverse((node) => {
-      if (node.type === 'Camera2D') {
-        camX = (node.getProperty('offset_x') as number) ?? 0;
-        camY = (node.getProperty('offset_y') as number) ?? 0;
-        camZoom = (node.getProperty('zoom') as number) ?? 1;
-      }
-    });
+    const cam = findCamera(tree);
 
     ctx.save();
     ctx.translate(this.width / 2, this.height / 2);
-    ctx.scale(camZoom, camZoom);
-    ctx.translate(-camX - this.width / 2, -camY - this.height / 2);
+    ctx.scale(cam.zoom, cam.zoom);
+    ctx.translate(-cam.x - this.width / 2, -cam.y - this.height / 2);
+
+    // Pre-load textures for visible sprites/tilemaps
+    const loadPromises: Promise<void>[] = [];
+    tree.traverse((node) => {
+      if (node.type === 'Sprite' || node.type === 'AnimatedSprite') {
+        const texture = (node.getProperty('texture') as string) ?? '';
+        if (texture && !this.spriteRenderer.getTextureSync(texture)) {
+          loadPromises.push(this.spriteRenderer.loadTexture(texture).then(() => {}));
+        }
+        // Also load frames for AnimatedSprite
+        if (node.type === 'AnimatedSprite') {
+          const frames = node.getProperty('frames') as string[] | undefined;
+          if (frames) {
+            for (const f of frames) {
+              if (f && !this.spriteRenderer.getTextureSync(f)) {
+                loadPromises.push(this.spriteRenderer.loadTexture(f).then(() => {}));
+              }
+            }
+          }
+        }
+      } else if (node.type === 'TileMap') {
+        const tileset = (node.getProperty('tileset') as string) ?? '';
+        const cellSize = (node.getProperty('cell_size') as number) ?? 16;
+        if (tileset) {
+          loadPromises.push(this.tilemapRenderer.loadTileset(tileset, cellSize, cellSize));
+        }
+      }
+    });
+
+    if (loadPromises.length > 0) {
+      await Promise.all(loadPromises);
+    }
 
     // Draw nodes
-    tree.traverse((node, _path) => {
-      this.drawNode(node);
+    tree.traverse((node) => {
+      this.drawNode(node, dt);
     });
 
     ctx.restore();
     this.present();
   }
 
-  private async drawNode(node: Node): Promise<void> {
+  private drawNode(node: Node, dt: number): void {
     const visible = node.getProperty('visible');
     if (visible === false) return;
 
@@ -86,64 +162,31 @@ export class Renderer {
 
     switch (node.type) {
       case 'Sprite':
+        this.spriteRenderer.drawSprite(node, x, y, dt);
+        break;
       case 'AnimatedSprite':
-        await this.drawSprite(node, x, y);
+        this.spriteRenderer.drawAnimatedSprite(node, x, y, dt);
         break;
       case 'Label':
-        this.drawLabel(node, x, y);
+        this.labelRenderer.drawLabel(node, x, y);
         break;
-    }
-  }
-
-  private async drawSprite(node: Node, x: number, y: number): Promise<void> {
-    const texture = (node.getProperty('texture') as string) ?? '';
-    const flipH = node.getProperty('flip_h') === true;
-    const flipV = node.getProperty('flip_v') === true;
-
-    if (!texture) {
-      // Draw placeholder rect
-      this.ctx.fillStyle = '#ff00ff';
-      this.ctx.fillRect(x - 16, y - 16, 32, 32);
-      return;
-    }
-
-    const img = await this.getTexture(texture);
-    if (!img) return;
-
-    const ctx = this.ctx;
-    ctx.save();
-    if (flipH || flipV) {
-      ctx.translate(x, y);
-      ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
-    } else {
-      ctx.drawImage(img, x - img.width / 2, y - img.height / 2);
-    }
-    ctx.restore();
-  }
-
-  private drawLabel(node: Node, x: number, y: number): void {
-    const text = (node.getProperty('text') as string) ?? '';
-    const fontSize = (node.getProperty('font_size') as number) ?? 16;
-    const color = (node.getProperty('color') as string) ?? '#ffffff';
-
-    if (!text) return;
-
-    this.ctx.font = `${fontSize}px monospace`;
-    this.ctx.fillStyle = color;
-    this.ctx.fillText(text, x, y);
-  }
-
-  private async getTexture(path: string): Promise<Image | null> {
-    if (this.textureCache.has(path)) {
-      return this.textureCache.get(path)!;
-    }
-    try {
-      const img = await loadImage(path);
-      this.textureCache.set(path, img);
-      return img;
-    } catch {
-      return null;
+      case 'TileMap':
+        this.tilemapRenderer.drawTilemap(node, x, y);
+        break;
+      case 'RigidBody':
+        // Draw as colored rect for debug/standalone visibility
+        this.ctx.fillStyle = '#ffff00';
+        const rbW = 30;
+        const rbH = 24;
+        this.ctx.fillRect(x - rbW / 2, y - rbH / 2, rbW, rbH);
+        break;
+      case 'CollisionShape':
+        // Draw pipes/ground as colored rects
+        this.ctx.fillStyle = '#33cc33';
+        const csW = (node.getProperty('width') as number) ?? 32;
+        const csH = (node.getProperty('height') as number) ?? 32;
+        this.ctx.fillRect(x - csW / 2, y - csH / 2, csW, csH);
+        break;
     }
   }
 

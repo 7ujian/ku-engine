@@ -39,14 +39,14 @@ ku uses a **dual-instance** architecture. The Editor instance and Play instance 
 ```
 
 - **Editor instance** — persistent process for scene creation and editing. No game loop, no physics, no script execution. Changes are saved to disk.
-- **Play instance** — ephemeral process spawned from an Editor snapshot. Runs the full game loop with physics, scripts, and input. State is discarded on stop.
+- **Play instance** — ephemeral process spawned from an Editor snapshot. Syncs the editor's live in-memory tree via WebSocket (not from disk). Runs the full game loop with physics, scripts, and input. State is discarded on stop. Optional `--hot-reload` subscribes to incremental editor deltas.
 - **CLI** connects to either instance via WebSocket. Commands are routed based on current attachment.
 
 ### Process model
 
-1. `ku edit [scene]` starts the editor instance (or connects to existing one)
+1. `ku edit [scene]` starts the editor instance (or connects to existing one). If a scene name is given, it loads that scene from disk.
 2. Editor opens WebSocket on port 21200, writes `.ku.edit.pid` and `.ku.edit.port`
-3. `ku play` requests the editor to spawn a play instance from the current scene snapshot
+3. `ku play` spawns a play instance that syncs the editor's live tree via WebSocket (not from disk). `ku play --hot-reload` subscribes to incremental deltas so editor edits appear in the running game.
 4. Play instance starts on port 21201, writes `.ku.play.pid` and `.ku.play.port`
 5. CLI defaults to attached to editor; `ku attach play` switches target
 6. `ku stop play` kills the play process — all runtime state is discarded
@@ -199,8 +199,10 @@ All commands output JSON by default. Use `--pretty` for human-readable output.
 ### Instance management
 
 ```
-ku edit [scene]              Start editor instance (or connect to existing)
-ku play                      Spawn play instance from editor snapshot
+ku edit [scene]              Start editor instance (or connect to existing).
+                             Loads scene from disk if name provided.
+ku play [--hot-reload]       Spawn play instance synced from editor's live tree.
+                             --hot-reload: push editor deltas to running game.
 ku stop [edit|play]          Stop an instance (default: play)
 ku attach [edit|play]        Attach CLI to an instance
 ku detach                    Detach CLI from current instance

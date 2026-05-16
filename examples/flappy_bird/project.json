@@ -1,0 +1,6 @@
+{
+  "name": "flappy_bird",
+  "entry": "scenes/main.json",
+  "width": 640,
+  "height": 480
+}

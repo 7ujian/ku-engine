@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { initCommand } from './commands/init.js';
 import { editCommand, stopCommand, attachCommand, detachCommand } from './commands/edit.js';
 import { playCommand } from './commands/play.js';
 import { listInstances } from './commands/instances.js';
@@ -6,7 +7,7 @@ import { sceneCreate, sceneList, sceneLoad, sceneTree, sceneSave } from './comma
 import { nodeAdd, nodeRm, nodeSet, nodeGet, nodeList, nodeMove } from './commands/node.js';
 import { inputKey, inputClick, inputAxis } from './commands/input.js';
 import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js';
-import { queryScene, queryNodes } from './commands/query.js';
+import { queryScene, queryNodes, queryDiff, queryCollisions } from './commands/query.js';
 
 function getProjectDir(): string {
   return process.cwd();
@@ -18,6 +19,15 @@ export function createProgram(): Command {
     .name('ku')
     .description('CLI-based 2D game engine for AI agents')
     .version('0.1.0');
+
+  // Project init
+  program
+    .command('init <name>')
+    .option('--dir <path>', 'Target directory (default: <name>)')
+    .description('Create a new ku project')
+    .action(async (name: string, opts: { dir?: string }) => {
+      await initCommand(name, opts.dir);
+    });
 
   // Instance management
   program
@@ -57,9 +67,10 @@ export function createProgram(): Command {
 
   program
     .command('play')
+    .option('--hot-reload', 'Subscribe to editor changes while running')
     .description('Spawn play instance from editor snapshot')
-    .action(async () => {
-      await playCommand(getProjectDir());
+    .action(async (opts: { hotReload?: boolean }) => {
+      await playCommand(getProjectDir(), opts.hotReload ?? false);
     });
 
   // Scene
@@ -207,6 +218,20 @@ export function createProgram(): Command {
     .description('List nodes, optionally filtered by type')
     .action(async (type?: string) => {
       await queryNodes(getProjectDir(), type);
+    });
+
+  query
+    .command('diff')
+    .description('Frame-over-frame property deltas')
+    .action(async () => {
+      await queryDiff(getProjectDir());
+    });
+
+  query
+    .command('collisions')
+    .description('Active collision pairs')
+    .action(async () => {
+      await queryCollisions(getProjectDir());
     });
 
   return program;

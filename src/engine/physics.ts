@@ -11,7 +11,6 @@ export class PhysicsWorld {
   constructor(tree: SceneTree) {
     this.tree = tree;
     this.engine = Matter.Engine.create();
-    // Default gravity — scale is very low in Matter.js, so use a higher value
     this.engine.gravity.y = 1;
     this.engine.gravity.scale = 0.003;
   }
@@ -176,6 +175,20 @@ export class PhysicsWorld {
 
   setGravity(scale: number): void {
     this.engine.gravity.y = scale;
+  }
+
+  removeBody(nodeId: string): void {
+    const body = this.bodyMap.get(nodeId);
+    if (body) {
+      Matter.Composite.remove(this.engine.world, body);
+      this.bodyMap.delete(nodeId);
+    }
+  }
+
+  syncNode(node: Node): void {
+    if (node.type === 'RigidBody') this.syncBody(node);
+    else if (node.type === 'CollisionShape') this.syncShape(node);
+    else if (node.type === 'Area') this.syncArea(node);
   }
 
   destroy(): void {

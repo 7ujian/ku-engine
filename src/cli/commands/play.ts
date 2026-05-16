@@ -1,10 +1,9 @@
 import { fork } from 'node:child_process';
 import { resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
 import { readDiscovery, isAlive } from '../../server/discovery.js';
 import { waitForInstance } from './edit.js';
 
-export async function playCommand(projectDir: string): Promise<void> {
+export async function playCommand(projectDir: string, hotReload = false): Promise<void> {
   const disc = await readDiscovery(projectDir);
   const info = disc.edit;
   if (!info || !isAlive(info.pid)) {
@@ -12,24 +11,25 @@ export async function playCommand(projectDir: string): Promise<void> {
     return;
   }
 
-  // Read project entry scene
-  let scene: string | undefined;
-  try {
-    const projectJson = JSON.parse(await readFile(resolve(projectDir, 'project.json'), 'utf-8'));
-    scene = projectJson.entry?.replace(/^scenes\//, '').replace(/\.json$/, '');
-  } catch {
-    // no project.json or no entry
-  }
+  const editorPort = info.port;
 
   const serverPath = resolve(import.meta.dirname, '../../server/main.js');
-  const args = ['--mode', 'play', '--dir', projectDir, '--port', '21201'];
-  if (scene) args.push('--scene', scene);
+  const args = ['--mode', 'play', '--dir', projectDir, '--port', '21201', '--sync-from', String(editorPort)];
+  if (hotReload) args.push('--hot-reload');
 
-  const child = fork(serverPath, args, { detached: true, stdio: 'ignore' });
-  child.unref();
+  const child = fork(serverPath, args, { stdio: 'ignore' });
 
   await waitForInstance(projectDir, 'play', 3000);
-  printJson({ ok: true, data: { spawned: 'play' } });
+  printJson({ ok: true, data: { spawned: 'play', syncFrom: editorPort, hotReload } });
+
+  // Keep CLI alive — Ctrl-C kills the play child too
+  const onSigint = () => {
+    child.kill('SIGTERM');
+    process.exit(0);
+  };
+  process.on('SIGINT', onSigint);
+
+  child.on('exit', () => process.exit(0));
 }
 
 function printJson(data: unknown): void {

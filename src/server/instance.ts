@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
-import { handleMessage, type Message, type Response } from './message-handler.js';
+import { handleMessage, type Message, type Response, type SyncOp } from './message-handler.js';
 import { writeDiscovery, cleanDiscovery, type InstanceType } from './discovery.js';
 
 export class Instance {
@@ -10,6 +10,7 @@ export class Instance {
   projectDir: string;
   port: number;
   wss: WebSocketServer | null = null;
+  private syncSubscribers = new Set<WebSocket>();
 
   constructor(mode: InstanceType, tree: SceneTree, projectDir: string, port: number) {
     this.mode = mode;
@@ -35,8 +36,20 @@ export class Instance {
           ws.send(JSON.stringify(resp));
           return;
         }
-        const response = handleMessage(this.tree, this.mode, msg);
-        ws.send(JSON.stringify(response));
+
+        const result = handleMessage(this.tree, this.mode, msg);
+        ws.send(JSON.stringify(result.response));
+
+        // Handle sync.subscribe — register this ws for delta pushes
+        if (msg.payload.action === 'sync.subscribe' && result.response.payload.ok) {
+          this.syncSubscribers.add(ws);
+          ws.on('close', () => this.syncSubscribers.delete(ws));
+        }
+
+        // Broadcast sync ops to subscribers
+        if (result.syncOps && result.syncOps.length > 0) {
+          this.broadcastSync(result.syncOps);
+        }
       });
     });
 
@@ -49,6 +62,7 @@ export class Instance {
   }
 
   async stop(): Promise<void> {
+    this.syncSubscribers.clear();
     if (this.wss) {
       this.wss.close();
       this.wss = null;
@@ -58,6 +72,19 @@ export class Instance {
 
   snapshot(): Node {
     return this.tree.root.clone();
+  }
+
+  private broadcastSync(ops: SyncOp[]): void {
+    const msg = JSON.stringify({
+      type: 'sync',
+      id: `sync-${Date.now()}`,
+      payload: { ops },
+    });
+    for (const ws of this.syncSubscribers) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(msg);
+      }
+    }
   }
 }
 

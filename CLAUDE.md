@@ -19,8 +19,8 @@ ku is a CLI-based 2D game engine for AI agents. AI agents act as both developers
 
 Dual-instance model: **Editor** and **Play** are separate OS processes.
 
-- **Editor instance** (port 21200) — persistent, scene editing, no game loop, no physics/scripts, saves to disk
-- **Play instance** (port 21201) — ephemeral, spawned from editor snapshot, runs full game loop (physics + scripts + input + rendering), state discarded on stop
+- **Editor instance** (port 21200) — persistent, scene editing, no game loop, no physics/scripts, saves to disk. Loads scene via `ku edit <scene>`.
+- **Play instance** (port 21201) — ephemeral, syncs editor's live tree via WebSocket (`SyncClient`), runs full game loop (physics + scripts + input + rendering), state discarded on stop. `ku play --hot-reload` subscribes to incremental editor deltas.
 - CLI connects to either instance via WebSocket, routes commands based on current attachment (`ku attach edit|play`)
 - Discovery via `.ku.edit.pid`, `.ku.edit.port`, `.ku.play.pid`, `.ku.play.port` files
 

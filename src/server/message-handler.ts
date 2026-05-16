@@ -4,6 +4,7 @@ import { createNodeByType } from '../engine/node-types.js';
 import type { InstanceType } from './discovery.js';
 import type { GameLoop } from '../engine/game-loop.js';
 import type { InputManager } from './input-manager.js';
+import type { NodeData, ScriptRule } from '../engine/types.js';
 
 let gameLoop: GameLoop | null = null;
 let inputManager: InputManager | null = null;
@@ -24,25 +25,54 @@ export interface Response {
   payload: { ok: boolean; data?: unknown; error?: string };
 }
 
-export function handleMessage(tree: SceneTree, instanceMode: InstanceType, msg: Message): Response {
+// Sync operation types for edit→play delta streaming
+export type SyncOp =
+  | { op: 'add'; path: string; node: NodeData }
+  | { op: 'remove'; path: string }
+  | { op: 'set'; path: string; property: string; value: unknown }
+  | { op: 'move'; from: string; to: string }
+  | { op: 'replace_scripts'; path: string; scripts: ScriptRule[] }
+  | { op: 'replace_all'; root: NodeData };
+
+export interface HandleResult {
+  response: Response;
+  syncOps?: SyncOp[];
+}
+
+export function handleMessage(tree: SceneTree, instanceMode: InstanceType, msg: Message): HandleResult {
   try {
     const action = msg.payload.action as string;
-    const result = route(tree, instanceMode, action, msg.payload);
-    return { type: 'response', id: msg.id, payload: { ok: true, data: result } };
+    const { result, syncOps } = route(tree, instanceMode, action, msg.payload);
+    return {
+      response: { type: 'response', id: msg.id, payload: { ok: true, data: result } },
+      ...(syncOps ? { syncOps } : {}),
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { type: 'response', id: msg.id, payload: { ok: false, error: message } };
+    return {
+      response: { type: 'response', id: msg.id, payload: { ok: false, error: message } },
+    };
   }
 }
 
-function route(tree: SceneTree, mode: InstanceType, action: string, payload: Record<string, unknown>): unknown {
+function route(tree: SceneTree, mode: InstanceType, action: string, payload: Record<string, unknown>): { result: unknown; syncOps?: SyncOp[] } {
   switch (action) {
     // Scene actions
     case 'scene.tree':
-      return tree.root.toJSON();
+      return { result: tree.root.toJSON() };
 
     case 'scene.save':
-      return { saved: true, note: 'use CLI scene save to write to disk' };
+      return { result: { saved: true, note: 'use CLI scene save to write to disk' } };
+
+    case 'scene.load': {
+      requireEdit(mode);
+      const sceneData = payload.sceneData as NodeData;
+      const newRoot = Node.fromJSON(sceneData);
+      tree.root.children = newRoot.children;
+      tree.root.properties = newRoot.properties;
+      tree.root.scripts = newRoot.scripts;
+      return { result: { loaded: true }, syncOps: [{ op: 'replace_all', root: sceneData }] };
+    }
 
     // Node CRUD
     case 'node.add': {
@@ -53,14 +83,20 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const overrides = payload.properties as import('../engine/types.js').PropertyMap | undefined;
       const node = createNodeByType(nodeType, nodeId, overrides);
       tree.add(parentPath || '/', node);
-      return { id: nodeId, type: nodeType };
+      return {
+        result: { id: nodeId, type: nodeType },
+        syncOps: [{ op: 'add', path: parentPath || '/', node: node.toJSON() }],
+      };
     }
 
     case 'node.rm': {
       requireEdit(mode);
       const path = payload.path as string;
       tree.remove(path);
-      return { removed: path };
+      return {
+        result: { removed: path },
+        syncOps: [{ op: 'remove', path }],
+      };
     }
 
     case 'node.set': {
@@ -70,7 +106,10 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const value = payload.value;
       const node = tree.get(setPath);
       node.setProperty(property, value as Node['properties'][string]);
-      return { [property]: value };
+      return {
+        result: { [property]: value },
+        syncOps: [{ op: 'set', path: setPath, property, value }],
+      };
     }
 
     case 'node.get': {
@@ -78,15 +117,15 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const property = payload.property as string | undefined;
       const node = tree.get(getPath);
       if (property) {
-        return { [property]: node.getProperty(property) };
+        return { result: { [property]: node.getProperty(property) } };
       }
-      return node.toJSON();
+      return { result: node.toJSON() };
     }
 
     case 'node.list': {
       const listPath = payload.path as string;
       const node = tree.get(listPath);
-      return node.children.map(c => ({ id: c.id, type: c.type }));
+      return { result: node.children.map(c => ({ id: c.id, type: c.type })) };
     }
 
     case 'node.move': {
@@ -94,34 +133,39 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const srcPath = payload.path as string;
       const destPath = payload.newParent as string;
       tree.move(srcPath, destPath);
-      return { moved: srcPath, to: destPath };
+      return {
+        result: { moved: srcPath, to: destPath },
+        syncOps: [{ op: 'move', from: srcPath, to: destPath }],
+      };
     }
 
     // Instance info
     case 'instance.info':
-      return { mode, rootId: tree.root.id };
+      return { result: { mode, rootId: tree.root.id } };
 
     // Runtime control (play instance)
     case 'runtime.pause':
       if (!gameLoop) throw new Error('no game loop');
       gameLoop.pause();
-      return { paused: true };
+      return { result: { paused: true } };
 
     case 'runtime.resume':
       if (!gameLoop) throw new Error('no game loop');
       gameLoop.resume();
-      return { resumed: true };
+      return { result: { resumed: true } };
 
     case 'runtime.step':
       if (!gameLoop) throw new Error('no game loop');
       gameLoop.step();
-      return { stepped: true, frame: gameLoop.getFrame() };
+      return { result: { stepped: true, frame: gameLoop.getFrame() } };
 
     case 'runtime.status':
       return {
-        running: gameLoop?.isRunning() ?? false,
-        paused: gameLoop?.isPaused() ?? false,
-        frame: gameLoop?.getFrame() ?? 0,
+        result: {
+          running: gameLoop?.isRunning() ?? false,
+          paused: gameLoop?.isPaused() ?? false,
+          frame: gameLoop?.getFrame() ?? 0,
+        },
       };
 
     // Input (play instance)
@@ -132,7 +176,7 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const direction = (payload.direction as string) ?? 'down';
       if (direction === 'down') inputManager.keyDown(key);
       else inputManager.keyUp(key);
-      return { key, direction };
+      return { result: { key, direction } };
     }
 
     case 'input.click': {
@@ -141,7 +185,7 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const x = payload.x as number;
       const y = payload.y as number;
       inputManager.click(x, y);
-      return { click: { x, y } };
+      return { result: { click: { x, y } } };
     }
 
     case 'input.axis': {
@@ -150,20 +194,41 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const name = payload.name as string;
       const value = payload.value as number;
       inputManager.setAxis(name, value);
-      return { axis: { name, value } };
+      return { result: { axis: { name, value } } };
     }
 
     // Query
     case 'query.scene':
-      return tree.root.toJSON();
+      return { result: tree.root.toJSON() };
 
     case 'query.nodes': {
       const nodeType = payload.nodeType as string | undefined;
-      if (nodeType) return tree.findByType(nodeType).map(n => n.toJSON());
+      if (nodeType) return { result: tree.findByType(nodeType).map(n => n.toJSON()) };
       const all: unknown[] = [];
       tree.traverse((node) => { all.push({ id: node.id, type: node.type }); });
-      return all;
+      return { result: all };
     }
+
+    case 'query.diff': {
+      if (!gameLoop) return { result: { deltas: [] } };
+      return { result: { deltas: gameLoop.getDiff() } };
+    }
+
+    case 'query.collisions': {
+      if (!gameLoop) return { result: { collisions: [] } };
+      return { result: { collisions: gameLoop.getCollisions() } };
+    }
+
+    // Sync (editor-side)
+    case 'sync.snapshot': {
+      requireEdit(mode);
+      return { result: { root: tree.root.toJSON() } };
+    }
+
+    case 'sync.subscribe':
+      requireEdit(mode);
+      // Actual subscription handled by instance.ts (adds ws to subscribers)
+      return { result: { subscribed: true } };
 
     default:
       throw new Error(`unknown action: ${action}`);
