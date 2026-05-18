@@ -10,7 +10,9 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect", "width": 32, "height": 720, "radius": 0,
-          "x": -16, "y": 320
+          "x": -16, "y": 320,
+          "collision_layer": 8, "collision_mask": 1,
+          "color": "#222244"
         },
         "children": [],
         "scripts": []
@@ -20,7 +22,9 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect", "width": 32, "height": 720, "radius": 0,
-          "x": 376, "y": 320
+          "x": 376, "y": 320,
+          "collision_layer": 8, "collision_mask": 1,
+          "color": "#222244"
         },
         "children": [],
         "scripts": []
@@ -30,7 +34,9 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect", "width": 400, "height": 32, "radius": 0,
-          "x": 180, "y": -16
+          "x": 180, "y": -16,
+          "collision_layer": 8, "collision_mask": 1,
+          "color": "#222244"
         },
         "children": [],
         "scripts": []
@@ -40,176 +46,403 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect", "width": 400, "height": 32, "radius": 0,
-          "x": 180, "y": 656
+          "x": 180, "y": 656,
+          "collision_layer": 8, "collision_mask": 1,
+          "color": "#222244"
         },
         "children": [],
         "scripts": []
       },
+
       {
         "id": "player",
         "type": "RigidBody",
         "properties": {
           "x": 180, "y": 560,
+          "width": 20, "height": 26,
           "mass": 1,
           "velocity": { "x": 0, "y": 0 },
           "gravity_scale": 0,
           "linear_damping": 0,
-          "moving_left": false,
-          "moving_right": false,
-          "moving_up": false,
-          "moving_down": false,
-          "dead": false,
-          "score": 0
+          "collision_layer": 1, "collision_mask": 12,
+          "color": "#00ddff",
+          "moving_left": false, "moving_right": false,
+          "moving_up": false, "moving_down": false,
+          "touching": false, "touch_x": 180, "touch_y": 560,
+          "firing": false, "fire_cooldown": 0, "next_bullet": 0,
+          "dead": false, "score": 0, "tick": 0
         },
         "children": [],
         "scripts": [
-          { "event": "on_key", "filter": { "key": "LEFT" },  "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_left",  "to": true } ] },
-          { "event": "on_key_up", "filter": { "key": "LEFT" },  "actions": [ { "set": "moving_left",  "to": false } ] },
+          { "event": "on_key", "filter": { "key": "LEFT" }, "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_left", "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "LEFT" }, "actions": [ { "set": "moving_left", "to": false } ] },
           { "event": "on_key", "filter": { "key": "RIGHT" }, "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_right", "to": true } ] },
           { "event": "on_key_up", "filter": { "key": "RIGHT" }, "actions": [ { "set": "moving_right", "to": false } ] },
-          { "event": "on_key", "filter": { "key": "UP" },    "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_up",    "to": true } ] },
-          { "event": "on_key_up", "filter": { "key": "UP" },    "actions": [ { "set": "moving_up",    "to": false } ] },
-          { "event": "on_key", "filter": { "key": "DOWN" },  "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_down",  "to": true } ] },
-          { "event": "on_key_up", "filter": { "key": "DOWN" },  "actions": [ { "set": "moving_down",  "to": false } ] },
-          { "event": "on_frame", "condition": { "moving_left": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": -4 } ] },
-          { "event": "on_frame", "condition": { "moving_right": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": 4 } ] },
-          { "event": "on_frame", "condition": { "moving_left": { "neq": true }, "moving_right": { "neq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": 0 } ] },
-          { "event": "on_frame", "condition": { "moving_up": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": -4 } ] },
-          { "event": "on_frame", "condition": { "moving_down": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": 4 } ] },
-          { "event": "on_frame", "condition": { "moving_up": { "neq": true }, "moving_down": { "neq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": 0 } ] },
-          { "event": "on_frame", "condition": { "dead": { "eq": true } }, "actions": [ { "set": "velocity.x", "to": 0 }, { "set": "velocity.y", "to": 0 } ] },
-          { "event": "on_frame", "condition": { "dead": { "neq": true } }, "actions": [ { "set": "score", "to": "{{score + 1}}" } ] },
+          { "event": "on_key", "filter": { "key": "UP" }, "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_up", "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "UP" }, "actions": [ { "set": "moving_up", "to": false } ] },
+          { "event": "on_key", "filter": { "key": "DOWN" }, "condition": { "dead": { "neq": true } }, "actions": [ { "set": "moving_down", "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "DOWN" }, "actions": [ { "set": "moving_down", "to": false } ] },
+
+          { "event": "on_key", "filter": { "key": "SPACE" }, "condition": { "dead": { "neq": true } }, "actions": [ { "set": "firing", "to": true } ] },
+          { "event": "on_key_up", "filter": { "key": "SPACE" }, "actions": [ { "set": "firing", "to": false } ] },
+
+          { "event": "on_touch_start", "condition": { "dead": { "neq": true } }, "actions": [
+            { "set": "touch_x", "to": "{{context.x}}" },
+            { "set": "touch_y", "to": "{{context.y}}" },
+            { "set": "touching", "to": true },
+            { "set": "firing", "to": true }
+          ] },
+          { "event": "on_touch_move", "condition": { "dead": { "neq": true } }, "actions": [
+            { "set": "touch_x", "to": "{{context.x}}" },
+            { "set": "touch_y", "to": "{{context.y}}" }
+          ] },
+          { "event": "on_touch_end", "actions": [
+            { "set": "touching", "to": false },
+            { "set": "firing", "to": false }
+          ] },
+
+          { "event": "on_frame", "condition": { "touching": { "neq": true }, "moving_left": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": -5 } ] },
+          { "event": "on_frame", "condition": { "touching": { "neq": true }, "moving_right": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": 5 } ] },
+          { "event": "on_frame", "condition": { "touching": { "neq": true }, "moving_left": { "neq": true }, "moving_right": { "neq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.x", "to": 0 } ] },
+          { "event": "on_frame", "condition": { "touching": { "neq": true }, "moving_up": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": -5 } ] },
+          { "event": "on_frame", "condition": { "touching": { "neq": true }, "moving_down": { "eq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": 5 } ] },
+          { "event": "on_frame", "condition": { "touching": { "neq": true }, "moving_up": { "neq": true }, "moving_down": { "neq": true }, "dead": { "neq": true } }, "actions": [ { "set": "velocity.y", "to": 0 } ] },
+
+          { "event": "on_frame", "condition": { "touching": { "eq": true }, "dead": { "neq": true } }, "actions": [
+            { "set": "velocity.x", "to": 0 },
+            { "set": "velocity.y", "to": 0 },
+            { "move_toward": { "x": "{{touch_x}}", "y": "{{touch_y}}", "speed": 5 } }
+          ] },
+
+          { "event": "on_frame", "condition": { "dead": { "eq": true } }, "actions": [
+            { "set": "velocity.x", "to": 0 },
+            { "set": "velocity.y", "to": 0 }
+          ] },
+
+          { "event": "on_frame", "condition": { "fire_cooldown": { "gt": 0 } }, "actions": [
+            { "set": "fire_cooldown", "to": "{{fire_cooldown - 1}}" }
+          ] },
+
+          { "event": "on_frame", "condition": { "firing": { "eq": true }, "fire_cooldown": { "eq": 0 }, "next_bullet": { "eq": 0 }, "dead": { "neq": true } }, "actions": [
+            { "set_on": "/bullet_0", "key": "x", "to": "{{x}}" },
+            { "set_on": "/bullet_0", "key": "y", "to": "{{y - 16}}" },
+            { "set_on": "/bullet_0", "key": "active", "to": true },
+            { "set": "fire_cooldown", "to": 8 },
+            { "set": "next_bullet", "to": 1 }
+          ] },
+          { "event": "on_frame", "condition": { "firing": { "eq": true }, "fire_cooldown": { "eq": 0 }, "next_bullet": { "eq": 1 }, "dead": { "neq": true } }, "actions": [
+            { "set_on": "/bullet_1", "key": "x", "to": "{{x}}" },
+            { "set_on": "/bullet_1", "key": "y", "to": "{{y - 16}}" },
+            { "set_on": "/bullet_1", "key": "active", "to": true },
+            { "set": "fire_cooldown", "to": 8 },
+            { "set": "next_bullet", "to": 2 }
+          ] },
+          { "event": "on_frame", "condition": { "firing": { "eq": true }, "fire_cooldown": { "eq": 0 }, "next_bullet": { "eq": 2 }, "dead": { "neq": true } }, "actions": [
+            { "set_on": "/bullet_2", "key": "x", "to": "{{x}}" },
+            { "set_on": "/bullet_2", "key": "y", "to": "{{y - 16}}" },
+            { "set_on": "/bullet_2", "key": "active", "to": true },
+            { "set": "fire_cooldown", "to": 8 },
+            { "set": "next_bullet", "to": 3 }
+          ] },
+          { "event": "on_frame", "condition": { "firing": { "eq": true }, "fire_cooldown": { "eq": 0 }, "next_bullet": { "eq": 3 }, "dead": { "neq": true } }, "actions": [
+            { "set_on": "/bullet_3", "key": "x", "to": "{{x}}" },
+            { "set_on": "/bullet_3", "key": "y", "to": "{{y - 16}}" },
+            { "set_on": "/bullet_3", "key": "active", "to": true },
+            { "set": "fire_cooldown", "to": 8 },
+            { "set": "next_bullet", "to": 4 }
+          ] },
+          { "event": "on_frame", "condition": { "firing": { "eq": true }, "fire_cooldown": { "eq": 0 }, "next_bullet": { "eq": 4 }, "dead": { "neq": true } }, "actions": [
+            { "set_on": "/bullet_4", "key": "x", "to": "{{x}}" },
+            { "set_on": "/bullet_4", "key": "y", "to": "{{y - 16}}" },
+            { "set_on": "/bullet_4", "key": "active", "to": true },
+            { "set": "fire_cooldown", "to": 8 },
+            { "set": "next_bullet", "to": 0 }
+          ] },
+
+          { "event": "on_frame", "condition": { "dead": { "neq": true } }, "actions": [
+            { "set": "tick", "to": "{{tick + 1}}" }
+          ] },
+          { "event": "on_frame", "condition": { "tick": { "gte": 6 }, "dead": { "neq": true } }, "actions": [
+            { "set": "score", "to": "{{score + 1}}" },
+            { "set": "tick", "to": 0 }
+          ] },
+
+          { "event": "enemy_killed", "actions": [
+            { "set": "score", "to": "{{score + 100}}" }
+          ] },
+
           {
             "event": "on_collision",
             "filter": { "with": "enemy" },
             "condition": { "dead": { "neq": true } },
             "actions": [
               { "set": "dead", "to": true },
+              { "set": "color", "to": "#ff0000" },
               { "set": "velocity.x", "to": 0 },
               { "set": "velocity.y", "to": 0 },
-              { "log": "GAME OVER! Score: {{score}}" }
+              { "emit": "game_over", "data": {} }
             ]
           }
         ]
       },
+
+      {
+        "id": "bullet_0",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 4, "height": 12, "radius": 0,
+          "x": 0, "y": -100,
+          "collision_layer": 2, "collision_mask": 4,
+          "color": "#ffff00",
+          "active": false,
+          "tags": ["bullet"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": 0, "y": -8 } } ] },
+          { "event": "on_frame", "condition": { "y": { "lt": -20 }, "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] },
+          { "event": "on_collision", "filter": { "with": "enemy" }, "condition": { "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] }
+        ]
+      },
+      {
+        "id": "bullet_1",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 4, "height": 12, "radius": 0,
+          "x": 0, "y": -100,
+          "collision_layer": 2, "collision_mask": 4,
+          "color": "#ffff00",
+          "active": false,
+          "tags": ["bullet"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": 0, "y": -8 } } ] },
+          { "event": "on_frame", "condition": { "y": { "lt": -20 }, "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] },
+          { "event": "on_collision", "filter": { "with": "enemy" }, "condition": { "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] }
+        ]
+      },
+      {
+        "id": "bullet_2",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 4, "height": 12, "radius": 0,
+          "x": 0, "y": -100,
+          "collision_layer": 2, "collision_mask": 4,
+          "color": "#ffff00",
+          "active": false,
+          "tags": ["bullet"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": 0, "y": -8 } } ] },
+          { "event": "on_frame", "condition": { "y": { "lt": -20 }, "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] },
+          { "event": "on_collision", "filter": { "with": "enemy" }, "condition": { "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] }
+        ]
+      },
+      {
+        "id": "bullet_3",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 4, "height": 12, "radius": 0,
+          "x": 0, "y": -100,
+          "collision_layer": 2, "collision_mask": 4,
+          "color": "#ffff00",
+          "active": false,
+          "tags": ["bullet"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": 0, "y": -8 } } ] },
+          { "event": "on_frame", "condition": { "y": { "lt": -20 }, "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] },
+          { "event": "on_collision", "filter": { "with": "enemy" }, "condition": { "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] }
+        ]
+      },
+      {
+        "id": "bullet_4",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect", "width": 4, "height": 12, "radius": 0,
+          "x": 0, "y": -100,
+          "collision_layer": 2, "collision_mask": 4,
+          "color": "#ffff00",
+          "active": false,
+          "tags": ["bullet"]
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": 0, "y": -8 } } ] },
+          { "event": "on_frame", "condition": { "y": { "lt": -20 }, "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] },
+          { "event": "on_collision", "filter": { "with": "enemy" }, "condition": { "active": { "eq": true } }, "actions": [ { "set": "active", "to": false }, { "set": "y", "to": -100 } ] }
+        ]
+      },
+
       {
         "id": "enemy_0",
         "type": "CollisionShape",
         "properties": {
-          "shape": "rect", "width": 24, "height": 24, "radius": 0,
-          "x": 80, "y": -50,
-          "speed": 1.5, "drift": 0, "laps": 0,
+          "shape": "rect", "width": 16, "height": 16, "radius": 0,
+          "x": 60, "y": -50,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff4444",
+          "speed": 2.5, "drift": 0.3, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
         "id": "enemy_1",
         "type": "CollisionShape",
         "properties": {
-          "shape": "rect", "width": 20, "height": 20, "radius": 0,
-          "x": 200, "y": -160,
-          "speed": 2, "drift": 0.3, "laps": 0,
+          "shape": "rect", "width": 24, "height": 24, "radius": 0,
+          "x": 200, "y": -170,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff6644",
+          "speed": 1.8, "drift": -0.2, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
         "id": "enemy_2",
         "type": "CollisionShape",
         "properties": {
-          "shape": "rect", "width": 28, "height": 28, "radius": 0,
-          "x": 300, "y": -280,
-          "speed": 1.8, "drift": -0.3, "laps": 0,
+          "shape": "rect", "width": 16, "height": 16, "radius": 0,
+          "x": 300, "y": -300,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff4444",
+          "speed": 2.8, "drift": -0.4, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
         "id": "enemy_3",
         "type": "CollisionShape",
         "properties": {
-          "shape": "rect", "width": 22, "height": 22, "radius": 0,
-          "x": 140, "y": -390,
-          "speed": 2.2, "drift": 0, "laps": 0,
+          "shape": "rect", "width": 32, "height": 32, "radius": 0,
+          "x": 140, "y": -420,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff8844",
+          "speed": 1.2, "drift": 0, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
         "id": "enemy_4",
         "type": "CollisionShape",
         "properties": {
-          "shape": "rect", "width": 26, "height": 26, "radius": 0,
-          "x": 260, "y": -500,
-          "speed": 1.6, "drift": 0.5, "laps": 0,
+          "shape": "rect", "width": 24, "height": 24, "radius": 0,
+          "x": 260, "y": -540,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff4444",
+          "speed": 2.2, "drift": 0.5, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
         "id": "enemy_5",
         "type": "CollisionShape",
         "properties": {
-          "shape": "rect", "width": 18, "height": 18, "radius": 0,
-          "x": 100, "y": -620,
-          "speed": 2.5, "drift": -0.4, "laps": 0,
+          "shape": "rect", "width": 16, "height": 16, "radius": 0,
+          "x": 100, "y": -660,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff4444",
+          "speed": 3, "drift": -0.5, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
@@ -217,19 +450,27 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect", "width": 24, "height": 24, "radius": 0,
-          "x": 180, "y": -740,
-          "speed": 2, "drift": 0.2, "laps": 0,
+          "x": 180, "y": -780,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff6644",
+          "speed": 2, "drift": 0.2, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
       {
@@ -237,55 +478,77 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect", "width": 32, "height": 32, "radius": 0,
-          "x": 320, "y": -860,
-          "speed": 1.2, "drift": 0, "laps": 0,
+          "x": 320, "y": -900,
+          "collision_layer": 4, "collision_mask": 3,
+          "color": "#ff8844",
+          "speed": 1.4, "drift": 0, "active": true,
           "tags": ["enemy"]
         },
         "children": [],
         "scripts": [
-          { "event": "on_frame", "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
-          { "event": "on_frame", "condition": { "y": { "gt": 680 } }, "actions": [
-            { "set": "y", "to": -30 },
+          { "event": "on_frame", "condition": { "active": { "eq": true } }, "actions": [ { "move": { "x": "{{drift}}", "y": "{{speed}}" } } ] },
+          { "event": "on_frame", "condition": { "y": { "gt": 680 }, "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-100, -30)}}" },
             { "set": "x", "to": "{{random(30, 330)}}" },
-            { "set": "laps", "to": "{{laps + 1}}" },
-            { "set": "speed", "to": "{{speed + 0.15}}" }
-          ] }
+            { "set": "speed", "to": "{{speed + 0.1}}" }
+          ] },
+          { "event": "on_collision", "filter": { "with": "bullet" }, "condition": { "active": { "eq": true } }, "actions": [
+            { "set": "y", "to": "{{random(-300, -50)}}" },
+            { "set": "x", "to": "{{random(30, 330)}}" },
+            { "set": "speed", "to": "{{speed + 0.1}}" },
+            { "emit": "enemy_killed", "data": {} }
+          ] },
+          { "event": "game_over", "actions": [ { "set": "speed", "to": 0 }, { "set": "drift", "to": 0 }, { "set": "color", "to": "#444444" } ] }
         ]
       },
+
       {
         "id": "score_label",
         "type": "Label",
         "properties": {
           "text": "SCORE: 0",
-          "font_size": 18,
+          "font_size": 20,
           "color": "#00ff88",
-          "x": 10,
-          "y": 15,
-          "score": 0
+          "x": 10, "y": 15
         },
         "children": [],
         "scripts": [
-          {
-            "event": "on_frame",
-            "actions": [
-              { "set": "score", "to": "{{score + 1}}" },
-              { "set": "text", "to": "SCORE: {{score}}" }
-            ]
-          }
+          { "event": "on_frame", "actions": [
+            { "set": "text", "to": "SCORE: {{/player/score}}" }
+          ] }
         ]
       },
       {
-        "id": "title_label",
+        "id": "game_over_label",
         "type": "Label",
         "properties": {
-          "text": "SPACECRAFT  Arrow keys to move",
-          "font_size": 14,
-          "color": "#888888",
-          "x": 10,
-          "y": 620
+          "text": "",
+          "font_size": 32,
+          "color": "#ff4444",
+          "x": 80, "y": 290
         },
         "children": [],
-        "scripts": []
+        "scripts": [
+          { "event": "game_over", "actions": [
+            { "set": "text", "to": "GAME OVER" }
+          ] }
+        ]
+      },
+      {
+        "id": "hint_label",
+        "type": "Label",
+        "properties": {
+          "text": "Arrows: Move  SPACE: Fire  Touch: Move+Fire",
+          "font_size": 12,
+          "color": "#555577",
+          "x": 30, "y": 618
+        },
+        "children": [],
+        "scripts": [
+          { "event": "game_over", "actions": [
+            { "set": "text", "to": "Close window to quit" }
+          ] }
+        ]
       }
     ],
     "scripts": []

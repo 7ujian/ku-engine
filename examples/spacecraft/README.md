@@ -1,16 +1,18 @@
 # Spacecraft
 
-A 2D top-down spacecraft dodge game for mobile portrait view (360x640).
+A 2D top-down spacecraft shooter for mobile portrait view (360x640).
 
 ## Gameplay
 
-You pilot a spacecraft (yellow) dodging enemy ships (green) that rain down from the top of the screen. Enemies speed up each time they recycle, making the game progressively harder.
+Pilot your cyan spacecraft, dodge and shoot red/orange enemies raining from above. Enemies get faster each time they're destroyed or recycle. Score points by surviving (+1 every 6 frames) and shooting enemies (+100 each).
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
+| Input | Action |
+|-------|--------|
 | Arrow keys | Move in 4 directions |
+| SPACE (hold) | Auto-fire bullets |
+| Touch/pointer (hold) | Move toward finger + auto-fire |
 | Close window | Quit |
 
 ## Run
@@ -18,48 +20,40 @@ You pilot a spacecraft (yellow) dodging enemy ships (green) that rain down from 
 From the `ku-engine` root:
 
 ```bash
-# Build the engine first
 npm run build
-
-# Option A: Edit mode (scene editing, no game loop)
-node dist/bin/ku.js edit main --project examples/spacecraft
-
-# Option B: Play mode (full game loop with rendering)
 node dist/bin/ku.js play --project examples/spacecraft
-
-# Send input via CLI
-node dist/bin/ku.js input key LEFT down
-node dist/bin/ku.js input key LEFT up
-node dist/bin/ku.js input key RIGHT down
-node dist/bin/ku.js input key SPACE down
 ```
 
 ## Game Design
 
-- **Player** (yellow rectangle): RigidBody at bottom, moves with arrow keys
-- **Enemies** (green rectangles): 8 CollisionShapes that fall from the top with varying speeds and drift
-- **Walls** (invisible): CollisionShapes at screen edges keep player in bounds
-- **Score**: Increments every frame while alive, displayed top-left
-- **Difficulty**: Each enemy speeds up by 0.15 px/frame every time it recycles off-screen
-- **Game Over**: On collision with any enemy — player freezes, score stops
+- **Player** (cyan, 20x26): RigidBody with `gravity_scale: 0`, collision layer 1
+- **Bullets** (yellow, 4x12): 5 CollisionShapes in a rotating pool, collision layer 2 (only hits enemies)
+- **Enemies** (red/orange, varied sizes): 8 CollisionShapes with drift and progressive speed, collision layer 4
+- **Walls** (dark, off-screen): Keep player in bounds via physics, collision layer 8
+- **Score**: +1 every 6 frames alive + 100 per enemy shot
+- **Game Over**: On enemy collision — player turns red, enemies freeze and gray out, "GAME OVER" appears
 
-## Architecture Notes
+## Engine Features Used
 
-This game is built entirely with ku-engine's JSON script system — no custom code:
-- Movement uses `on_key`/`on_key_up` events to track held keys, with `on_frame` scripts applying velocity
-- Enemy recycling uses `on_frame` with position conditions and `{{random()}}` expressions
-- Collision filtering uses `tags` property with `with` filter to distinguish enemies from walls
-- Progressive difficulty uses `{{speed + 0.15}}` expression on each enemy recycle
+| Feature | Usage |
+|---------|-------|
+| `gravity_scale: 0` | Zero-gravity top-down movement |
+| `color` property | Cyan player, yellow bullets, red/orange enemies |
+| `width`/`height` on RigidBody | Custom ship size (20x26) |
+| Collision layers (`collision_layer`/`collision_mask`) | Bullets pass through player, only hit enemies |
+| `set_on` action | Player activates bullet pool by index |
+| `emit` + script bridge | `enemy_killed` → score +100, `game_over` → freeze enemies |
+| Cross-node refs `{{/player/score}}` | Score label reads player score directly |
+| `move_toward` action | Touch control — player moves toward finger |
+| `on_touch_start/move/end` | Mobile touch input |
+| `{{random(a,b)}}` expressions | Enemy spawn position randomization |
+| `{{speed + 0.1}}` arithmetic | Progressive difficulty |
+| `tags` + `with` filter | Collision filtering by role (enemy/bullet) |
 
-## Known Engine Limitations Encountered
+## Known Limitations
 
-1. **No gravity disable** — `gravity_scale` node property exists but is never synced to Matter.js. The player drifts slowly downward. Workaround: set `velocity.y = 0` every frame in `on_frame`.
-2. **No inter-node property access** — Scripts can only read/write their own node's properties. Score label can't read player's `dead` state, so score keeps incrementing after game over.
-3. **No `emit` → script bridge** — Custom events emitted via `emit` go to EventBus but never reach `evaluateEvent()`. No inter-node event communication.
-4. **No visual customization** — RigidBody always renders as yellow 30x24 rect; CollisionShape always renders as green rect. No way to set color, shape, or size per node.
-5. **No touch input** — Mobile touch/swipe not supported. Only keyboard and CLI input.
-6. **No shooting** — `spawn` creates bare nodes without custom properties or scripts, making bullet systems impossible. Bullets would need gravity_scale=0, velocity, and on_frame scripts, none of which can be set via spawn.
-7. **No `on_timer` event** — Timer nodes exist but don't fire script events. Can't use timed enemy waves.
-8. **No modulo operator** — Expression evaluator lacks `%`, making "every Nth frame" logic impossible.
-9. **RigidBody physics body hardcoded to 32x32** — Regardless of visual size or desired collision area.
-10. **Area nodes not rendered** — Can't use Area (sensor) for the player since the renderer skips Area nodes entirely.
+1. **No spawn → physics sync**: Spawned nodes don't get physics bodies at runtime, so bullets must be pre-created in the scene pool rather than dynamically spawned.
+2. **No destroy → physics cleanup**: `destroy` removes nodes from the tree but leaves ghost physics bodies. Enemies are recycled (teleported) instead of destroyed to avoid ghost collisions.
+3. **No dynamic `set_on` targets**: `set_on` doesn't evaluate expressions, so bullet pool rotation uses 5 separate scripts (one per index) instead of a single loop.
+4. **`move_toward` + RigidBody**: Touch control uses `move_toward` which sets position directly, potentially clipping through walls. Physics resolves on the next frame.
+5. **No sound**: `AudioPlayer` nodes exist but audio playback is not implemented.
