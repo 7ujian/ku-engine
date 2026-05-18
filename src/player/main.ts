@@ -9,6 +9,7 @@ import { GameLoop } from '../engine/game-loop.js';
 import { Renderer } from '../renderer/renderer.js';
 import { InputManager } from '../server/input-manager.js';
 import { loadScene, sceneFilePath } from '../engine/scene-file.js';
+import { AudioManager } from '../engine/audio.js';
 
 const projectDir = resolve(process.argv[2] ?? '.');
 
@@ -42,7 +43,8 @@ async function main(): Promise<void> {
   });
   await renderer.open(config.name ?? 'ku');
 
-  const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts);
+  const audio = new AudioManager(projectDir);
+  const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio);
   loop.setOnExit(cleanup);
   loop.start();
 

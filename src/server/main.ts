@@ -13,6 +13,7 @@ import { InputManager } from './input-manager.js';
 import { SyncClient } from './sync-client.js';
 import { setGameLoop, setInputManager } from './message-handler.js';
 import { loadScene, sceneFilePath } from '../engine/scene-file.js';
+import { AudioManager } from '../engine/audio.js';
 
 const args = process.argv.slice(2);
 let mode: InstanceType = 'edit';
@@ -93,7 +94,8 @@ async function main(): Promise<void> {
       syncClient.physics = physics;
     }
 
-    loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts);
+    const audio = new AudioManager(dir);
+    loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio);
     setGameLoop(loop);
     loop.start();
   }

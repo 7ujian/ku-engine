@@ -5,6 +5,7 @@ import { JsScriptEngine } from './js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { Renderer } from '../renderer/renderer.js';
 import { CollisionEvents } from './collision-events.js';
+import type { AudioManager } from '../engine/audio.js';
 
 export class GameLoop {
   private tree: SceneTree;
@@ -26,6 +27,7 @@ export class GameLoop {
   private collisionEvents: CollisionEvents;
   private prevSnapshot: Record<string, Record<string, unknown>> | null = null;
   private timers = new Map<string, { elapsed: number; fired: boolean }>();
+  private audio: AudioManager | null = null;
 
   constructor(
     tree: SceneTree,
@@ -35,6 +37,7 @@ export class GameLoop {
     fps = 60,
     physicsEnabled = true,
     jsScripts?: JsScriptEngine,
+    audio?: AudioManager,
   ) {
     this.tree = tree;
     this.scripts = scripts;
@@ -44,6 +47,8 @@ export class GameLoop {
     this.fps = fps;
     this.fixedDt = 1000 / fps;
     this.physicsEnabled = physicsEnabled;
+    this.audio = audio ?? null;
+    if (audio) scripts.setAudio(audio);
     this.collisionEvents = new CollisionEvents(tree, (event, data) => {
       scripts.evaluateEvent(event, data);
       jsScripts?.evaluateEvent(event, data);
@@ -90,6 +95,7 @@ export class GameLoop {
       this.renderer.close();
     }
     this.physics.destroy();
+    this.audio?.destroy();
     this.collisionEvents.reset();
     this.timers.clear();
   }
@@ -190,6 +196,9 @@ export class GameLoop {
     }
     this.scripts.evaluateEvent('on_frame', { frame: this.frame, dt });
     this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame, dt });
+
+    // Audio tick — feeds queued sounds to SDL2 device
+    this.audio?.tick();
 
     // Timer events
     this.tickTimers(dt);

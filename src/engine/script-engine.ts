@@ -6,6 +6,8 @@ import { evaluateCondition } from './conditions.js';
 import { createNodeByType } from './node-types.js';
 import type { ScriptRule, ScriptAction, PropertyMap, ScriptError } from './types.js';
 
+import type { AudioManager } from './audio.js';
+
 export class ScriptEngine {
   private bus = new EventBus();
   private registrations = new Map<Node, ScriptRule[]>();
@@ -13,10 +15,13 @@ export class ScriptEngine {
   private logs: string[] = [];
   private errors: ScriptError[] = [];
   private namedScripts = new Map<string, { node: Node; script: ScriptRule }>();
+  private audio: AudioManager | null = null;
 
   constructor(tree: SceneTree) {
     this.tree = tree;
   }
+
+  setAudio(audio: AudioManager | null): void { this.audio = audio; }
 
   unregisterNodeById(id: string): void {
     for (const [node, scripts] of this.registrations) {
@@ -192,9 +197,15 @@ export class ScriptEngine {
     const targetPath = evaluateExpression(action.play, node.properties, _context, this.tree) as string;
     try {
       const target = this.tree.get(targetPath);
-      target.setProperty('playing', true);
-      if (action.from !== undefined) {
-        target.setProperty('frame', action.from);
+      if (target.type === 'AudioPlayer') {
+        const stream = target.getProperty('stream') as string;
+        const volume = (target.getProperty('volume') as number) ?? 1;
+        this.audio?.play(target.id, stream, volume);
+      } else {
+        target.setProperty('playing', true);
+        if (action.from !== undefined) {
+          target.setProperty('frame', action.from);
+        }
       }
     } catch {
       this.recordError(node.id, event, 'play', `target not found: ${targetPath}`);
@@ -205,7 +216,11 @@ export class ScriptEngine {
     const targetPath = evaluateExpression(action.stop, node.properties, _context, this.tree) as string;
     try {
       const target = this.tree.get(targetPath);
-      target.setProperty('playing', false);
+      if (target.type === 'AudioPlayer') {
+        this.audio?.stop(target.id);
+      } else {
+        target.setProperty('playing', false);
+      }
     } catch {
       this.recordError(node.id, event, 'stop', `target not found: ${targetPath}`);
     }
