@@ -67,9 +67,9 @@ The scene is a tree of nodes. Every game entity is a node with a type, propertie
 | `Node2D` | 2D spatial node | `x`, `y`, `rotation`, `scale_x`, `scale_y` |
 | `Sprite` | Renders an image | `texture`, `flip_h`, `flip_v`, `frame`, `hframes` |
 | `AnimatedSprite` | Sprite with frames | `frames` (array of textures), `speed`, `playing` |
-| `RigidBody` | Physics body | `mass`, `velocity`, `gravity_scale`, `linear_damping` |
+| `RigidBody` | Physics body | `mass`, `velocity`, `gravity_scale`, `linear_damping`, `width`, `height`, `color` |
 | `Area` | Detection zone | `monitorable`, shapes |
-| `CollisionShape` | Collision geometry | `shape` (rect/circle/polygon), `size`, `radius` |
+| `CollisionShape` | Collision geometry | `shape` (rect/circle/polygon), `size`, `radius`, `color` |
 | `Camera2D` | Viewport control | `zoom`, `offset`, `smoothing` |
 | `Label` | Text display | `text`, `font_size`, `color` |
 | `TileMap` | Grid-based map | `tileset`, `cell_size`, `data` |
@@ -258,6 +258,7 @@ ku watch <path>.<prop>       Subscribe to property changes (either instance)
 ku input key <key> [down|up]            Simulate key event
 ku input click <x> <y>                  Simulate click
 ku input axis <name> <value>            Set axis value (-1 to 1)
+ku input touch <phase> <x> <y>          Simulate touch (start|move|end)
 ```
 
 ### Query (either instance)
@@ -435,18 +436,28 @@ Scripts are event-driven rules attached to nodes. Each script has an `event` tri
 | `on_frame` | Every frame | `interval` (skip frames) |
 | `on_collision` | Collision enters | `with` (node tag or type) |
 | `on_collision_exit` | Collision exits | `with` |
-| `on_timer` | Timer expires | `timer` (node id) |
+| `on_area_enter` | Body enters Area zone | `with` |
+| `on_area_exit` | Body leaves Area zone | `with` |
+| `on_timer` | Timer node expires | `timer` (node id) |
+| `on_touch_start` | Touch/pointer down | — |
+| `on_touch_move` | Touch/pointer drag | — |
+| `on_touch_end` | Touch/pointer up | — |
+| `on_click` | Mouse click | — |
 | `on_enter` | Scene loaded | — |
-| `on_custom` | Custom event | `name` |
+| `on_custom` | Custom event via `emit` | `name` |
 
 ### Actions
 
 ```json
 {"set": "property.path", "to": <value>}
 {"set": "property.path", "to": "{{expression}}"}
+{"set_on": "target_node", "key": "property", "to": <value>}
 {"move": {"x": 10, "y": 0}}
-{"spawn": "scenes/enemy.json", "at": {"x": 100, "y": 50}, "as": "enemy_{{index}}"}
-{"destroy": "<path_or_{{var}}>"} 
+{"move_toward": {"x": 180, "y": 100, "speed": 3}}
+{"spawn": "NodeType", "at": {"x": 100, "y": 50}, "as": "bullet_0",
+  "properties": {"velocity": {"x": 0, "y": -8}, "gravity_scale": 0},
+  "scripts": [{"event": "on_frame", "actions": [...]}]}
+{"destroy": "<path_or_self>"}
 {"emit": "<event_name>", "data": {...}}
 {"play": "<audio_node>", "from": 0}
 {"stop": "<audio_node>"}
@@ -461,8 +472,9 @@ Templates wrapped in `{{ }}` support simple expressions:
 ```
 {{speed}}           → property reference
 {{-speed}}          → negated property
-{{x + 10}}          → arithmetic
+{{x + 10}}          → arithmetic (+, -, *, /, %)
 {{other.id}}        → collision other's id
+{{/player/score}}   → cross-node property reference
 {{random(0, 100)}}  → built-in function
 ```
 

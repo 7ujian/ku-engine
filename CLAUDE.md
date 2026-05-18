@@ -26,7 +26,13 @@ Dual-instance model: **Editor** and **Play** are separate OS processes.
 
 Scene graph is a tree of typed nodes (Godot-inspired). 12 built-in node types: `Node`, `Node2D`, `Sprite`, `AnimatedSprite`, `RigidBody`, `Area`, `CollisionShape`, `Camera2D`, `Label`, `TileMap`, `Timer`, `AudioPlayer`. Nodes addressed by slash-separated path (e.g. `player/sprite`).
 
-Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, `on_frame`, etc. triggers and `set`, `move`, `spawn`, `destroy`, `emit` actions. No embedded scripting language.
+Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, `on_frame`, `on_timer`, `on_touch_start`, `on_area_enter`, etc. triggers and `set`, `set_on`, `move`, `move_toward`, `spawn`, `destroy`, `emit` actions. Expressions support cross-node refs (`{{/player/score}}`), modulo (`%`). No embedded scripting language.
+
+### Key physics features
+- Per-body `gravity_scale` (0 for top-down games), configurable `width`/`height` on RigidBody
+- `collision_layer`/`collision_mask` bitmasks for collision filtering
+- Area nodes fire `on_area_enter`/`on_area_exit` overlap events
+- Touch/pointer input: `on_touch_start`/`move`/`end` with SDL finger events + mouse fallback
 
 ## Implementation phases
 
