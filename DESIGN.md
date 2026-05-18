@@ -521,7 +521,29 @@ Scripts are event-driven rules attached to nodes. Each script has an `event` tri
 {"stop": "<audio_node>"}
 {"log": "<message>"}
 {"call": "<script_name>"}
+{"change_scene": "<scene_name>"}
 ```
+
+`play`/`stop` handle both `AnimatedSprite`/`Timer` (playing flag) and `AudioPlayer` (WAV playback via SDL2). `change_scene` loads a new scene file, replacing the current tree — old physics destroyed, scripts re-registered, `on_enter` fires on new scene.
+
+### Scene instancing
+
+Nodes can reference external scene files as templates via the `instance` field:
+
+```json
+{
+  "id": "player",
+  "type": "Node2D",
+  "properties": {"x": 80, "y": 200},
+  "instance": "scenes/player.json"
+}
+```
+
+At load time, the referenced scene is loaded, its instances recursively resolved, and merged: instance properties override template defaults, children concatenate, scripts concatenate. Circular references are detected and rejected.
+
+### Audio
+
+Audio playback via SDL2. `AudioManager` handles WAV PCM loading, software mixing for multiple simultaneous sounds, and device lifecycle. `AudioPlayer` nodes play their `stream` file when triggered via `play` action, at the configured `volume`. Audio device is lazily created; graceful no-op when SDL2 unavailable.
 
 ### Expressions
 
@@ -668,6 +690,24 @@ The CLI reads these files to find running instances. `ku instances` reports stat
 5. Multiple CLI clients can connect simultaneously to the same instance
 6. Discovery via `.ku.edit.pid`, `.ku.edit.port`, `.ku.play.pid`, `.ku.play.port` files
 
+### Sync protocol (Editor → Play deltas)
+
+Hot-reload pushes incremental changes from editor to play instance:
+
+| Op | Payload | Description |
+|----|---------|-------------|
+| `add` | `{path, node}` | Add node to tree |
+| `remove` | `{path}` | Remove node from tree |
+| `set` | `{path, property, value}` | Set node property |
+| `move` | `{from, to}` | Reparent node |
+| `replace_scripts` | `{path, scripts}` | Full script array replacement |
+| `replace_all` | `{root}` | Full tree snapshot replacement |
+| `script_add` | `{path, script, index?}` | Add script at index (or append) |
+| `script_remove` | `{path, index?, name?}` | Remove script by index or name |
+| `script_set` | `{path, index, script}` | Replace script at index |
+
+Granular script ops (`script_add`/`script_remove`/`script_set`) enable concurrent script editing without full array replacement.
+
 ---
 
 ## 8. Project Structure
@@ -748,6 +788,25 @@ each frame:
 ```
 
 The fixed timestep ensures deterministic physics regardless of frame rate. Timer events use the actual dt rather than a hardcoded interval.
+
+### Level transitions
+
+The `change_scene` action triggers a scene swap at the next frame boundary:
+
+```json
+{"change_scene": "level_2"}
+```
+
+When executed, the game loop loads the new scene asynchronously between ticks, destroys the old physics world, replaces the tree, re-registers all scripts, and fires `on_enter` on the new scene. Failed loads (missing file) are silently caught; the current scene continues.
+
+### Runtime state save/load
+
+Play instances can save their current tree (including runtime-spawned nodes) to disk via the `scene.save_runtime` WebSocket action. The tree is serialized using the same `SceneFile` format as editor saves. JS script state is NOT persisted — scripts re-initialize on reload.
+
+```bash
+ku scene save checkpoint_1   # on play instance: saves current state
+ku edit checkpoint_1          # reload saved state in editor
+```
 
 ---
 

@@ -43,13 +43,21 @@ Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, 
 
 **CLI** — `-p, --project <dir>` global flag. Commander.js with subcommands for scene, node, input, query, runtime control, build.
 
-**Game loop** — Fixed-timestep accumulator pattern with `performance.now()` timing. `maxFrameTime` cap (250ms). Collision enter/exit tracking via frame-over-frame pair sets.
+**Audio** — SDL2 audio backend (`AudioManager`). WAV PCM playback with software mixing for multiple simultaneous sounds. Volume control. `AudioPlayer` nodes triggered via `play`/`stop` script actions. Graceful fallback when SDL2 unavailable.
+
+**Scene instancing** — `"instance": "scenes/player.json"` references on nodes resolved at load time. Template properties, children, and scripts merged with instance overrides. Circular reference detection. Reduces scene duplication for repeated entities.
+
+**Level transitions** — `change_scene` script action. Async scene load between ticks, old physics destroyed, new tree + scripts + physics re-initialized, `on_enter` fires. Scene loader callback pattern for play instance integration.
+
+**Runtime save/load** — `scene.save_runtime` action on play instance saves full tree (including spawned nodes) to disk. Synchronous `saveSceneSync` for WebSocket handler context. State can be reloaded via `ku edit`.
+
+**Delta script edits** — Granular sync ops: `script_add`, `script_remove`, `script_set`. Enables concurrent script edits without full array replacement. Index-based and name-based addressing.
 
 ## Current status
 
-All 6 original phases complete. P0 fixes done (cross-node conditions, expression evaluator rewrite, parent-relative physics shapes, script error reporting). Working on P1: scene instancing, audio backend, level transitions, runtime save/load, delta script edits, JS engine fixes.
+All 6 original phases complete. P0 done. **P1 complete**: scene instancing, audio backend, level transitions, runtime save/load, delta script edits, JS engine fixes (spawn registration + dt context).
 
-See `docs/MILESTONE_1_0_REVIEW.md` for full architecture review and prioritized backlog.
+See `docs/MILESTONE_1_0_REVIEW.md` for full architecture review and prioritized backlog (P2 remaining).
 
 ## Commands (once implemented)
 
@@ -77,7 +85,8 @@ npm run build                  # compile TypeScript
 | `src/engine/physics.ts` | matter-js integration, world↔local sync |
 | `src/engine/collision-events.ts` | Enter/exit tracking for collisions and areas |
 | `src/engine/game-loop.ts` | Fixed-timestep loop, accumulator pattern |
-| `src/engine/scene-file.ts` | Scene JSON load/save |
+| `src/engine/scene-file.ts` | Scene JSON load/save, instance resolution |
+| `src/engine/audio.ts` | SDL2 audio, WAV playback, software mixing |
 | `src/renderer/renderer.ts` | SDL2 window, two-pass rendering, debug overlay |
 | `src/server/main.ts` | Server entry (editor + play modes) |
 | `src/server/message-handler.ts` | WebSocket message routing, sync ops |
