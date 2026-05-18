@@ -10,6 +10,8 @@ export interface JsScriptEngineOptions {
   tree: SceneTree;
   projectDir: string;
   bus?: EventBus;
+  onSpawn?: (node: Node) => void;
+  onDestroy?: (nodeId: string) => void;
 }
 
 interface RegisteredScript {
@@ -26,11 +28,15 @@ export class JsScriptEngine {
   private compiledCache = new Map<string, VmScript>();
   private registrations = new Map<string, RegisteredScript>();
   private logs: string[] = [];
+  private onSpawn: ((node: Node) => void) | null;
+  private onDestroy: ((nodeId: string) => void) | null;
 
   constructor(opts: JsScriptEngineOptions) {
     this.tree = opts.tree;
     this.projectDir = opts.projectDir;
     this.bus = opts.bus ?? new EventBus();
+    this.onSpawn = opts.onSpawn ?? null;
+    this.onDestroy = opts.onDestroy ?? null;
   }
 
   async registerTree(): Promise<void> {
@@ -91,6 +97,7 @@ export class JsScriptEngine {
         node: this.createNodeApi(reg.node),
         scene: this.createSceneApi(),
         data,
+        dt: (data.dt as number) ?? (1000 / 60),
         emit: (name: string, payload?: Record<string, unknown>) => {
           this.bus.emit(name, payload ?? {});
         },
@@ -115,6 +122,9 @@ export class JsScriptEngine {
     this.logs = [];
   }
 
+  setSpawnCallback(cb: (node: Node) => void): void { this.onSpawn = cb; }
+  setDestroyCallback(cb: (nodeId: string) => void): void { this.onDestroy = cb; }
+
   private createNodeApi(node: Node) {
     return {
       id: node.id,
@@ -138,11 +148,15 @@ export class JsScriptEngine {
         try {
           const node = createNodeByType(type, id, props as any);
           this.tree.add('/', node);
+          this.onSpawn?.(node);
         } catch { /* ignore */ }
       },
       destroy: (path: string) => {
-        try { this.tree.remove(path); }
-        catch { /* ignore */ }
+        try {
+          const node = this.tree.get(path);
+          this.tree.remove(path);
+          this.onDestroy?.(node.id);
+        } catch { /* ignore */ }
       },
       find: (path: string) => {
         try {

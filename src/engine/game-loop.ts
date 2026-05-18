@@ -1,4 +1,5 @@
 import { SceneTree } from '../engine/scene-tree.js';
+import { Node } from '../engine/node.js';
 import { ScriptEngine } from '../engine/script-engine.js';
 import { JsScriptEngine } from './js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
@@ -47,6 +48,20 @@ export class GameLoop {
       scripts.evaluateEvent(event, data);
       jsScripts?.evaluateEvent(event, data);
     });
+
+    // Wire JS spawn/destroy callbacks so spawned nodes get full engine registration
+    if (jsScripts) {
+      jsScripts.setSpawnCallback((node: Node) => {
+        scripts.registerNode(node);
+        jsScripts?.registerNode(node);
+        physics.syncNode(node);
+      });
+      jsScripts.setDestroyCallback((nodeId: string) => {
+        scripts.unregisterNodeById(nodeId);
+        jsScripts?.unregisterNodeById(nodeId);
+        physics.removeBody(nodeId);
+      });
+    }
   }
 
   setOnExit(cb: () => void): void {
@@ -173,8 +188,8 @@ export class GameLoop {
       const areaOverlaps = this.physics.getAreaOverlaps();
       this.collisionEvents.updateAreas(areaOverlaps);
     }
-    this.scripts.evaluateEvent('on_frame', { frame: this.frame });
-    this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame });
+    this.scripts.evaluateEvent('on_frame', { frame: this.frame, dt });
+    this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame, dt });
 
     // Timer events
     this.tickTimers(dt);

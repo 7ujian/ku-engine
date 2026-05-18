@@ -134,6 +134,7 @@ function fireBullet(ctx, index) {
 }
 
 handlers.on_collision = function(ctx) {
+  ctx.log('collision!', ctx.data.other, ctx.data.otherTags);
   if (ctx.node.get('dead')) return;
 
   var tags = ctx.data.otherTags || [];
