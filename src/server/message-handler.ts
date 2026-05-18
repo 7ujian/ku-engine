@@ -8,9 +8,11 @@ import type { NodeData, ScriptRule } from '../engine/types.js';
 
 let gameLoop: GameLoop | null = null;
 let inputManager: InputManager | null = null;
+let saveRuntimeState: ((name: string) => Promise<void>) | null = null;
 
 export function setGameLoop(loop: GameLoop | null): void { gameLoop = loop; }
 export function setInputManager(mgr: InputManager | null): void { inputManager = mgr; }
+export function setSaveRuntimeState(fn: ((name: string) => Promise<void>) | null): void { saveRuntimeState = fn; }
 
 export interface Message {
   type: string;
@@ -244,6 +246,16 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
     case 'sync.subscribe':
       requireEdit(mode);
       return { result: { subscribed: true } };
+
+    case 'scene.save_runtime': {
+      requirePlay(mode);
+      const name = payload.name as string;
+      if (saveRuntimeState) {
+        void saveRuntimeState(name);
+        return { result: { saving: true, name } };
+      }
+      return { result: { saving: false, error: 'save not available' } };
+    }
 
     // Script delta edits
     case 'script.add': {

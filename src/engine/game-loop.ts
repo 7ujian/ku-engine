@@ -131,6 +131,10 @@ export class GameLoop {
     return this.frame;
   }
 
+  getTree(): SceneTree {
+    return this.tree;
+  }
+
   getCollisions(): Array<{ nodeA: string; nodeB: string }> {
     return this.physics.getCollisions();
   }

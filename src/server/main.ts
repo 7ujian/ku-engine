@@ -11,8 +11,8 @@ import { GameLoop } from '../engine/game-loop.js';
 import { Renderer } from '../renderer/renderer.js';
 import { InputManager } from './input-manager.js';
 import { SyncClient } from './sync-client.js';
-import { setGameLoop, setInputManager } from './message-handler.js';
-import { loadScene, sceneFilePath } from '../engine/scene-file.js';
+import { setGameLoop, setInputManager, setSaveRuntimeState } from './message-handler.js';
+import { loadScene, sceneFilePath, saveSceneSync } from '../engine/scene-file.js';
 import { AudioManager } from '../engine/audio.js';
 
 const args = process.argv.slice(2);
@@ -98,6 +98,9 @@ async function main(): Promise<void> {
     const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name));
     loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
     setGameLoop(loop);
+    setSaveRuntimeState(async (name: string) => {
+      saveSceneSync(loop!.getTree(), sceneFilePath(resolve(dir, 'scenes'), name), name);
+    });
     loop.start();
   }
 

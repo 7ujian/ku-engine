@@ -1,4 +1,5 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { Node } from './node.js';
 import { SceneTree } from './scene-tree.js';
@@ -75,6 +76,15 @@ export async function saveScene(tree: SceneTree, filePath: string, sceneName?: s
     root: tree.root.toJSON(),
   };
   await writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+}
+
+export function saveSceneSync(tree: SceneTree, filePath: string, sceneName?: string): void {
+  mkdirSync(dirname(filePath), { recursive: true });
+  const data: SceneFile = {
+    scene: sceneName ?? 'untitled',
+    root: tree.root.toJSON(),
+  };
+  writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
 }
 
 export async function listScenes(dir: string): Promise<string[]> {
