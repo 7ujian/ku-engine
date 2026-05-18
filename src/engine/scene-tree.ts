@@ -1,4 +1,5 @@
 import { Node } from './node.js';
+import { getWorldTransform, worldToLocalDirect } from './transform.js';
 
 export class SceneTree {
   root: Node;
@@ -38,8 +39,18 @@ export class SceneTree {
   }
 
   move(path: string, newParentPath: string): void {
-    const node = this.remove(path);
+    const node = this.get(path);
+    const worldBefore = getWorldTransform(node);
+    const hadPos = node.properties['x'] !== undefined || node.properties['y'] !== undefined;
+    this.remove(path);
     this.add(newParentPath, node);
+    if (hadPos) {
+      const newParent = newParentPath === '/' || newParentPath === '' ? this.root : this.get(newParentPath);
+      const parentWorld = getWorldTransform(newParent);
+      const local = worldToLocalDirect(parentWorld, worldBefore.x, worldBefore.y);
+      node.setProperty('x', local.x);
+      node.setProperty('y', local.y);
+    }
   }
 
   findByType(type: string): Node[] {

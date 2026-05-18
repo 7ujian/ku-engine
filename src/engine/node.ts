@@ -8,6 +8,7 @@ export class Node {
   scripts: ScriptRule[];
   instance?: string;
   js_script?: string;
+  parent: Node | null = null;
 
   constructor(id: string, type: string, properties?: PropertyMap) {
     this.id = id;
@@ -56,12 +57,15 @@ export class Node {
 
   addChild(node: Node): void {
     this.children.push(node);
+    node.parent = this;
   }
 
   removeChild(id: string): Node | undefined {
     const index = this.children.findIndex(c => c.id === id);
     if (index === -1) return undefined;
-    return this.children.splice(index, 1)[0];
+    const removed = this.children.splice(index, 1)[0];
+    removed.parent = null;
+    return removed;
   }
 
   findChild(id: string): Node | undefined {
@@ -82,7 +86,11 @@ export class Node {
 
   static fromJSON(data: NodeData): Node {
     const node = new Node(data.id, data.type, { ...data.properties });
-    node.children = data.children.map(c => Node.fromJSON(c));
+    node.children = data.children.map(c => {
+      const child = Node.fromJSON(c);
+      child.parent = node;
+      return child;
+    });
     node.scripts = data.scripts ?? [];
     if (data.instance) node.instance = data.instance;
     if (data.js_script) node.js_script = data.js_script;

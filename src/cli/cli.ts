@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { resolve } from 'node:path';
 import { initCommand } from './commands/init.js';
 import { editCommand, stopCommand, attachCommand, detachCommand } from './commands/edit.js';
 import { playCommand } from './commands/play.js';
@@ -10,16 +11,18 @@ import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js'
 import { queryScene, queryNodes, queryDiff, queryCollisions } from './commands/query.js';
 import { buildCommand } from './commands/build.js';
 
-function getProjectDir(): string {
-  return process.cwd();
-}
-
 export function createProgram(): Command {
   const program = new Command();
   program
     .name('ku')
     .description('CLI-based 2D game engine for AI agents')
-    .version('0.1.0');
+    .version('0.1.0')
+    .option('-p, --project <dir>', 'Project root directory');
+
+  function getProjectDir(): string {
+    const opts = program.opts();
+    return opts.project ? resolve(opts.project) : process.cwd();
+  }
 
   // Project init
   program

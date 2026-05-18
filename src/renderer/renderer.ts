@@ -8,6 +8,7 @@ import { SpriteRenderer } from './sprite-renderer.js';
 import { TilemapRenderer } from './tilemap-renderer.js';
 import { LabelRenderer } from './label-renderer.js';
 import type { PropertyMap } from '../engine/types.js';
+import { type Transform2D, IDENTITY, getLocalTransform, composeTransform } from '../engine/transform.js';
 
 type KeyHandler = (key: string, down: boolean) => void;
 type TouchHandler = (phase: 'start' | 'move' | 'end', x: number, y: number, pointerId: number) => void;
@@ -44,11 +45,13 @@ export class Renderer {
   private onKey: KeyHandler | null = null;
   private onTouch: TouchHandler | null = null;
   private projectDir: string;
+  private debugPhysics: boolean;
 
-  constructor(width = 640, height = 480, projectDir = '.') {
+  constructor(width = 640, height = 480, projectDir = '.', debugPhysics = false) {
     this.width = width;
     this.height = height;
     this.projectDir = resolve(projectDir);
+    this.debugPhysics = debugPhysics;
     this.canvas = createCanvas(width, height);
     this.ctx = this.canvas.getContext('2d');
     this.spriteRenderer = new SpriteRenderer(this.ctx, this.projectDir);
@@ -177,34 +180,43 @@ export class Renderer {
       await Promise.all(loadPromises);
     }
 
-    // Draw nodes
-    tree.traverse((node) => {
-      this.drawNode(node, dt);
-    });
+    // Draw nodes with world transform accumulation
+    this.drawNodeRecursive(tree.root, IDENTITY, dt);
+
+    // Debug physics overlay (on top of all sprites)
+    this.drawDebugOverlay(tree);
 
     ctx.restore();
     this.present();
   }
 
-  private drawNode(node: Node, dt: number): void {
+  private drawNodeRecursive(node: Node, parentWorld: Transform2D, dt: number): void {
     const visible = node.getProperty('visible');
     if (visible === false) return;
 
-    const x = (node.getProperty('x') as number) ?? 0;
-    const y = (node.getProperty('y') as number) ?? 0;
+    const local = getLocalTransform(node);
+    const world = composeTransform(parentWorld, local);
 
+    this.drawNode(node, world.x, world.y, world.scaleX, world.scaleY, dt);
+
+    for (const child of node.children) {
+      this.drawNodeRecursive(child, world, dt);
+    }
+  }
+
+  private drawNode(node: Node, wx: number, wy: number, _sx: number, _sy: number, dt: number): void {
     switch (node.type) {
       case 'Sprite':
-        this.spriteRenderer.drawSprite(node, x, y, dt);
+        this.spriteRenderer.drawSprite(node, wx, wy, dt);
         break;
       case 'AnimatedSprite':
-        this.spriteRenderer.drawAnimatedSprite(node, x, y, dt);
+        this.spriteRenderer.drawAnimatedSprite(node, wx, wy, dt);
         break;
       case 'Label':
-        this.labelRenderer.drawLabel(node, x, y);
+        this.labelRenderer.drawLabel(node, wx, wy);
         break;
       case 'TileMap':
-        this.tilemapRenderer.drawTilemap(node, x, y);
+        this.tilemapRenderer.drawTilemap(node, wx, wy);
         break;
       case 'RigidBody':
       case 'CollisionShape': {
@@ -213,27 +225,53 @@ export class Renderer {
           const animName = (node.getProperty('animation') as string) ?? '';
           const animations = (node.getProperty('animations') as Record<string, unknown>) ?? {};
           if (animName && Object.keys(animations).length > 0) {
-            this.spriteRenderer.drawAnimatedSprite(node, x, y, dt);
+            this.spriteRenderer.drawAnimatedSprite(node, wx, wy, dt);
           } else {
-            this.spriteRenderer.drawSprite(node, x, y, dt);
+            this.spriteRenderer.drawSprite(node, wx, wy, dt);
           }
-        } else {
-          const color = (node.getProperty('color') as string) ?? (node.type === 'RigidBody' ? '#ffff00' : '#33cc33');
-          const w = (node.getProperty('width') as number) ?? (node.type === 'RigidBody' ? 30 : 32);
-          const h = (node.getProperty('height') as number) ?? (node.type === 'RigidBody' ? 24 : 32);
-          this.ctx.fillStyle = color;
-          this.ctx.fillRect(x - w / 2, y - h / 2, w, h);
         }
         break;
       }
-      case 'Area': {
-        const color = (node.getProperty('color') as string) ?? 'rgba(0, 255, 255, 0.2)';
-        const aW = (node.getProperty('width') as number) ?? 32;
-        const aH = (node.getProperty('height') as number) ?? 32;
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x - aW / 2, y - aH / 2, aW, aH);
+      // Area nodes only render in debug overlay
+    }
+  }
+
+  private drawDebugOverlay(tree: SceneTree): void {
+    if (!this.debugPhysics) return;
+    this.drawDebugRecursive(tree.root, IDENTITY);
+  }
+
+  private drawDebugRecursive(node: Node, parentWorld: Transform2D): void {
+    const visible = node.getProperty('visible');
+    if (visible === false) return;
+
+    const local = getLocalTransform(node);
+    const world = composeTransform(parentWorld, local);
+
+    switch (node.type) {
+      case 'RigidBody':
+      case 'CollisionShape': {
+        const color = (node.getProperty('color') as string) ?? (node.type === 'RigidBody' ? '#ffff00' : '#33cc33');
+        const w = (node.getProperty('width') as number) ?? (node.type === 'RigidBody' ? 30 : 32);
+        const h = (node.getProperty('height') as number) ?? (node.type === 'RigidBody' ? 24 : 32);
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(world.x - w / 2, world.y - h / 2, w, h);
         break;
       }
+      case 'Area': {
+        const color = (node.getProperty('color') as string) ?? 'rgba(0, 255, 255, 0.5)';
+        const aW = (node.getProperty('width') as number) ?? 32;
+        const aH = (node.getProperty('height') as number) ?? 32;
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(world.x - aW / 2, world.y - aH / 2, aW, aH);
+        break;
+      }
+    }
+
+    for (const child of node.children) {
+      this.drawDebugRecursive(child, world);
     }
   }
 

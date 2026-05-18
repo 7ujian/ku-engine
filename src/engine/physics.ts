@@ -2,6 +2,7 @@ import Matter from 'matter-js';
 import { SceneTree } from './scene-tree.js';
 import { Node } from './node.js';
 import type { PropertyMap } from './types.js';
+import { getWorldTransform, worldToLocal, getLocalTransform } from './transform.js';
 
 export class PhysicsWorld {
   private engine: Matter.Engine;
@@ -56,12 +57,11 @@ export class PhysicsWorld {
     for (const [nodeId, body] of this.bodyMap) {
       try {
         const node = this.tree.get(nodeId);
-        const nx = (node.getProperty('x') as number);
-        const ny = (node.getProperty('y') as number);
-        // Sync position (for teleport/move by scripts)
-        if (nx !== undefined && ny !== undefined) {
-          Matter.Body.setPosition(body, { x: nx, y: ny });
-        }
+        // Skip child CollisionShapes whose parent is a RigidBody — position is derived
+        if (node.type === 'CollisionShape' && node.parent && this.bodyMap.has(node.parent.id)) continue;
+        // Read local position, convert to world for physics body
+        const world = getWorldTransform(node);
+        Matter.Body.setPosition(body, { x: world.x, y: world.y });
         // Sync velocity (for impulses/flaps by scripts)
         const vx = (node.getPropertyByPath('velocity.x') as number);
         const vy = (node.getPropertyByPath('velocity.y') as number);
@@ -80,18 +80,29 @@ export class PhysicsWorld {
         const node = this.tree.get(nodeId);
         if (node.type !== 'CollisionShape') continue;
 
-        const parentPath = this.getParentPathCached(node);
-        if (!parentPath) continue;
+        const parent = node.parent;
+        if (!parent) continue;
 
-        const parent = this.tree.get(parentPath);
         const parentBody = this.bodyMap.get(parent.id);
-        // Use physics body position for the parent (more accurate than node property during step)
-        const parentX = parentBody ? parentBody.position.x : ((parent.getProperty('x') as number) ?? 0);
-        const parentY = parentBody ? parentBody.position.y : ((parent.getProperty('y') as number) ?? 0);
+        // Only sync shapes whose parent has a physics body (RigidBody).
+        // Root-level shapes manage their own positions via scripts/physics.
+        if (!parentBody) continue;
+
+        const parentWorld = getWorldTransform(parent);
+        const parentX = parentBody.position.x;
+        const parentY = parentBody.position.y;
+        const parentRotation = parentBody.angle;
+        const parentScaleX = parentWorld.scaleX;
+        const parentScaleY = parentWorld.scaleY;
         const offsetX = (node.getProperty('x') as number) ?? 0;
         const offsetY = (node.getProperty('y') as number) ?? 0;
 
-        Matter.Body.setPosition(body, { x: parentX + offsetX, y: parentY + offsetY });
+        const cosR = Math.cos(parentRotation);
+        const sinR = Math.sin(parentRotation);
+        Matter.Body.setPosition(body, {
+          x: parentX + cosR * offsetX * parentScaleX - sinR * offsetY * parentScaleY,
+          y: parentY + sinR * offsetX * parentScaleX + cosR * offsetY * parentScaleY,
+        });
       } catch {
         // node removed
       }
@@ -102,10 +113,11 @@ export class PhysicsWorld {
     for (const [nodeId, body] of this.bodyMap) {
       try {
         const node = this.tree.get(nodeId);
-        // Skip writing position back for child shapes — their position is derived from parent
-        if (node.type === 'CollisionShape') continue;
-        node.setProperty('x', body.position.x);
-        node.setProperty('y', body.position.y);
+        // Skip child shapes of RigidBody — position is derived from parent
+        if (node.type === 'CollisionShape' && node.parent && this.bodyMap.has(node.parent.id)) continue;
+        const local = worldToLocal(node, body.position.x, body.position.y);
+        node.setProperty('x', local.x);
+        node.setProperty('y', local.y);
         node.setPropertyByPath('velocity.x', body.velocity.x);
         node.setPropertyByPath('velocity.y', body.velocity.y);
       } catch {
@@ -150,19 +162,20 @@ export class PhysicsWorld {
 
   private syncBody(node: Node): void {
     const existing = this.bodyMap.get(node.id);
-    const x = (node.getProperty('x') as number) ?? 0;
-    const y = (node.getProperty('y') as number) ?? 0;
+    const world = getWorldTransform(node);
+    const wx = world.x;
+    const wy = world.y;
     const mass = (node.getProperty('mass') as number) ?? 1;
     const w = (node.getProperty('width') as number) ?? 32;
     const h = (node.getProperty('height') as number) ?? 32;
     const gravityScale = (node.getProperty('gravity_scale') as number) ?? 1;
 
     if (existing) {
-      Matter.Body.setPosition(existing, { x, y });
+      Matter.Body.setPosition(existing, { x: wx, y: wy });
       return;
     }
 
-    const body = Matter.Bodies.rectangle(x, y, w, h, {
+    const body = Matter.Bodies.rectangle(wx, wy, w, h, {
       label: node.id,
       mass,
       plugin: { gravityScale },
@@ -183,20 +196,12 @@ export class PhysicsWorld {
 
   private syncShape(node: Node): void {
     const existing = this.bodyMap.get(node.id);
-    const parentPath = this.getParentPathCached(node);
-    let x = (node.getProperty('x') as number) ?? 0;
-    let y = (node.getProperty('y') as number) ?? 0;
-
-    if (parentPath) {
-      try {
-        const parent = this.tree.get(parentPath);
-        x += (parent.getProperty('x') as number) ?? 0;
-        y += (parent.getProperty('y') as number) ?? 0;
-      } catch { /* ignore */ }
-    }
+    const world = getWorldTransform(node);
+    const wx = world.x;
+    const wy = world.y;
 
     if (existing) {
-      Matter.Body.setPosition(existing, { x, y });
+      Matter.Body.setPosition(existing, { x: wx, y: wy });
       return;
     }
 
@@ -212,9 +217,9 @@ export class PhysicsWorld {
     };
     if (shape === 'circle') {
       const radius = (node.getProperty('radius') as number) ?? 16;
-      body = Matter.Bodies.circle(x, y, radius, { label: node.id, isStatic, collisionFilter });
+      body = Matter.Bodies.circle(wx, wy, radius, { label: node.id, isStatic, collisionFilter });
     } else {
-      body = Matter.Bodies.rectangle(x, y, width, height, { label: node.id, isStatic, collisionFilter });
+      body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
     }
 
     if (!isStatic) {
@@ -227,17 +232,18 @@ export class PhysicsWorld {
 
   private syncArea(node: Node): void {
     const existing = this.bodyMap.get(node.id);
-    const x = (node.getProperty('x') as number) ?? 0;
-    const y = (node.getProperty('y') as number) ?? 0;
+    const world = getWorldTransform(node);
+    const wx = world.x;
+    const wy = world.y;
     const width = (node.getProperty('width') as number) ?? 32;
     const height = (node.getProperty('height') as number) ?? 32;
 
     if (existing) {
-      Matter.Body.setPosition(existing, { x, y });
+      Matter.Body.setPosition(existing, { x: wx, y: wy });
       return;
     }
 
-    const body = Matter.Bodies.rectangle(x, y, width, height, {
+    const body = Matter.Bodies.rectangle(wx, wy, width, height, {
       label: node.id,
       isStatic: true,
       isSensor: true,

@@ -73,6 +73,7 @@ async function main(): Promise<void> {
       projectConfig.window?.width ?? 640,
       projectConfig.window?.height ?? 480,
       dir,
+      projectConfig.debug_physics ?? false,
     );
     renderer.setKeyHandler((key, down) => {
       if (down) input.keyDown(key);

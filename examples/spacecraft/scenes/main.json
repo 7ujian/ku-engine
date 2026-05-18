@@ -123,716 +123,8 @@
           "tick": 0
         },
         "children": [],
-        "scripts": [
-          {
-            "event": "on_key",
-            "filter": {
-              "key": "LEFT"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "moving_left",
-                "to": true
-              }
-            ]
-          },
-          {
-            "event": "on_key_up",
-            "filter": {
-              "key": "LEFT"
-            },
-            "actions": [
-              {
-                "set": "moving_left",
-                "to": false
-              }
-            ]
-          },
-          {
-            "event": "on_key",
-            "filter": {
-              "key": "RIGHT"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "moving_right",
-                "to": true
-              }
-            ]
-          },
-          {
-            "event": "on_key_up",
-            "filter": {
-              "key": "RIGHT"
-            },
-            "actions": [
-              {
-                "set": "moving_right",
-                "to": false
-              }
-            ]
-          },
-          {
-            "event": "on_key",
-            "filter": {
-              "key": "UP"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "moving_up",
-                "to": true
-              }
-            ]
-          },
-          {
-            "event": "on_key_up",
-            "filter": {
-              "key": "UP"
-            },
-            "actions": [
-              {
-                "set": "moving_up",
-                "to": false
-              }
-            ]
-          },
-          {
-            "event": "on_key",
-            "filter": {
-              "key": "DOWN"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "moving_down",
-                "to": true
-              }
-            ]
-          },
-          {
-            "event": "on_key_up",
-            "filter": {
-              "key": "DOWN"
-            },
-            "actions": [
-              {
-                "set": "moving_down",
-                "to": false
-              }
-            ]
-          },
-          {
-            "event": "on_key",
-            "filter": {
-              "key": "SPACE"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "firing",
-                "to": true
-              }
-            ]
-          },
-          {
-            "event": "on_key_up",
-            "filter": {
-              "key": "SPACE"
-            },
-            "actions": [
-              {
-                "set": "firing",
-                "to": false
-              }
-            ]
-          },
-          {
-            "event": "on_touch_start",
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "touch_x",
-                "to": "{{context.x}}"
-              },
-              {
-                "set": "touch_y",
-                "to": "{{context.y}}"
-              },
-              {
-                "set": "touching",
-                "to": true
-              },
-              {
-                "set": "firing",
-                "to": true
-              }
-            ]
-          },
-          {
-            "event": "on_touch_move",
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "touch_x",
-                "to": "{{context.x}}"
-              },
-              {
-                "set": "touch_y",
-                "to": "{{context.y}}"
-              }
-            ]
-          },
-          {
-            "event": "on_touch_end",
-            "actions": [
-              {
-                "set": "touching",
-                "to": false
-              },
-              {
-                "set": "firing",
-                "to": false
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "neq": true
-              },
-              "moving_left": {
-                "eq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.x",
-                "to": -5
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "neq": true
-              },
-              "moving_right": {
-                "eq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.x",
-                "to": 5
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "neq": true
-              },
-              "moving_left": {
-                "neq": true
-              },
-              "moving_right": {
-                "neq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.x",
-                "to": 0
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "neq": true
-              },
-              "moving_up": {
-                "eq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.y",
-                "to": -5
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "neq": true
-              },
-              "moving_down": {
-                "eq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.y",
-                "to": 5
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "neq": true
-              },
-              "moving_up": {
-                "neq": true
-              },
-              "moving_down": {
-                "neq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.y",
-                "to": 0
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "touching": {
-                "eq": true
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.x",
-                "to": 0
-              },
-              {
-                "set": "velocity.y",
-                "to": 0
-              },
-              {
-                "move_toward": {
-                  "x": "{{touch_x}}",
-                  "y": "{{touch_y}}",
-                  "speed": 5
-                }
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "dead": {
-                "eq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "velocity.x",
-                "to": 0
-              },
-              {
-                "set": "velocity.y",
-                "to": 0
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "fire_cooldown": {
-                "gt": 0
-              }
-            },
-            "actions": [
-              {
-                "set": "fire_cooldown",
-                "to": "{{fire_cooldown - 1}}"
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "firing": {
-                "eq": true
-              },
-              "fire_cooldown": {
-                "eq": 0
-              },
-              "next_bullet": {
-                "eq": 0
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set_on": "/bullet_0",
-                "key": "x",
-                "to": "{{x}}"
-              },
-              {
-                "set_on": "/bullet_0",
-                "key": "y",
-                "to": "{{y - 16}}"
-              },
-              {
-                "set_on": "/bullet_0",
-                "key": "active",
-                "to": true
-              },
-              {
-                "set": "fire_cooldown",
-                "to": 8
-              },
-              {
-                "set": "next_bullet",
-                "to": 1
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "firing": {
-                "eq": true
-              },
-              "fire_cooldown": {
-                "eq": 0
-              },
-              "next_bullet": {
-                "eq": 1
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set_on": "/bullet_1",
-                "key": "x",
-                "to": "{{x}}"
-              },
-              {
-                "set_on": "/bullet_1",
-                "key": "y",
-                "to": "{{y - 16}}"
-              },
-              {
-                "set_on": "/bullet_1",
-                "key": "active",
-                "to": true
-              },
-              {
-                "set": "fire_cooldown",
-                "to": 8
-              },
-              {
-                "set": "next_bullet",
-                "to": 2
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "firing": {
-                "eq": true
-              },
-              "fire_cooldown": {
-                "eq": 0
-              },
-              "next_bullet": {
-                "eq": 2
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set_on": "/bullet_2",
-                "key": "x",
-                "to": "{{x}}"
-              },
-              {
-                "set_on": "/bullet_2",
-                "key": "y",
-                "to": "{{y - 16}}"
-              },
-              {
-                "set_on": "/bullet_2",
-                "key": "active",
-                "to": true
-              },
-              {
-                "set": "fire_cooldown",
-                "to": 8
-              },
-              {
-                "set": "next_bullet",
-                "to": 3
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "firing": {
-                "eq": true
-              },
-              "fire_cooldown": {
-                "eq": 0
-              },
-              "next_bullet": {
-                "eq": 3
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set_on": "/bullet_3",
-                "key": "x",
-                "to": "{{x}}"
-              },
-              {
-                "set_on": "/bullet_3",
-                "key": "y",
-                "to": "{{y - 16}}"
-              },
-              {
-                "set_on": "/bullet_3",
-                "key": "active",
-                "to": true
-              },
-              {
-                "set": "fire_cooldown",
-                "to": 8
-              },
-              {
-                "set": "next_bullet",
-                "to": 4
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "firing": {
-                "eq": true
-              },
-              "fire_cooldown": {
-                "eq": 0
-              },
-              "next_bullet": {
-                "eq": 4
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set_on": "/bullet_4",
-                "key": "x",
-                "to": "{{x}}"
-              },
-              {
-                "set_on": "/bullet_4",
-                "key": "y",
-                "to": "{{y - 16}}"
-              },
-              {
-                "set_on": "/bullet_4",
-                "key": "active",
-                "to": true
-              },
-              {
-                "set": "fire_cooldown",
-                "to": 8
-              },
-              {
-                "set": "next_bullet",
-                "to": 0
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "tick",
-                "to": "{{tick + 1}}"
-              }
-            ]
-          },
-          {
-            "event": "on_frame",
-            "condition": {
-              "tick": {
-                "gte": 6
-              },
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "score",
-                "to": "{{score + 1}}"
-              },
-              {
-                "set": "tick",
-                "to": 0
-              }
-            ]
-          },
-          {
-            "event": "enemy_killed",
-            "actions": [
-              {
-                "set": "score",
-                "to": "{{score + 100}}"
-              }
-            ]
-          },
-          {
-            "event": "on_collision",
-            "filter": {
-              "with": "enemy"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "dead",
-                "to": true
-              },
-              {
-                "set": "color",
-                "to": "#ff0000"
-              },
-              {
-                "set": "velocity.x",
-                "to": 0
-              },
-              {
-                "set": "velocity.y",
-                "to": 0
-              },
-              {
-                "emit": "game_over",
-                "data": {}
-              }
-            ]
-          },
-          {
-            "event": "on_collision",
-            "filter": {
-              "with": "boss_bullet"
-            },
-            "condition": {
-              "dead": {
-                "neq": true
-              }
-            },
-            "actions": [
-              {
-                "set": "dead",
-                "to": true
-              },
-              {
-                "set": "color",
-                "to": "#ff0000"
-              },
-              {
-                "set": "velocity.x",
-                "to": 0
-              },
-              {
-                "set": "velocity.y",
-                "to": 0
-              },
-              {
-                "emit": "game_over",
-                "data": {}
-              }
-            ]
-          }
-        ]
+        "scripts": [],
+        "js_script": "scripts/player.js"
       },
       {
         "id": "bullet_0",
@@ -2389,12 +1681,84 @@
           "hp": 30,
           "sweep_dir": 1,
           "flash_timer": 0,
+          "punch_timer": 0,
+          "punching": false,
+          "claw_extend": 0,
           "tags": [
             "enemy",
             "boss"
           ]
         },
-        "children": [],
+        "children": [
+          {
+            "id": "claw_left",
+            "type": "CollisionShape",
+            "properties": {
+              "shape": "rect",
+              "width": 28,
+              "height": 20,
+              "radius": 0,
+              "x": -44,
+              "y": 0,
+              "collision_layer": 4,
+              "collision_mask": 1,
+              "color": "#aa00cc",
+              "atlas": "assets/sprites.atlas.json",
+              "region": "boss_claw_0",
+              "animations": {
+                "claw_idle": {
+                  "frames": [
+                    "boss_claw_0",
+                    "boss_claw_1"
+                  ],
+                  "speed": 6,
+                  "loop": true,
+                  "ping_pong": true
+                }
+              },
+              "animation": "claw_idle",
+              "playing": true,
+              "tags": [
+                "boss_claw"
+              ]
+            },
+            "children": []
+          },
+          {
+            "id": "claw_right",
+            "type": "CollisionShape",
+            "properties": {
+              "shape": "rect",
+              "width": 28,
+              "height": 20,
+              "radius": 0,
+              "x": 44,
+              "y": 0,
+              "collision_layer": 4,
+              "collision_mask": 1,
+              "color": "#aa00cc",
+              "atlas": "assets/sprites.atlas.json",
+              "region": "boss_claw_0",
+              "animations": {
+                "claw_idle": {
+                  "frames": [
+                    "boss_claw_0",
+                    "boss_claw_1"
+                  ],
+                  "speed": 6,
+                  "loop": true,
+                  "ping_pong": true
+                }
+              },
+              "animation": "claw_idle",
+              "playing": true,
+              "tags": [
+                "boss_claw"
+              ]
+            },
+            "children": []
+          }
+        ],
         "scripts": [],
         "js_script": "scripts/boss.js"
       },

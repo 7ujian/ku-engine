@@ -30,7 +30,7 @@ async function main(): Promise<void> {
 
   const input = new InputManager(scripts, jsScripts);
 
-  const renderer = new Renderer(config.window?.width ?? 640, config.window?.height ?? 480, projectDir);
+  const renderer = new Renderer(config.window?.width ?? 640, config.window?.height ?? 480, projectDir, config.debug_physics ?? false);
   renderer.setKeyHandler((key, down) => {
     if (down) input.keyDown(key);
     else input.keyUp(key);

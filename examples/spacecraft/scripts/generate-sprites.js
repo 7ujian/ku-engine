@@ -392,6 +392,7 @@ function main() {
   const enemyMFrames = addFrames('enemy_medium', 4, 24, 24, drawEnemyMed);
   const enemyLFrames = addFrames('enemy_large', 4, 32, 32, drawEnemyLarge);
   const bossFrames = addFrames('boss', 4, 60, 40, drawBoss);
+  const clawFrames = addFrames('boss_claw', 2, 28, 20, drawBossClaw);
   const bulletPFrames = addFrames('bullet_player', 1, 8, 14, drawPlayerBullet);
   const bulletBFrames = addFrames('bullet_boss', 2, 10, 14, drawBossBullet);
   const explosionFrames = addFrames('explosion', 5, 24, 24, drawExplosion);
@@ -411,6 +412,7 @@ function main() {
       enemy_medium_idle: { frames: enemyMFrames, speed: 6, loop: true, ping_pong: true },
       enemy_large_idle: { frames: enemyLFrames, speed: 6, loop: true, ping_pong: true },
       boss_idle: { frames: bossFrames, speed: 4, loop: true, ping_pong: true },
+      claw_idle: { frames: clawFrames, speed: 6, loop: true, ping_pong: true },
       bullet_player: { frames: bulletPFrames, speed: 1, loop: true },
       bullet_boss: { frames: bulletBFrames, speed: 10, loop: true },
       explosion: { frames: explosionFrames, speed: 12, loop: false },
@@ -594,6 +596,51 @@ function drawExplosion(ctx, ox, oy, w, h, f) {
     fill(ctx, '#555555', cx-8,cy-8, 16,16);
     fill(ctx, '#333333', cx-10,cy-10, 20,20);
     fill(ctx, '#444444', cx-6,cy-6, 12,12);
+  }
+}
+
+function drawBossClaw(ctx, ox, oy, w, h, f) {
+  // Big purple claw that extends from boss body
+  // Frame 0: claw closed/reduced
+  // Frame 1: claw open/wide
+  const p = '#aa00dd';  // main purple
+  const P = '#dd66ff';  // highlight
+  const I = '#7700aa';  // dark armor
+  const w2 = w - 1;     // avoid padding issues
+
+  // Upper pincer
+  fill(ctx, I, ox+1, oy+2, 4, 3);
+  fill(ctx, p, ox+5, oy+2, 18, 3);
+  fill(ctx, P, ox+7, oy+2, 14, 1);
+  fill(ctx, p, ox+4, oy+5, 20, 3);
+  fill(ctx, P, ox+6, oy+5, 16, 1);
+  fill(ctx, p, ox+3, oy+8, 22, 3);
+  fill(ctx, p, ox+2, oy+11, 24, 3);
+
+  // Lower pincer (mirror)
+  fill(ctx, p, ox+2, oy+14, 24, 3);
+  fill(ctx, p, ox+3, oy+17, 22, 2);
+  fill(ctx, p, ox+4, oy+19, 20, 2);
+  fill(ctx, P, ox+6, oy+21, 16, 1);
+  fill(ctx, p, ox+5, oy+22, 18, 2);
+  fill(ctx, I, ox+1, oy+24, 4, 3);
+
+  // Base joint
+  fill(ctx, I, ox+8, oy+5, 14, 14);
+  fill(ctx, p, ox+10, oy+7, 10, 10);
+  fill(ctx, P, ox+12, oy+9, 6, 6);
+
+  // Claw tips - alternate between frames
+  if (f === 0) {
+    // Closed style - inner claws meet
+    fill(ctx, P, ox+2, oy+6, 2, 3);
+    fill(ctx, P, ox+2, oy+19, 2, 3);
+  } else {
+    // Open style - claws spread
+    fill(ctx, p, ox+0, oy+7, 3, 3);
+    fill(ctx, p, ox+0, oy+18, 3, 3);
+    fill(ctx, P, ox+0, oy+8, 2, 1);
+    fill(ctx, P, ox+0, oy+19, 2, 1);
   }
 }
 

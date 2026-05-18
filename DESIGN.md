@@ -127,6 +127,24 @@ enemies/slime_0          → indexed enemy instance
 }
 ```
 
+### Transform2D system
+
+Nodes with `x`/`y` properties (Node2D, Sprite, RigidBody, Area, CollisionShape, Camera2D, Label, TileMap) participate in transform composition. Each node stores **local** coordinates relative to its parent. The **world** transform is computed by composing the chain from root to node: `world = parent_world × local`.
+
+- `x`, `y`, `rotation`, `scale_x`, `scale_y` — local properties
+- `getWorldTransform(node)` — walks the parent chain, returns world position + rotation + scale
+- `worldToLocal(node, worldX, worldY)` — converts world coords to local (used by physics sync)
+- `localToWorld(node, localX, localY)` — converts local offset to world coords
+
+**Parenting behavior**:
+- Rendering uses world positions — children automatically follow parent position, rotation, and scale
+- Physics bodies are created/bound at world positions; sync-back converts world → local before storing
+- `CollisionShape` children of `RigidBody` parents: `x`/`y` is offset from parent (rotation-aware)
+- `SceneTree.move()` preserves world position by adjusting local coordinates for the new parent
+- Flat scenes (all nodes direct children of root) are unaffected — world == local when parent is root
+
+**Container nodes** (plain `Node`, `Timer`) return identity transform — no position inheritance.
+
 ### JavaScript scripts
 
 Nodes can optionally reference a `.js` file via the `js_script` field. JS scripts run alongside JSON scripts in a sandboxed `vm` context with no access to `require`, `process`, or the filesystem.
@@ -735,7 +753,7 @@ The fixed timestep ensures deterministic physics regardless of frame rate. Timer
 
 ## 11. Physics Shapes
 
-`CollisionShape` nodes that are children of `RigidBody` nodes automatically track their parent's position each frame. A parent cache avoids repeated tree traversal. The sync happens both before and after the Matter.js engine update for accurate collision detection.
+`CollisionShape` nodes that are children of `RigidBody` nodes automatically track their parent's position and rotation each frame via `syncChildShapes()`. The sync uses the physics body's world position for accuracy and happens both before and after the Matter.js engine update. The `x`/`y` properties of child shapes are treated as a local offset from the parent, composed with parent rotation and scale. Physics bodies are created at world positions computed from the transform hierarchy, and world-to-local conversion is applied when syncing positions back to the node tree.
 
 ---
 
@@ -751,9 +769,9 @@ The fixed timestep ensures deterministic physics regardless of frame rate. Timer
 ### Render pipeline (per frame)
 
 1. Engine updates physics and scripts
-2. Renderer traverses node tree depth-first
-3. For each visible `Node2D`: compute world transform (parent × child)
-4. Draw `Sprite` nodes (standalone texture or atlas region), `AnimatedSprite` nodes (frame array or atlas animation), `TileMap` nodes, `Label` nodes in tree order
+2. Renderer walks the node tree recursively, accumulating world transform at each level
+3. At each node: compose parent world transform with node's local transform → world position
+4. Draw `Sprite` nodes (standalone texture or atlas region), `AnimatedSprite` nodes (frame array or atlas animation), `TileMap` nodes, `Label` nodes at computed world position
 5. `Camera2D` applies viewport offset and zoom to all draws
 
 ### Sprite atlases

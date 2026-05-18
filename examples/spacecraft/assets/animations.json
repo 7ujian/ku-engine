@@ -54,6 +54,15 @@
     "loop": true,
     "ping_pong": true
   },
+  "claw_idle": {
+    "frames": [
+      "boss_claw_0",
+      "boss_claw_1"
+    ],
+    "speed": 6,
+    "loop": true,
+    "ping_pong": true
+  },
   "bullet_player": {
     "frames": [
       "bullet_player_0"
