@@ -162,6 +162,40 @@ export class SyncClient {
         this.applySnapshot(op.root);
         break;
       }
+      case 'script_add': {
+        const node = this.tree.get(op.path);
+        const idx = op.index ?? node.scripts.length;
+        node.scripts.splice(idx, 0, op.script);
+        if (this._scripts) {
+          this._scripts.unregisterNodeById(node.id);
+          this._scripts.registerNode(node);
+        }
+        break;
+      }
+      case 'script_remove': {
+        const node = this.tree.get(op.path);
+        if (op.index !== undefined) {
+          node.scripts.splice(op.index, 1);
+        } else if (op.name) {
+          node.scripts = node.scripts.filter(s => s.name !== op.name);
+        }
+        if (this._scripts) {
+          this._scripts.unregisterNodeById(node.id);
+          this._scripts.registerNode(node);
+        }
+        break;
+      }
+      case 'script_set': {
+        const node = this.tree.get(op.path);
+        if (op.index >= 0 && op.index < node.scripts.length) {
+          node.scripts[op.index] = op.script;
+        }
+        if (this._scripts) {
+          this._scripts.unregisterNodeById(node.id);
+          this._scripts.registerNode(node);
+        }
+        break;
+      }
     }
   }
 

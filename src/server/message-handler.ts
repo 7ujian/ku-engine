@@ -32,7 +32,10 @@ export type SyncOp =
   | { op: 'set'; path: string; property: string; value: unknown }
   | { op: 'move'; from: string; to: string }
   | { op: 'replace_scripts'; path: string; scripts: ScriptRule[] }
-  | { op: 'replace_all'; root: NodeData };
+  | { op: 'replace_all'; root: NodeData }
+  | { op: 'script_add'; path: string; script: ScriptRule; index?: number }
+  | { op: 'script_remove'; path: string; index?: number; name?: string }
+  | { op: 'script_set'; path: string; index: number; script: ScriptRule };
 
 export interface HandleResult {
   response: Response;
@@ -240,8 +243,54 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
 
     case 'sync.subscribe':
       requireEdit(mode);
-      // Actual subscription handled by instance.ts (adds ws to subscribers)
       return { result: { subscribed: true } };
+
+    // Script delta edits
+    case 'script.add': {
+      requireEdit(mode);
+      const scriptPath = payload.path as string;
+      const script = payload.script as ScriptRule;
+      const index = payload.index as number | undefined;
+      const node = tree.get(scriptPath);
+      const idx = index ?? node.scripts.length;
+      node.scripts.splice(idx, 0, script);
+      return {
+        result: { added: true, index: idx },
+        syncOps: [{ op: 'script_add', path: scriptPath, script, index: idx }],
+      };
+    }
+
+    case 'script.rm': {
+      requireEdit(mode);
+      const rmPath = payload.path as string;
+      const rmIndex = payload.index as number | undefined;
+      const rmName = payload.name as string | undefined;
+      const node = tree.get(rmPath);
+      const before = node.scripts.length;
+      if (rmIndex !== undefined) {
+        node.scripts.splice(rmIndex, 1);
+      } else if (rmName) {
+        node.scripts = node.scripts.filter(s => s.name !== rmName);
+      }
+      return {
+        result: { removed: before - node.scripts.length },
+        syncOps: [{ op: 'script_remove', path: rmPath, index: rmIndex, name: rmName }],
+      };
+    }
+
+    case 'script.set': {
+      requireEdit(mode);
+      const setPath = payload.path as string;
+      const setIndex = payload.index as number;
+      const setScript = payload.script as ScriptRule;
+      const node = tree.get(setPath);
+      if (setIndex < 0 || setIndex >= node.scripts.length) throw new Error(`script index out of range: ${setIndex}`);
+      node.scripts[setIndex] = setScript;
+      return {
+        result: { replaced: true, index: setIndex },
+        syncOps: [{ op: 'script_set', path: setPath, index: setIndex, script: setScript }],
+      };
+    }
 
     default:
       throw new Error(`unknown action: ${action}`);
