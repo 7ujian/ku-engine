@@ -12,7 +12,8 @@ ku is a CLI-based 2D game engine for AI agents. AI agents act as both developers
 - `commander` — CLI framework
 - `ws` — WebSocket server/client
 - `matter-js` — 2D physics
-- `@kmamal/sdl` — SDL2 window rendering
+- `@kmamal/sdl` — SDL2 window rendering + audio
+- `@napi-rs/canvas` — CPU canvas for sprite/text rendering
 - `vitest` — testing
 
 ## Architecture
@@ -28,22 +29,27 @@ Scene graph is a tree of typed nodes (Godot-inspired). 12 built-in node types: `
 
 Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, `on_frame`, `on_timer`, `on_touch_start`, `on_area_enter`, etc. triggers and `set`, `set_on`, `move`, `move_toward`, `spawn`, `destroy`, `emit` actions. Expressions support cross-node refs (`{{/player/score}}`), modulo (`%`). No embedded scripting language.
 
-### Key physics features
-- Per-body `gravity_scale` (0 for top-down games), configurable `width`/`height` on RigidBody
-- `collision_layer`/`collision_mask` bitmasks for collision filtering
-- Area nodes fire `on_area_enter`/`on_area_exit` overlap events
-- Touch/pointer input: `on_touch_start`/`move`/`end` with SDL finger events + mouse fallback
+### Key features
 
-## Implementation phases
+**Transform2D** — Hierarchical transform system. Nodes store local coordinates; world transforms computed by walking parent chain with rotation/scale composition. `getWorldTransform()`, `worldToLocal()`, `localToWorld()`. `SceneTree.move()` preserves world position across reparenting. Container nodes (plain `Node`, `Timer`) return identity transform.
 
-Phases 1-3 are foundation (no rendering or physics). Phases 4-5 are parallel. Phase 6 integrates everything.
+**Physics** — matter-js integration with world↔local coordinate conversion. Per-body `gravity_scale`, `collision_layer`/`collision_mask` bitmasks. Area nodes fire `on_area_enter`/`on_area_exit`. `CollisionShape` children of `RigidBody` follow parent with rotation-aware offset. Standalone `CollisionShape` (enemies, bullets) works as root-level dynamic bodies.
 
-1. Core data model (types, node tree, scene files)
-2. Server + CLI (WebSocket, discovery, instance management, node CRUD commands)
-3. Script engine (event bus, expression evaluator, action execution)
-4. Physics (matter-js integration, collision events) — parallel with 5
-5. Renderer (SDL2, sprites, tilemaps, camera) — parallel with 4
-6. Game loop + input (60 FPS loop, play instance spawning, AI input, query/diff)
+**Renderer** — Two-pass: normal draw (sprites, tilemaps, labels) then debug overlay (wireframe outlines for RigidBody/CollisionShape/Area). Debug layer gated by `debug_physics` in project.json. `findCamera()` for camera following.
+
+**Input** — Keyboard (keyDown/keyUp with normalized key names), touch/pointer (SDL finger events + mouse fallback), axis input.
+
+**JS Scripting** — Sandboxed `vm` engine runs alongside JSON scripts. `ctx` API: `node.get/set`, `scene.get/set/spawn/destroy/find`, `emit`, `log`, `dt`, `data`. Per-node isolated state. Custom events on separate EventBus.
+
+**CLI** — `-p, --project <dir>` global flag. Commander.js with subcommands for scene, node, input, query, runtime control, build.
+
+**Game loop** — Fixed-timestep accumulator pattern with `performance.now()` timing. `maxFrameTime` cap (250ms). Collision enter/exit tracking via frame-over-frame pair sets.
+
+## Current status
+
+All 6 original phases complete. P0 fixes done (cross-node conditions, expression evaluator rewrite, parent-relative physics shapes, script error reporting). Working on P1: scene instancing, audio backend, level transitions, runtime save/load, delta script edits, JS engine fixes.
+
+See `docs/MILESTONE_1_0_REVIEW.md` for full architecture review and prioritized backlog.
 
 ## Commands (once implemented)
 
@@ -55,9 +61,33 @@ npx vitest                     # watch mode
 npm run build                  # compile TypeScript
 ```
 
+## Key files
+
+| File | Purpose |
+|------|---------|
+| `src/engine/node.ts` | Node class with parent backlink, property system |
+| `src/engine/scene-tree.ts` | Tree CRUD, traversal, reparent with world-preserve |
+| `src/engine/transform.ts` | Transform2D math, world↔local conversion |
+| `src/engine/types.ts` | NodeData, ScriptRule, ScriptAction, ScriptError |
+| `src/engine/node-types.ts` | 12 node type factories |
+| `src/engine/script-engine.ts` | JSON script execution, actions, error collection |
+| `src/engine/js-script-engine.ts` | Sandboxed JS scripting with vm module |
+| `src/engine/expression-evaluator.ts` | Recursive descent parser for `{{expr}}` |
+| `src/engine/conditions.ts` | Cross-node condition evaluation |
+| `src/engine/physics.ts` | matter-js integration, world↔local sync |
+| `src/engine/collision-events.ts` | Enter/exit tracking for collisions and areas |
+| `src/engine/game-loop.ts` | Fixed-timestep loop, accumulator pattern |
+| `src/engine/scene-file.ts` | Scene JSON load/save |
+| `src/renderer/renderer.ts` | SDL2 window, two-pass rendering, debug overlay |
+| `src/server/main.ts` | Server entry (editor + play modes) |
+| `src/server/message-handler.ts` | WebSocket message routing, sync ops |
+| `src/server/sync-client.ts` | Edit→play delta streaming |
+| `src/cli/cli.ts` | Commander.js CLI definition |
+
 ## Key constraints
 
 - All CLI output is JSON by default (`--pretty` for humans)
 - Write commands (`node add/rm/set`, `scene create/save`) only work on editor instance
 - Play instance is read-only from CLI (except `input` commands)
 - Ports 21200/21201 are reserved — do not use 7890 or 789x (allocated to proxy)
+- `project.json` fields: `name`, `entry`, `debug_physics`, `window.width/height`
