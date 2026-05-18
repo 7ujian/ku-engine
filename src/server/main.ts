@@ -95,7 +95,8 @@ async function main(): Promise<void> {
     }
 
     const audio = new AudioManager(dir);
-    loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio);
+    const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name));
+    loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
     setGameLoop(loop);
     loop.start();
   }

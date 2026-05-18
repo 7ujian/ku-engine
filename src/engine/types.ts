@@ -26,6 +26,7 @@ export interface ScriptAction {
   log?: string;
   call?: string;
   move_toward?: { x?: number; y?: number; speed?: number };
+  change_scene?: string;
 }
 
 export interface ScriptRule {

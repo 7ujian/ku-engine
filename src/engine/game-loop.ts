@@ -28,6 +28,8 @@ export class GameLoop {
   private prevSnapshot: Record<string, Record<string, unknown>> | null = null;
   private timers = new Map<string, { elapsed: number; fired: boolean }>();
   private audio: AudioManager | null = null;
+  private pendingScene: { name: string } | null = null;
+  private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
 
   constructor(
     tree: SceneTree,
@@ -38,6 +40,7 @@ export class GameLoop {
     physicsEnabled = true,
     jsScripts?: JsScriptEngine,
     audio?: AudioManager,
+    sceneLoader?: (name: string) => Promise<SceneTree>,
   ) {
     this.tree = tree;
     this.scripts = scripts;
@@ -49,6 +52,10 @@ export class GameLoop {
     this.physicsEnabled = physicsEnabled;
     this.audio = audio ?? null;
     if (audio) scripts.setAudio(audio);
+    if (sceneLoader) {
+      scripts.setSceneLoader(sceneLoader);
+      this.sceneLoader = sceneLoader;
+    }
     this.collisionEvents = new CollisionEvents(tree, (event, data) => {
       scripts.evaluateEvent(event, data);
       jsScripts?.evaluateEvent(event, data);
@@ -166,6 +173,12 @@ export class GameLoop {
       this.accumulator -= this.fixedDt;
     }
 
+    // Process scene change between ticks (async, out of accumulator loop)
+    if (this.pendingScene && this.sceneLoader) {
+      this.applySceneChange(this.pendingScene.name);
+      this.pendingScene = null;
+    }
+
     if (this.renderer) {
       if (!this.renderer.isOpen()) {
         this.stop();
@@ -202,6 +215,12 @@ export class GameLoop {
 
     // Timer events
     this.tickTimers(dt);
+
+    // Check for pending scene change request
+    const change = this.scripts.getPendingSceneChange();
+    if (change) {
+      this.pendingScene = change;
+    }
   }
 
   private snapshotProperties(): Record<string, Record<string, unknown>> {
@@ -210,6 +229,37 @@ export class GameLoop {
       snap[node.id] = { ...node.properties };
     });
     return snap;
+  }
+
+  private async applySceneChange(name: string): Promise<void> {
+    if (!this.sceneLoader) return;
+    try {
+      const newTree = await this.sceneLoader(name);
+      this.physics.destroy();
+      this.collisionEvents.reset();
+      this.timers.clear();
+      this.tree = newTree;
+      this.physics = new PhysicsWorld(newTree);
+      this.physics.syncFromTree();
+      this.scripts.setTree(newTree);
+      this.scripts.registerTree();
+      this.jsScripts?.registerTree();
+      // Re-wire spawn/destroy for new tree
+      if (this.jsScripts) {
+        const scripts = this.scripts;
+        const jsScripts = this.jsScripts;
+        const physics = this.physics;
+        this.jsScripts.setSpawnCallback((node: Node) => {
+          scripts.registerNode(node);
+          jsScripts.registerNode(node);
+          physics.syncNode(node);
+        });
+      }
+      this.scripts.evaluateEvent('on_enter', {});
+      this.jsScripts?.evaluateEvent('on_enter', {});
+    } catch {
+      // scene load failed, keep current scene
+    }
   }
 
   private tickTimers(dt: number): void {

@@ -44,7 +44,8 @@ async function main(): Promise<void> {
   await renderer.open(config.name ?? 'ku');
 
   const audio = new AudioManager(projectDir);
-  const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio);
+  const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(projectDir, 'scenes'), name));
+  const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
   loop.setOnExit(cleanup);
   loop.start();
 

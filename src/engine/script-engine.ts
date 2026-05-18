@@ -16,12 +16,25 @@ export class ScriptEngine {
   private errors: ScriptError[] = [];
   private namedScripts = new Map<string, { node: Node; script: ScriptRule }>();
   private audio: AudioManager | null = null;
+  private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
+  private pendingSceneChange: { name: string } | null = null;
 
   constructor(tree: SceneTree) {
     this.tree = tree;
   }
 
   setAudio(audio: AudioManager | null): void { this.audio = audio; }
+  setSceneLoader(loader: (name: string) => Promise<SceneTree>): void { this.sceneLoader = loader; }
+
+  getPendingSceneChange(): { name: string } | null {
+    const change = this.pendingSceneChange;
+    this.pendingSceneChange = null;
+    return change;
+  }
+
+  setTree(tree: SceneTree): void {
+    this.tree = tree;
+  }
 
   unregisterNodeById(id: string): void {
     for (const [node, scripts] of this.registrations) {
@@ -149,6 +162,8 @@ export class ScriptEngine {
       this.executePlay(node, action, context, event);
     } else if (action.stop) {
       this.executeStop(node, action, context, event);
+    } else if (action.change_scene) {
+      this.pendingSceneChange = { name: action.change_scene };
     }
   }
 
