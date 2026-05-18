@@ -7,6 +7,7 @@ export class Node {
   children: Node[];
   scripts: ScriptRule[];
   instance?: string;
+  js_script?: string;
 
   constructor(id: string, type: string, properties?: PropertyMap) {
     this.id = id;
@@ -75,6 +76,7 @@ export class Node {
       children: this.children.map(c => c.toJSON()),
       scripts: this.scripts.map(s => ({ ...s, filter: s.filter ? { ...s.filter } : undefined, actions: [...s.actions] })),
       ...(this.instance ? { instance: this.instance } : {}),
+      ...(this.js_script ? { js_script: this.js_script } : {}),
     };
   }
 
@@ -83,6 +85,7 @@ export class Node {
     node.children = data.children.map(c => Node.fromJSON(c));
     node.scripts = data.scripts ?? [];
     if (data.instance) node.instance = data.instance;
+    if (data.js_script) node.js_script = data.js_script;
     return node;
   }
 

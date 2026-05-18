@@ -1,5 +1,6 @@
 import { SceneTree } from '../engine/scene-tree.js';
 import { ScriptEngine } from '../engine/script-engine.js';
+import { JsScriptEngine } from './js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { Renderer } from '../renderer/renderer.js';
 import { CollisionEvents } from './collision-events.js';
@@ -7,12 +8,17 @@ import { CollisionEvents } from './collision-events.js';
 export class GameLoop {
   private tree: SceneTree;
   private scripts: ScriptEngine;
+  private jsScripts: JsScriptEngine | null;
   private physics: PhysicsWorld;
   private renderer: Renderer | null;
   private running = false;
   private paused = false;
   private frame = 0;
-  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private fixedDt: number;
+  private maxFrameTime = 250;
+  private accumulator = 0;
+  private lastTime = 0;
+  private loopHandle: ReturnType<typeof setTimeout> | null = null;
   private fps: number;
   private onExit: (() => void) | null = null;
   private physicsEnabled: boolean;
@@ -27,15 +33,19 @@ export class GameLoop {
     renderer: Renderer | null,
     fps = 60,
     physicsEnabled = true,
+    jsScripts?: JsScriptEngine,
   ) {
     this.tree = tree;
     this.scripts = scripts;
+    this.jsScripts = jsScripts ?? null;
     this.physics = physics;
     this.renderer = renderer;
     this.fps = fps;
+    this.fixedDt = 1000 / fps;
     this.physicsEnabled = physicsEnabled;
     this.collisionEvents = new CollisionEvents(tree, (event, data) => {
       scripts.evaluateEvent(event, data);
+      jsScripts?.evaluateEvent(event, data);
     });
   }
 
@@ -46,17 +56,20 @@ export class GameLoop {
   start(): void {
     if (this.running) return;
     this.running = true;
+    this.accumulator = 0;
+    this.lastTime = performance.now();
     this.scripts.evaluateEvent('on_enter', {});
+    this.jsScripts?.evaluateEvent('on_enter', {});
     this.physics.syncFromTree();
     this.prevSnapshot = this.snapshotProperties();
-    this.intervalId = setInterval(() => this.tick(), 1000 / this.fps);
+    this.scheduleFrame();
   }
 
   stop(): void {
     this.running = false;
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.loopHandle) {
+      clearTimeout(this.loopHandle);
+      this.loopHandle = null;
     }
     if (this.renderer) {
       this.renderer.close();
@@ -75,7 +88,7 @@ export class GameLoop {
   }
 
   step(): void {
-    this.tick();
+    this.tick(this.fixedDt);
   }
 
   isRunning(): boolean {
@@ -112,13 +125,45 @@ export class GameLoop {
     return deltas;
   }
 
-  private tick(): void {
+  private scheduleFrame(): void {
+    this.loopHandle = setTimeout(() => this.frameLoop(), 0);
+  }
+
+  private frameLoop(): void {
+    if (!this.running) return;
+
+    const now = performance.now();
+    let frameTime = now - this.lastTime;
+    this.lastTime = now;
+
+    if (frameTime > this.maxFrameTime) frameTime = this.maxFrameTime;
+
+    this.accumulator += frameTime;
+
+    while (this.accumulator >= this.fixedDt) {
+      this.tick(this.fixedDt);
+      this.accumulator -= this.fixedDt;
+    }
+
+    if (this.renderer) {
+      if (!this.renderer.isOpen()) {
+        this.stop();
+        this.onExit?.();
+        return;
+      }
+      this.renderer.draw(this.tree);
+    }
+
+    this.scheduleFrame();
+  }
+
+  private tick(dt: number): void {
     if (this.paused) return;
     this.frame++;
 
     if (this.physicsEnabled) {
       this.physics.applyNodeChanges();
-      this.physics.step(1000 / this.fps);
+      this.physics.step(dt);
 
       // Collision events: on_collision (enter) and on_collision_exit
       const collisions = this.physics.getCollisions();
@@ -129,18 +174,10 @@ export class GameLoop {
       this.collisionEvents.updateAreas(areaOverlaps);
     }
     this.scripts.evaluateEvent('on_frame', { frame: this.frame });
+    this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame });
 
     // Timer events
-    this.tickTimers();
-
-    if (this.renderer) {
-      if (!this.renderer.isOpen()) {
-        this.stop();
-        this.onExit?.();
-        return;
-      }
-      this.renderer.draw(this.tree);
-    }
+    this.tickTimers(dt);
   }
 
   private snapshotProperties(): Record<string, Record<string, unknown>> {
@@ -151,8 +188,7 @@ export class GameLoop {
     return snap;
   }
 
-  private tickTimers(): void {
-    const dt = 1000 / this.fps;
+  private tickTimers(dt: number): void {
     this.tree.traverse((node) => {
       if (node.type !== 'Timer') return;
       const autostart = (node.getProperty('autostart') as boolean) ?? false;
@@ -174,6 +210,7 @@ export class GameLoop {
         state.fired = true;
         state.elapsed = 0;
         this.scripts.evaluateEvent('on_timer', { timer: node.id });
+        this.jsScripts?.evaluateEvent('on_timer', { timer: node.id });
       }
     });
   }

@@ -65,8 +65,8 @@ The scene is a tree of nodes. Every game entity is a node with a type, propertie
 |------|---------|----------------|
 | `Node` | Base container | `position`, `rotation`, `scale` |
 | `Node2D` | 2D spatial node | `x`, `y`, `rotation`, `scale_x`, `scale_y` |
-| `Sprite` | Renders an image | `texture`, `flip_h`, `flip_v`, `frame`, `hframes` |
-| `AnimatedSprite` | Sprite with frames | `frames` (array of textures), `speed`, `playing` |
+| `Sprite` | Renders an image | `texture`, `flip_h`, `flip_v`, `frame`, `hframes`, `atlas`, `region` |
+| `AnimatedSprite` | Sprite with frames | `frames` (array of textures), `speed`, `playing`, `atlas`, `animations`, `animation` |
 | `RigidBody` | Physics body | `mass`, `velocity`, `gravity_scale`, `linear_damping`, `width`, `height`, `color` |
 | `Area` | Detection zone | `monitorable`, shapes |
 | `CollisionShape` | Collision geometry | `shape` (rect/circle/polygon), `size`, `radius`, `color` |
@@ -126,6 +126,46 @@ enemies/slime_0          → indexed enemy instance
   "scripts": []
 }
 ```
+
+### JavaScript scripts
+
+Nodes can optionally reference a `.js` file via the `js_script` field. JS scripts run alongside JSON scripts in a sandboxed `vm` context with no access to `require`, `process`, or the filesystem.
+
+```json
+{
+  "id": "player",
+  "type": "RigidBody",
+  "properties": {"x": 100, "y": 300, "speed": 5},
+  "children": [],
+  "scripts": [
+    {"event": "on_key", "filter": {"key": "RIGHT"}, "actions": [{"set": "moving_right", "to": true}]}
+  ],
+  "js_script": "scripts/player.js"
+}
+```
+
+JS scripts register handlers on a provided `handlers` object:
+
+```javascript
+// scripts/player.js
+let vx = 0;
+handlers.on_frame = function(ctx) {
+  if (ctx.node.get('moving_right')) vx = ctx.node.get('speed');
+  else if (ctx.node.get('moving_left')) vx = -ctx.node.get('speed');
+  else vx = 0;
+  ctx.node.set('velocity.x', vx);
+};
+handlers.on_collision = function(ctx) {
+  if (ctx.data.other === 'coin') {
+    ctx.scene.destroy(ctx.data.other);
+    ctx.emit('coin_collected');
+  }
+};
+```
+
+The `ctx` API: `ctx.node.get(prop)`, `ctx.node.set(prop, val)`, `ctx.node.id`, `ctx.scene.get(path, prop)`, `ctx.scene.set(path, prop, val)`, `ctx.scene.spawn(type, id, props?)`, `ctx.scene.destroy(path)`, `ctx.scene.find(path)`, `ctx.emit(event, data?)`, `ctx.data`, `ctx.log(...)`.
+
+Script state (top-level variables) persists across frames within a node's lifetime.
 
 ---
 
@@ -215,7 +255,7 @@ All subsequent commands route to the currently attached instance unless `--inst 
 
 ```
 ku init <name>              Create a new project
-ku build                    Validate & bundle project
+ku build [--output <dir>]   Package project for distribution (default output: build/)
 ku status                   Show server and instance status
 ```
 
@@ -467,31 +507,50 @@ Scripts are event-driven rules attached to nodes. Each script has an `event` tri
 
 ### Expressions
 
-Templates wrapped in `{{ }}` support simple expressions:
+Templates wrapped in `{{ }}` use a recursive descent parser with operator precedence, parentheses, and cross-node references:
 
 ```
-{{speed}}           → property reference
-{{-speed}}          → negated property
-{{x + 10}}          → arithmetic (+, -, *, /, %)
-{{other.id}}        → collision other's id
-{{/player/score}}   → cross-node property reference
-{{random(0, 100)}}  → built-in function
+{{speed}}                → property reference
+{{velocity.x}}           → nested property reference
+{{-speed}}               → negated property
+{{x + 10}}               → arithmetic (+, -, *, /, %)
+{{speed * 2 + 10}}       → operator chaining
+{{(x + 10) * 2}}         → parentheses
+{{/player/score}}         → cross-node property reference
+{{/player/x + 50}}        → cross-node in arithmetic
+{{other.id}}              → collision other's id
+{{random(0, 100)}}        → random float in range
+{{min(3, 7)}}             → minimum of two values
+{{max(3, 7)}}             → maximum of two values
+{{abs(-5)}}               → absolute value
+{{floor(3.7)}}            → floor
+{{ceil(3.2)}}             → ceiling
 ```
+
+Cross-node references (`/nodeId/prop`) resolve through the scene tree at evaluation time — no separate pre-processing pass. They work in arithmetic, string interpolation, and conditions.
 
 ### Conditions
+
+Conditions support cross-node references using `/nodeId/prop` syntax:
 
 ```json
 {
   "event": "on_frame",
-  "filter": {"interval": 2},
-  "condition": {"velocity.x": {"neq": 0}},
+  "condition": {
+    "speed": {"gt": 0},
+    "/player/dead": {"neq": true}
+  },
   "actions": [
-    {"log": "moving at {{velocity.x}}"}
+    {"set": "score", "to": "{{score + 1}}"}
   ]
 }
 ```
 
 Supported operators: `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `in`, `between`.
+
+### Error reporting
+
+Failed script actions are collected as structured errors rather than silently swallowed. Each error contains `{node, event, action_type, reason, timestamp}`. Access via `engine.getErrors()`. Actions that fail (target not found, unknown spawn type, etc.) log the error and continue — the engine never crashes from a bad script.
 
 ---
 
@@ -629,7 +688,58 @@ my-game/
 
 ---
 
-## 9. Rendering
+## 9. Build System
+
+`ku build` packages a project into a standalone distributable directory that requires only Node.js 20+ to run:
+
+```
+build/
+├── runtime/
+│   ├── dist/              # compiled engine + renderer + player
+│   └── node_modules/      # production deps only
+├── game/
+│   ├── project.json
+│   ├── scenes/
+│   ├── assets/
+│   └── scripts/
+├── run.sh                 # Unix launcher
+└── run.bat                # Windows launcher
+```
+
+The build command discovers all referenced assets (textures, atlases, scripts, tilesets, audio) by walking scene JSON files, then copies the runtime, dependencies, and game assets into the output directory.
+
+---
+
+## 10. Game Loop
+
+The play instance uses a fixed-timestep accumulator loop:
+
+```
+lastTime = performance.now()
+accumulator = 0
+
+each frame:
+  frameTime = min(now - lastTime, 250ms)  // cap to prevent spiral of death
+  accumulator += frameTime
+  while accumulator >= fixedDt:
+    physics.step(fixedDt)
+    scripts.evaluate('on_frame')
+    timers.tick(fixedDt)
+    accumulator -= fixedDt
+  render()  // once per visual frame
+```
+
+The fixed timestep ensures deterministic physics regardless of frame rate. Timer events use the actual dt rather than a hardcoded interval.
+
+---
+
+## 11. Physics Shapes
+
+`CollisionShape` nodes that are children of `RigidBody` nodes automatically track their parent's position each frame. A parent cache avoids repeated tree traversal. The sync happens both before and after the Matter.js engine update for accurate collision detection.
+
+---
+
+## 12. Rendering
 
 ### Approach
 
@@ -643,8 +753,31 @@ my-game/
 1. Engine updates physics and scripts
 2. Renderer traverses node tree depth-first
 3. For each visible `Node2D`: compute world transform (parent × child)
-4. Draw `Sprite` nodes, `TileMap` nodes, `Label` nodes in tree order
+4. Draw `Sprite` nodes (standalone texture or atlas region), `AnimatedSprite` nodes (frame array or atlas animation), `TileMap` nodes, `Label` nodes in tree order
 5. `Camera2D` applies viewport offset and zoom to all draws
+
+### Sprite atlases
+
+Sprites can reference a texture atlas — a single image with named regions defined in a companion JSON file:
+
+`assets/player.atlas.json`:
+```json
+{
+  "texture": "assets/player_sheet.png",
+  "regions": [
+    {"name": "idle_0", "x": 0, "y": 0, "width": 32, "height": 48},
+    {"name": "walk_0", "x": 32, "y": 0, "width": 32, "height": 48},
+    {"name": "walk_1", "x": 64, "y": 0, "width": 32, "height": 48}
+  ]
+}
+```
+
+Sprite rendering modes:
+1. **Standalone texture**: `texture` set, `atlas` empty (default)
+2. **Atlas region**: `atlas` + `region` set → draw named region from atlas
+3. **Atlas animation**: `atlas` + `animation` set → play named animation from `animations` map
+
+AnimatedSprite with atlas supports `loop`, `ping_pong`, and one-shot modes via the animation definition.
 
 ### Coordinate system
 
@@ -654,7 +787,7 @@ my-game/
 
 ---
 
-## 10. AI Agent Integration
+## 13. AI Agent Integration
 
 ### AI as developer
 

@@ -8,6 +8,7 @@ import { nodeAdd, nodeRm, nodeSet, nodeGet, nodeList, nodeMove } from './command
 import { inputKey, inputClick, inputAxis } from './commands/input.js';
 import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js';
 import { queryScene, queryNodes, queryDiff, queryCollisions } from './commands/query.js';
+import { buildCommand } from './commands/build.js';
 
 function getProjectDir(): string {
   return process.cwd();
@@ -71,6 +72,15 @@ export function createProgram(): Command {
     .description('Spawn play instance from editor snapshot')
     .action(async (opts: { hotReload?: boolean }) => {
       await playCommand(getProjectDir(), opts.hotReload ?? false);
+    });
+
+  // Build
+  program
+    .command('build')
+    .option('--output <dir>', 'Output directory', 'build')
+    .description('Package project for distribution')
+    .action(async (opts: { output: string }) => {
+      await buildCommand(getProjectDir(), opts.output);
     });
 
   // Scene

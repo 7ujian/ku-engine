@@ -1,4 +1,6 @@
 import type { PropertyMap } from './types.js';
+import type { SceneTree } from './scene-tree.js';
+import { resolveSymbol, type ResolverContext } from './resolve-symbol.js';
 
 type Operator = 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'between';
 
@@ -6,27 +8,16 @@ export function evaluateCondition(
   node: PropertyMap,
   condition: Record<string, Record<string, unknown>>,
   context: Record<string, unknown> = {},
+  tree?: SceneTree,
 ): boolean {
+  const resolverCtx: ResolverContext = { properties: node, context, tree };
   for (const [propPath, ops] of Object.entries(condition)) {
-    const value = resolveValue(node, propPath, context);
+    const value = resolveSymbol(propPath, resolverCtx);
     for (const [op, target] of Object.entries(ops)) {
       if (!applyOperator(op as Operator, value, target)) return false;
     }
   }
   return true;
-}
-
-function resolveValue(node: PropertyMap, propPath: string, context: Record<string, unknown>): unknown {
-  if (propPath.startsWith('context.')) {
-    return context[propPath.slice(8)];
-  }
-  const parts = propPath.split('.');
-  let current: unknown = node;
-  for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') return undefined;
-    current = (current as PropertyMap)[part];
-  }
-  return current;
 }
 
 function applyOperator(op: Operator, value: unknown, target: unknown): boolean {

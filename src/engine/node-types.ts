@@ -36,12 +36,17 @@ export const createSprite = factory('Sprite', {
   flip_v: false,
   frame: 0,
   hframes: 1,
+  atlas: '',
+  region: '',
 });
 
 export const createAnimatedSprite = factory('AnimatedSprite', {
   frames: [],
   speed: 10,
   playing: false,
+  atlas: '',
+  animations: {},
+  animation: '',
 });
 
 export const createRigidBody = factory('RigidBody', {

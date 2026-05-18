@@ -43,9 +43,18 @@ export interface NodeData {
   children: NodeData[];
   scripts: ScriptRule[];
   instance?: string;
+  js_script?: string;
 }
 
 export interface SceneFile {
   scene: string;
   root: NodeData;
+}
+
+export interface ScriptError {
+  node: string;
+  event: string;
+  action_type: string;
+  reason: string;
+  timestamp: number;
 }

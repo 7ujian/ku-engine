@@ -1,9 +1,11 @@
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
 import { startInstance } from './instance.js';
 import type { InstanceType } from './discovery.js';
 import { ScriptEngine } from '../engine/script-engine.js';
+import { JsScriptEngine } from '../engine/js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { GameLoop } from '../engine/game-loop.js';
 import { Renderer } from '../renderer/renderer.js';
@@ -57,13 +59,21 @@ async function main(): Promise<void> {
     const scripts = new ScriptEngine(tree);
     scripts.registerTree();
 
+    const jsScripts = new JsScriptEngine({ tree, projectDir: dir });
+    await jsScripts.registerTree();
+
     const physics = new PhysicsWorld(tree);
     physics.syncFromTree();
 
-    const input = new InputManager(scripts);
+    const input = new InputManager(scripts, jsScripts);
     setInputManager(input);
 
-    const renderer = new Renderer();
+    const projectConfig = JSON.parse(await readFile(resolve(dir, 'project.json'), 'utf-8'));
+    const renderer = new Renderer(
+      projectConfig.window?.width ?? 640,
+      projectConfig.window?.height ?? 480,
+      dir,
+    );
     renderer.setKeyHandler((key, down) => {
       if (down) input.keyDown(key);
       else input.keyUp(key);
@@ -78,10 +88,11 @@ async function main(): Promise<void> {
     // Wire syncClient to scripts/physics for delta application
     if (syncClient) {
       syncClient.scripts = scripts;
+      syncClient.jsScripts = jsScripts;
       syncClient.physics = physics;
     }
 
-    loop = new GameLoop(tree, scripts, physics, renderer, 60, true);
+    loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts);
     setGameLoop(loop);
     loop.start();
   }

@@ -1,0 +1,5 @@
+{
+  "name": "spacecraft",
+  "entry": "scenes/main.json",
+  "window": { "width": 360, "height": 640 }
+}

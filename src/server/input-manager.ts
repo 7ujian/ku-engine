@@ -1,42 +1,52 @@
 import type { ScriptEngine } from '../engine/script-engine.js';
+import type { JsScriptEngine } from '../engine/js-script-engine.js';
 
 export class InputManager {
   private scripts: ScriptEngine;
+  private jsScripts: JsScriptEngine | null;
   private keys = new Set<string>();
 
-  constructor(scripts: ScriptEngine) {
+  constructor(scripts: ScriptEngine, jsScripts?: JsScriptEngine) {
     this.scripts = scripts;
+    this.jsScripts = jsScripts ?? null;
   }
 
   keyDown(key: string): void {
     if (this.keys.has(key)) return;
     this.keys.add(key);
     this.scripts.evaluateEvent('on_key', { key });
+    this.jsScripts?.evaluateEvent('on_key', { key });
   }
 
   keyUp(key: string): void {
     this.keys.delete(key);
     this.scripts.evaluateEvent('on_key_up', { key });
+    this.jsScripts?.evaluateEvent('on_key_up', { key });
   }
 
   click(x: number, y: number): void {
     this.scripts.evaluateEvent('on_click', { x, y });
+    this.jsScripts?.evaluateEvent('on_click', { x, y });
   }
 
   setAxis(name: string, value: number): void {
     this.scripts.evaluateEvent('on_axis', { name, value });
+    this.jsScripts?.evaluateEvent('on_axis', { name, value });
   }
 
   touchStart(x: number, y: number, pointerId: number): void {
     this.scripts.evaluateEvent('on_touch_start', { x, y, pointerId });
+    this.jsScripts?.evaluateEvent('on_touch_start', { x, y, pointerId });
   }
 
   touchMove(x: number, y: number, pointerId: number): void {
     this.scripts.evaluateEvent('on_touch_move', { x, y, pointerId });
+    this.jsScripts?.evaluateEvent('on_touch_move', { x, y, pointerId });
   }
 
   touchEnd(x: number, y: number, pointerId: number): void {
     this.scripts.evaluateEvent('on_touch_end', { x, y, pointerId });
+    this.jsScripts?.evaluateEvent('on_touch_end', { x, y, pointerId });
   }
 
   isKeyDown(key: string): boolean {

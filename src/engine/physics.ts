@@ -6,6 +6,7 @@ import type { PropertyMap } from './types.js';
 export class PhysicsWorld {
   private engine: Matter.Engine;
   private bodyMap = new Map<string, Matter.Body>();
+  private parentCache = new Map<string, string | null>();
   private tree: SceneTree;
 
   constructor(tree: SceneTree) {
@@ -16,14 +17,15 @@ export class PhysicsWorld {
   }
 
   syncFromTree(): void {
-    this.tree.traverse((node) => {
-      if (node.type === 'RigidBody') {
-        this.syncBody(node);
-      } else if (node.type === 'CollisionShape') {
-        this.syncShape(node);
-      } else if (node.type === 'Area') {
-        this.syncArea(node);
-      }
+    this.parentCache.clear();
+    this.bodyMap.clear();
+    this.tree.traverse((node, path) => {
+      const lastSlash = path.lastIndexOf('/');
+      this.parentCache.set(node.id, lastSlash <= 0 ? null : path.slice(0, lastSlash));
+
+      if (node.type === 'RigidBody') this.syncBody(node);
+      else if (node.type === 'CollisionShape') this.syncShape(node);
+      else if (node.type === 'Area') this.syncArea(node);
     });
   }
 
@@ -41,8 +43,13 @@ export class PhysicsWorld {
       }
     }
 
+    // Reposition child shapes to follow their parent rigid bodies
+    this.syncChildShapes();
+
     Matter.Engine.update(this.engine, dt);
     this.syncToTree();
+    // Final child shape sync after physics update
+    this.syncChildShapes();
   }
 
   applyNodeChanges(): void {
@@ -67,10 +74,36 @@ export class PhysicsWorld {
     }
   }
 
+  private syncChildShapes(): void {
+    for (const [nodeId, body] of this.bodyMap) {
+      try {
+        const node = this.tree.get(nodeId);
+        if (node.type !== 'CollisionShape') continue;
+
+        const parentPath = this.getParentPathCached(node);
+        if (!parentPath) continue;
+
+        const parent = this.tree.get(parentPath);
+        const parentBody = this.bodyMap.get(parent.id);
+        // Use physics body position for the parent (more accurate than node property during step)
+        const parentX = parentBody ? parentBody.position.x : ((parent.getProperty('x') as number) ?? 0);
+        const parentY = parentBody ? parentBody.position.y : ((parent.getProperty('y') as number) ?? 0);
+        const offsetX = (node.getProperty('x') as number) ?? 0;
+        const offsetY = (node.getProperty('y') as number) ?? 0;
+
+        Matter.Body.setPosition(body, { x: parentX + offsetX, y: parentY + offsetY });
+      } catch {
+        // node removed
+      }
+    }
+  }
+
   syncToTree(): void {
     for (const [nodeId, body] of this.bodyMap) {
       try {
         const node = this.tree.get(nodeId);
+        // Skip writing position back for child shapes — their position is derived from parent
+        if (node.type === 'CollisionShape') continue;
         node.setProperty('x', body.position.x);
         node.setProperty('y', body.position.y);
         node.setPropertyByPath('velocity.x', body.velocity.x);
@@ -149,9 +182,8 @@ export class PhysicsWorld {
   }
 
   private syncShape(node: Node): void {
-    // CollisionShapes are static bodies
     const existing = this.bodyMap.get(node.id);
-    const parentPath = this.getParentPath(node);
+    const parentPath = this.getParentPathCached(node);
     let x = (node.getProperty('x') as number) ?? 0;
     let y = (node.getProperty('y') as number) ?? 0;
 
@@ -171,6 +203,7 @@ export class PhysicsWorld {
     const shape = (node.getProperty('shape') as string) ?? 'rect';
     const width = (node.getProperty('width') as number) ?? 32;
     const height = (node.getProperty('height') as number) ?? 32;
+    const isStatic = !(node.getProperty('dynamic') as boolean);
 
     let body: Matter.Body;
     const collisionFilter = {
@@ -179,9 +212,13 @@ export class PhysicsWorld {
     };
     if (shape === 'circle') {
       const radius = (node.getProperty('radius') as number) ?? 16;
-      body = Matter.Bodies.circle(x, y, radius, { label: node.id, isStatic: true, collisionFilter });
+      body = Matter.Bodies.circle(x, y, radius, { label: node.id, isStatic, collisionFilter });
     } else {
-      body = Matter.Bodies.rectangle(x, y, width, height, { label: node.id, isStatic: true, collisionFilter });
+      body = Matter.Bodies.rectangle(x, y, width, height, { label: node.id, isStatic, collisionFilter });
+    }
+
+    if (!isStatic) {
+      body.plugin = { gravityScale: 0 };
     }
 
     Matter.Composite.add(this.engine.world, body);
@@ -213,14 +250,17 @@ export class PhysicsWorld {
     this.bodyMap.set(node.id, body);
   }
 
-  private getParentPath(_node: Node): string | null {
+  private getParentPathCached(node: Node): string | null {
+    if (this.parentCache.has(node.id)) return this.parentCache.get(node.id) ?? null;
+    // Fallback: find via traversal
     let found = false;
     let parentPath: string | null = null;
-    this.tree.traverse((node, path) => {
+    this.tree.traverse((n, path) => {
       if (found) return;
-      if (node === _node) {
+      if (n === node) {
         const lastSlash = path.lastIndexOf('/');
         parentPath = lastSlash <= 0 ? null : path.slice(0, lastSlash);
+        this.parentCache.set(node.id, parentPath);
         found = true;
       }
     });
@@ -237,9 +277,22 @@ export class PhysicsWorld {
       Matter.Composite.remove(this.engine.world, body);
       this.bodyMap.delete(nodeId);
     }
+    this.parentCache.delete(nodeId);
   }
 
   syncNode(node: Node): void {
+    // Ensure parent cache is populated for this node
+    if (!this.parentCache.has(node.id)) {
+      let found = false;
+      this.tree.traverse((n, path) => {
+        if (found) return;
+        if (n === node) {
+          const lastSlash = path.lastIndexOf('/');
+          this.parentCache.set(node.id, lastSlash <= 0 ? null : path.slice(0, lastSlash));
+          found = true;
+        }
+      });
+    }
     if (node.type === 'RigidBody') this.syncBody(node);
     else if (node.type === 'CollisionShape') this.syncShape(node);
     else if (node.type === 'Area') this.syncArea(node);
@@ -248,5 +301,6 @@ export class PhysicsWorld {
   destroy(): void {
     Matter.Engine.clear(this.engine);
     this.bodyMap.clear();
+    this.parentCache.clear();
   }
 }

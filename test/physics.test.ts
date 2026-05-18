@@ -80,4 +80,35 @@ describe('PhysicsWorld', () => {
     world.destroy();
     // No errors means cleanup worked
   });
+
+  it('child CollisionShape follows parent RigidBody', () => {
+    const root = new Node('root', 'Node');
+    const player = new Node('player', 'RigidBody', { x: 100, y: 100, mass: 1, velocity: { x: 0, y: 0 }, gravity_scale: 1, linear_damping: 0, width: 32, height: 32 });
+    const shape = new Node('shape', 'CollisionShape', { shape: 'rect', width: 32, height: 32, x: 10, y: 0 });
+    player.addChild(shape);
+    root.addChild(player);
+
+    const tree = new SceneTree(root);
+    const world = new PhysicsWorld(tree);
+    world.syncFromTree();
+
+    // Initial shape position should be parent + offset
+    const shapeBody = (world as any).bodyMap.get('shape');
+    expect(shapeBody.position.x).toBeCloseTo(110);
+    expect(shapeBody.position.y).toBeCloseTo(100);
+
+    // Step physics — parent falls due to gravity
+    world.step(1000 / 60);
+    world.step(1000 / 60);
+    world.step(1000 / 60);
+
+    // Shape should still track parent position + offset
+    const playerBody = (world as any).bodyMap.get('player');
+    const parentY = playerBody.position.y;
+    expect(shapeBody.position.x).toBeCloseTo(110, 0);
+    // Shape Y should be at parent Y + 0 offset
+    expect(shapeBody.position.y).toBeCloseTo(parentY, 0);
+
+    world.destroy();
+  });
 });

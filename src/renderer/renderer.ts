@@ -1,5 +1,6 @@
 import sdl from '@kmamal/sdl';
 import { createCanvas, loadImage, type Canvas, type Image } from '@napi-rs/canvas';
+import { resolve } from 'node:path';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
 import { findCamera, type CameraState } from './camera.js';
@@ -42,13 +43,15 @@ export class Renderer {
   private lastTime = 0;
   private onKey: KeyHandler | null = null;
   private onTouch: TouchHandler | null = null;
+  private projectDir: string;
 
-  constructor(width = 640, height = 480) {
+  constructor(width = 640, height = 480, projectDir = '.') {
     this.width = width;
     this.height = height;
+    this.projectDir = resolve(projectDir);
     this.canvas = createCanvas(width, height);
     this.ctx = this.canvas.getContext('2d');
-    this.spriteRenderer = new SpriteRenderer(this.ctx);
+    this.spriteRenderer = new SpriteRenderer(this.ctx, this.projectDir);
     this.tilemapRenderer = new TilemapRenderer(this.ctx);
     this.labelRenderer = new LabelRenderer(this.ctx);
   }
@@ -136,16 +139,20 @@ export class Renderer {
     ctx.scale(cam.zoom, cam.zoom);
     ctx.translate(-cam.x - this.width / 2, -cam.y - this.height / 2);
 
-    // Pre-load textures for visible sprites/tilemaps
+    // Pre-load textures for visible sprites/tilemaps/atlas nodes
     const loadPromises: Promise<void>[] = [];
     tree.traverse((node) => {
+      const atlas = (node.getProperty('atlas') as string) ?? '';
+      if (atlas && !this.spriteRenderer.hasAtlas(atlas)) {
+        loadPromises.push(this.spriteRenderer.loadAtlasFile(atlas).then(() => {}));
+      }
+
       if (node.type === 'Sprite' || node.type === 'AnimatedSprite') {
         const texture = (node.getProperty('texture') as string) ?? '';
-        if (texture && !this.spriteRenderer.getTextureSync(texture)) {
+        if (texture && !atlas && !this.spriteRenderer.getTextureSync(texture)) {
           loadPromises.push(this.spriteRenderer.loadTexture(texture).then(() => {}));
         }
-        // Also load frames for AnimatedSprite
-        if (node.type === 'AnimatedSprite') {
+        if (node.type === 'AnimatedSprite' && !atlas) {
           const frames = node.getProperty('frames') as string[] | undefined;
           if (frames) {
             for (const f of frames) {
@@ -155,7 +162,9 @@ export class Renderer {
             }
           }
         }
-      } else if (node.type === 'TileMap') {
+      }
+
+      if (node.type === 'TileMap') {
         const tileset = (node.getProperty('tileset') as string) ?? '';
         const cellSize = (node.getProperty('cell_size') as number) ?? 16;
         if (tileset) {
@@ -197,20 +206,24 @@ export class Renderer {
       case 'TileMap':
         this.tilemapRenderer.drawTilemap(node, x, y);
         break;
-      case 'RigidBody': {
-        const color = (node.getProperty('color') as string) ?? '#ffff00';
-        const rbW = (node.getProperty('width') as number) ?? 30;
-        const rbH = (node.getProperty('height') as number) ?? 24;
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x - rbW / 2, y - rbH / 2, rbW, rbH);
-        break;
-      }
+      case 'RigidBody':
       case 'CollisionShape': {
-        const color = (node.getProperty('color') as string) ?? '#33cc33';
-        const csW = (node.getProperty('width') as number) ?? 32;
-        const csH = (node.getProperty('height') as number) ?? 32;
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x - csW / 2, y - csH / 2, csW, csH);
+        const atlasPath = (node.getProperty('atlas') as string) ?? '';
+        if (atlasPath) {
+          const animName = (node.getProperty('animation') as string) ?? '';
+          const animations = (node.getProperty('animations') as Record<string, unknown>) ?? {};
+          if (animName && Object.keys(animations).length > 0) {
+            this.spriteRenderer.drawAnimatedSprite(node, x, y, dt);
+          } else {
+            this.spriteRenderer.drawSprite(node, x, y, dt);
+          }
+        } else {
+          const color = (node.getProperty('color') as string) ?? (node.type === 'RigidBody' ? '#ffff00' : '#33cc33');
+          const w = (node.getProperty('width') as number) ?? (node.type === 'RigidBody' ? 30 : 32);
+          const h = (node.getProperty('height') as number) ?? (node.type === 'RigidBody' ? 24 : 32);
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(x - w / 2, y - h / 2, w, h);
+        }
         break;
       }
       case 'Area': {

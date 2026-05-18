@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
 import { ScriptEngine } from '../engine/script-engine.js';
+import { JsScriptEngine } from '../engine/js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import type { NodeData, ScriptRule } from '../engine/types.js';
 import type { SyncOp } from './message-handler.js';
@@ -12,6 +13,7 @@ export class SyncClient {
   private ws: WebSocket | null = null;
   private tree: SceneTree;
   private _scripts: ScriptEngine | null = null;
+  private _jsScripts: JsScriptEngine | null = null;
   private _physics: PhysicsWorld | null = null;
   private editorPort: number;
   private hotReload: boolean;
@@ -23,6 +25,7 @@ export class SyncClient {
   }
 
   set scripts(engine: ScriptEngine | null) { this._scripts = engine; }
+  set jsScripts(engine: JsScriptEngine | null) { this._jsScripts = engine; }
   set physics(world: PhysicsWorld | null) { this._physics = world; }
 
   async connect(): Promise<void> {
@@ -97,6 +100,7 @@ export class SyncClient {
 
     if (this._scripts) this._scripts.registerTree();
     if (this._physics) this._physics.syncFromTree();
+    if (this._jsScripts) this._jsScripts.registerTree();
   }
 
   applyDelta(ops: SyncOp[]): void {
@@ -116,6 +120,7 @@ export class SyncClient {
         this.tree.add(op.path, node);
         if (this._scripts) this._scripts.registerNode(node);
         if (this._physics) this._physics.syncNode(node);
+        if (this._jsScripts && (node as any).js_script) this._jsScripts.registerNode(node);
         break;
       }
       case 'remove': {
@@ -123,6 +128,7 @@ export class SyncClient {
         try {
           const node = this.tree.get(op.path);
           if (this._scripts) this._scripts.unregisterNodeById(node.id);
+          if (this._jsScripts) this._jsScripts.unregisterNodeById(node.id);
           if (this._physics) this._physics.removeBody(node.id);
         } catch { /* already gone */ }
         this.tree.remove(op.path);
@@ -133,6 +139,10 @@ export class SyncClient {
         const node = this.tree.get(op.path);
         node.setProperty(op.property, op.value as Node['properties'][string]);
         if (this._physics) this._physics.syncNode(node);
+        if (this._jsScripts && op.property === 'js_script') {
+          this._jsScripts.unregisterNodeById(node.id);
+          if ((node as any).js_script) this._jsScripts.registerNode(node);
+        }
         break;
       }
       case 'move': {

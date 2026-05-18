@@ -1,0 +1,83 @@
+{
+  "player_idle": {
+    "frames": [
+      "player_0",
+      "player_1",
+      "player_2",
+      "player_3"
+    ],
+    "speed": 8,
+    "loop": true,
+    "ping_pong": true
+  },
+  "enemy_small_idle": {
+    "frames": [
+      "enemy_small_0",
+      "enemy_small_1",
+      "enemy_small_2",
+      "enemy_small_3"
+    ],
+    "speed": 6,
+    "loop": true,
+    "ping_pong": true
+  },
+  "enemy_medium_idle": {
+    "frames": [
+      "enemy_medium_0",
+      "enemy_medium_1",
+      "enemy_medium_2",
+      "enemy_medium_3"
+    ],
+    "speed": 6,
+    "loop": true,
+    "ping_pong": true
+  },
+  "enemy_large_idle": {
+    "frames": [
+      "enemy_large_0",
+      "enemy_large_1",
+      "enemy_large_2",
+      "enemy_large_3"
+    ],
+    "speed": 6,
+    "loop": true,
+    "ping_pong": true
+  },
+  "boss_idle": {
+    "frames": [
+      "boss_0",
+      "boss_1",
+      "boss_2",
+      "boss_3"
+    ],
+    "speed": 4,
+    "loop": true,
+    "ping_pong": true
+  },
+  "bullet_player": {
+    "frames": [
+      "bullet_player_0"
+    ],
+    "speed": 1,
+    "loop": true
+  },
+  "bullet_boss": {
+    "frames": [
+      "bullet_boss_0",
+      "bullet_boss_1"
+    ],
+    "speed": 10,
+    "loop": true
+  },
+  "explosion": {
+    "frames": [
+      "explosion_0",
+      "explosion_1",
+      "explosion_2",
+      "explosion_3",
+      "explosion_4"
+    ],
+    "speed": 12,
+    "loop": false
+  }
+}

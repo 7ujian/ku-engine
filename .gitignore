@@ -3,3 +3,4 @@ dist/
 .ku.*.pid
 .ku.*.port
 .ku.attach
+.claude/

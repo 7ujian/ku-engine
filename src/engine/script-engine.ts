@@ -4,13 +4,14 @@ import { EventBus } from './event-bus.js';
 import { evaluateExpression } from './expression-evaluator.js';
 import { evaluateCondition } from './conditions.js';
 import { createNodeByType } from './node-types.js';
-import type { ScriptRule, ScriptAction, PropertyMap } from './types.js';
+import type { ScriptRule, ScriptAction, PropertyMap, ScriptError } from './types.js';
 
 export class ScriptEngine {
   private bus = new EventBus();
   private registrations = new Map<Node, ScriptRule[]>();
   private tree: SceneTree;
   private logs: string[] = [];
+  private errors: ScriptError[] = [];
   private namedScripts = new Map<string, { node: Node; script: ScriptRule }>();
 
   constructor(tree: SceneTree) {
@@ -46,13 +47,15 @@ export class ScriptEngine {
   }
 
   evaluateEvent(event: string, data: Record<string, unknown> = {}): void {
+    const targetNode = data.node as string | undefined;
     for (const [node, scripts] of this.registrations) {
+      if (targetNode && node.id !== targetNode) continue;
       for (const script of scripts) {
         if (script.event !== event) continue;
         if (script.filter && !matchFilter(script.filter, data)) continue;
-        if (script.condition && !evaluateCondition(node.properties, script.condition, data)) continue;
+        if (script.condition && !evaluateCondition(node.properties, script.condition, data, this.tree)) continue;
         for (const action of script.actions) {
-          this.executeAction(node, action, data);
+          this.executeAction(node, action, data, event);
         }
       }
     }
@@ -70,28 +73,44 @@ export class ScriptEngine {
     this.logs = [];
   }
 
-  private executeAction(node: Node, action: ScriptAction, context: Record<string, unknown>): void {
+  getErrors(): ScriptError[] {
+    return [...this.errors];
+  }
+
+  clearErrors(): void {
+    this.errors = [];
+  }
+
+  private recordError(nodeId: string, event: string, actionType: string, reason: string): void {
+    this.errors.push({ node: nodeId, event, action_type: actionType, reason, timestamp: Date.now() });
+  }
+
+  private executeAction(node: Node, action: ScriptAction, context: Record<string, unknown>, event: string): void {
     if (action.set_on) {
       // Cross-node property write: { "set_on": "player", "key": "dead", "to": true }
       try {
         const target = this.tree.get(action.set_on);
-        const value = evaluateExpression(this.resolveCrossNodeRefs(action.to, node), node.properties, context);
+        const value = evaluateExpression(action.to, node.properties, context, this.tree);
         target.setProperty(action.key ?? 'value', value as Node['properties'][string]);
-      } catch { /* target not found */ }
+      } catch {
+        this.recordError(node.id, event, 'set_on', `target not found: ${action.set_on}`);
+      }
     } else if (action.set !== undefined) {
-      const value = evaluateExpression(this.resolveCrossNodeRefs(action.to, node), node.properties, context);
+      const value = evaluateExpression(action.to, node.properties, context, this.tree);
       node.setPropertyByPath(action.set, value);
     } else if (action.move) {
-      const dx = evaluateExpression(action.move.x, node.properties, context) as number ?? 0;
-      const dy = evaluateExpression(action.move.y, node.properties, context) as number ?? 0;
+      const dx = evaluateExpression(action.move.x, node.properties, context, this.tree) as number ?? 0;
+      const dy = evaluateExpression(action.move.y, node.properties, context, this.tree) as number ?? 0;
       const x = (node.getProperty('x') as number ?? 0) + dx;
       const y = (node.getProperty('y') as number ?? 0) + dy;
       node.setProperty('x', x);
       node.setProperty('y', y);
     } else if (action.destroy) {
-      const raw = evaluateExpression(action.destroy, node.properties, context) as string;
+      const raw = evaluateExpression(action.destroy, node.properties, context, this.tree) as string;
       const path = raw === 'self' ? this.getNodePath(node) : raw;
-      try { this.tree.remove(path); } catch { /* node may already be gone */ }
+      try { this.tree.remove(path); } catch {
+        this.recordError(node.id, event, 'destroy', `node not found: ${path}`);
+      }
     } else if (action.emit) {
       const eventData = action.data as Record<string, unknown> | undefined;
       const payload = eventData ?? {};
@@ -99,9 +118,9 @@ export class ScriptEngine {
       // Bridge: also deliver to registered scripts
       this.evaluateEvent(action.emit, { ...payload, from: node.id });
     } else if (action.move_toward) {
-      const tx = evaluateExpression(action.move_toward.x, node.properties, context) as number ?? 0;
-      const ty = evaluateExpression(action.move_toward.y, node.properties, context) as number ?? 0;
-      const speed = evaluateExpression(action.move_toward.speed, node.properties, context) as number ?? 3;
+      const tx = evaluateExpression(action.move_toward.x, node.properties, context, this.tree) as number ?? 0;
+      const ty = evaluateExpression(action.move_toward.y, node.properties, context, this.tree) as number ?? 0;
+      const speed = evaluateExpression(action.move_toward.speed, node.properties, context, this.tree) as number ?? 3;
       const nx = (node.getProperty('x') as number) ?? 0;
       const ny = (node.getProperty('y') as number) ?? 0;
       const dx = tx - nx;
@@ -115,25 +134,25 @@ export class ScriptEngine {
         node.setProperty('y', ny + (dy / dist) * speed);
       }
     } else if (action.log) {
-      const msg = evaluateExpression(action.log, node.properties, context) as string;
+      const msg = evaluateExpression(action.log, node.properties, context, this.tree) as string;
       this.logs.push(msg);
     } else if (action.spawn) {
-      this.executeSpawn(node, action, context);
+      this.executeSpawn(node, action, context, event);
     } else if (action.call) {
       this.executeCall(action, context);
     } else if (action.play) {
-      this.executePlay(node, action, context);
+      this.executePlay(node, action, context, event);
     } else if (action.stop) {
-      this.executeStop(node, action, context);
+      this.executeStop(node, action, context, event);
     }
   }
 
-  private executeSpawn(node: Node, action: ScriptAction, context: Record<string, unknown>): void {
+  private executeSpawn(node: Node, action: ScriptAction, context: Record<string, unknown>, event: string): void {
     const spawnExpr = action.spawn ?? '';
-    const spawnType = evaluateExpression(spawnExpr, node.properties, context) as string;
+    const spawnType = evaluateExpression(spawnExpr, node.properties, context, this.tree) as string;
     const spawnId = action.as ?? `${spawnType}_${Date.now()}`;
-    const atX = action.at?.x !== undefined ? (evaluateExpression(action.at.x, node.properties, context) as number) : (node.getProperty('x') as number ?? 0);
-    const atY = action.at?.y !== undefined ? (evaluateExpression(action.at.y, node.properties, context) as number) : (node.getProperty('y') as number ?? 0);
+    const atX = action.at?.x !== undefined ? (evaluateExpression(action.at.x, node.properties, context, this.tree) as number) : (node.getProperty('x') as number ?? 0);
+    const atY = action.at?.y !== undefined ? (evaluateExpression(action.at.y, node.properties, context, this.tree) as number) : (node.getProperty('y') as number ?? 0);
 
     try {
       const spawned = createNodeByType(spawnType, spawnId, { x: atX, y: atY });
@@ -141,7 +160,7 @@ export class ScriptEngine {
       // Apply custom properties from the action
       if (action.properties) {
         for (const [key, value] of Object.entries(action.properties)) {
-          const resolved = evaluateExpression(this.resolveCrossNodeRefs(value, node), node.properties, context);
+          const resolved = evaluateExpression(value, node.properties, context, this.tree);
           spawned.setPropertyByPath(key, resolved);
         }
       }
@@ -154,7 +173,7 @@ export class ScriptEngine {
       this.tree.add('/', spawned);
       this.registerNode(spawned);
     } catch {
-      // unknown type or tree error — skip
+      this.recordError(node.id, event, 'spawn', `failed: type=${spawnType} id=${spawnId}`);
     }
   }
 
@@ -163,48 +182,33 @@ export class ScriptEngine {
     const entry = this.namedScripts.get(scriptName);
     if (!entry) return;
     const { node, script } = entry;
-    if (script.condition && !evaluateCondition(node.properties, script.condition, context)) return;
+    if (script.condition && !evaluateCondition(node.properties, script.condition, context, this.tree)) return;
     for (const a of script.actions) {
-      this.executeAction(node, a, context);
+      this.executeAction(node, a, context, script.event);
     }
   }
 
-  private executePlay(node: Node, action: ScriptAction, _context: Record<string, unknown>): void {
-    const targetPath = evaluateExpression(action.play, node.properties, _context) as string;
+  private executePlay(node: Node, action: ScriptAction, _context: Record<string, unknown>, event: string): void {
+    const targetPath = evaluateExpression(action.play, node.properties, _context, this.tree) as string;
     try {
       const target = this.tree.get(targetPath);
       target.setProperty('playing', true);
       if (action.from !== undefined) {
         target.setProperty('frame', action.from);
       }
-    } catch { /* ignore */ }
+    } catch {
+      this.recordError(node.id, event, 'play', `target not found: ${targetPath}`);
+    }
   }
 
-  private executeStop(node: Node, action: ScriptAction, _context: Record<string, unknown>): void {
-    const targetPath = evaluateExpression(action.stop, node.properties, _context) as string;
+  private executeStop(node: Node, action: ScriptAction, _context: Record<string, unknown>, event: string): void {
+    const targetPath = evaluateExpression(action.stop, node.properties, _context, this.tree) as string;
     try {
       const target = this.tree.get(targetPath);
       target.setProperty('playing', false);
-    } catch { /* ignore */ }
-  }
-
-  /** Resolve {{/nodeId/prop}} cross-node references in a template */
-  private resolveCrossNodeRefs(template: unknown, _currentNode: Node): unknown {
-    if (typeof template !== 'string') return template;
-    return template.replace(/\{\{\/([^/}]+)\/(.+?)\}\}/g, (_, nodeId: string, propPath: string) => {
-      try {
-        const target = this.tree.get(nodeId);
-        const parts = propPath.split('.');
-        let val: unknown = target.properties;
-        for (const p of parts) {
-          if (val == null || typeof val !== 'object') return '0';
-          val = (val as PropertyMap)[p];
-        }
-        return String(val ?? 0);
-      } catch {
-        return '0';
-      }
-    });
+    } catch {
+      this.recordError(node.id, event, 'stop', `target not found: ${targetPath}`);
+    }
   }
 
   /** Get the tree path for a node */
