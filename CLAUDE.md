@@ -41,7 +41,9 @@ Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, 
 
 **JS Scripting** — Sandboxed `vm` engine runs alongside JSON scripts. `ctx` API: `node.get/set`, `scene.get/set/spawn/destroy/find`, `emit`, `log`, `dt`, `data`. Per-node isolated state. Custom events on separate EventBus.
 
-**CLI** — `-p, --project <dir>` global flag. Commander.js with subcommands for scene, node, input, query, runtime control, build.
+**CLI** — `-p, --project <dir>` global flag. Commander.js with subcommands for scene, node, input, query, runtime control, build. Interactive shell (`ku shell`) with persistent WebSocket, readline REPL, double-Ctrl+C exit.
+
+**Shell** — `ku shell` interactive REPL with persistent WebSocket connection. Reuses same message protocol as one-shot CLI commands. Command dispatch table covers all node/scene/input/query/runtime operations. Builtins for attach/detach/instances/help. `--command <cmd>` flag for one-shot non-interactive use.
 
 **Audio** — SDL2 audio backend (`AudioManager`). WAV PCM playback with software mixing for multiple simultaneous sounds. Volume control. `AudioPlayer` nodes triggered via `play`/`stop` script actions. Graceful fallback when SDL2 unavailable.
 
@@ -92,6 +94,10 @@ npm run build                  # compile TypeScript
 | `src/server/message-handler.ts` | WebSocket message routing, sync ops |
 | `src/server/sync-client.ts` | Edit→play delta streaming |
 | `src/cli/cli.ts` | Commander.js CLI definition |
+| `src/cli/commands/shell.ts` | Interactive shell REPL with persistent WebSocket |
+| `src/cli/commands/node.ts` | Node CRUD CLI commands |
+| `src/cli/commands/scene.ts` | Scene management CLI commands |
+| `src/cli/commands/edit.ts` | Instance lifecycle + attachment state |
 
 ## Key constraints
 
