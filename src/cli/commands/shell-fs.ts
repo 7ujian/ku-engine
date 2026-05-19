@@ -208,6 +208,9 @@ export class FsSession {
         this.prompt();
       });
 
+      // Wire tab completion
+      this.parent.setCompleter((line: string) => this.complete(line));
+
       console.log('Entering filesystem mode. Type "exit" to return to normal shell.');
       this.prompt();
     });
@@ -215,9 +218,6 @@ export class FsSession {
 
   private exitFs(): void {
     const prevSigint = process.listeners('SIGINT').slice();
-    // Trigger close on the parent's readline — our delegateClose handler fires
-    // But we need to emit 'close' manually. rl.close() would close the whole readline.
-    // Instead, just clean up directly.
     this.cleanup(prevSigint, process.listeners('SIGINT')[0] as () => void);
     if (this.exitResolve) {
       this.exitResolve();
@@ -228,9 +228,60 @@ export class FsSession {
   private cleanup(prevSigint: Function[], currentSigint: Function): void {
     process.removeAllListeners('SIGINT');
     for (const fn of prevSigint) process.on('SIGINT', fn as (...args: any[]) => void);
+    this.parent.clearCompleter();
     this.parent.restoreClose();
     this.parent.restoreLine();
     this.parent.promptNow();
+  }
+
+  // Tab completion — query server for child nodes matching the partial path
+  private async complete(line: string): Promise<[string[], string]> {
+    const tokens = line.trim().split(/\s+/);
+    const cmd = tokens[0] ?? '';
+    const lastArg = tokens[tokens.length - 1] ?? '';
+
+    // Commands that expect a path argument
+    const pathCommands = new Set(['cd', 'ls', 'cat', 'rm', 'mv', 'stat', 'tree']);
+    if (!pathCommands.has(cmd) && cmd !== '') return [[], line];
+
+    // If we have more tokens than the command + path, we're past the path arg
+    if (tokens.length > 2 && pathCommands.has(cmd)) return [[], line];
+
+    // Resolve the partial path to find the parent node
+    const partial = tokens.length <= 1 ? '' : lastArg;
+    const dir = partial.includes('/') ? partial.slice(0, partial.lastIndexOf('/') + 1) : '';
+    const prefix = partial.includes('/') ? partial.slice(partial.lastIndexOf('/') + 1) : partial;
+    const baseDir = dir ? resolvePath(this.cwd, dir) : this.cwd;
+
+    // Get node path (strip property chains)
+    const dotIdx = baseDir.indexOf('.');
+    const nodePath = dotIdx > 0 ? baseDir.slice(0, dotIdx) : baseDir;
+
+    try {
+      const resp = await this.parent.send('node.list', { path: nodePath }) as { data?: Array<{ id: string; type: string }>; error?: string };
+      if (resp?.error || !resp?.data) return [[], line];
+      const children = resp.data;
+
+      const hits: string[] = [];
+      const lcPrefix = prefix.toLowerCase();
+      for (const child of children) {
+        if (child.id.toLowerCase().startsWith(lcPrefix)) {
+          hits.push(dir + child.id + '/');
+        }
+      }
+
+      if (hits.length === 0) return [[], line];
+
+      // Find common prefix to determine completion replacement
+      const partialFull = dir + prefix;
+      const commonPrefix = longestCommonPrefix(hits);
+      // Replace only the partial text at the end of the line
+      const replacement = line.slice(0, -partialFull.length) + commonPrefix;
+
+      return [hits, replacement];
+    } catch {
+      return [[], line];
+    }
   }
 
   private async execute(input: string): Promise<void> {
@@ -647,6 +698,18 @@ export class FsSession {
     p.register('quit', () => fBlt('quit', []));
     return p;
   }
+}
+
+function longestCommonPrefix(strings: string[]): string {
+  if (strings.length === 0) return '';
+  let prefix = strings[0];
+  for (let i = 1; i < strings.length; i++) {
+    while (!strings[i].startsWith(prefix)) {
+      prefix = prefix.slice(0, -1);
+      if (prefix === '') return '';
+    }
+  }
+  return prefix;
 }
 
 // ---------------------------------------------------------------------------

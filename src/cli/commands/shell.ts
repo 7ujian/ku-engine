@@ -234,6 +234,20 @@ export class ShellSession {
     this.rl?.on('close', handler);
   }
 
+  setCompleter(completer: (line: string) => Promise<[string[], string]>): void {
+    if (this.rl) {
+      (this.rl as any).completer = (line: string, cb: (err: any, result: [string[], string]) => void) => {
+        completer(line).then(r => cb(null, r), err => cb(err, [[], line]));
+      };
+    }
+  }
+
+  clearCompleter(): void {
+    if (this.rl) {
+      (this.rl as any).completer = null;
+    }
+  }
+
   restoreClose(): void {
     this.rl?.removeAllListeners('close');
     this.rl?.on('close', () => {
