@@ -84,11 +84,11 @@ function blt(name: string, args: string[]): ParseResult {
 }
 
 function splitPathProp(raw: string): { path: string; property?: string } {
-  const lastDot = raw.lastIndexOf('.');
-  if (lastDot <= 0 || raw[lastDot - 1] === '/') {
+  const firstDot = raw.indexOf('.');
+  if (firstDot <= 0 || raw[firstDot - 1] === '/') {
     return { path: raw };
   }
-  return { path: raw.slice(0, lastDot), property: raw.slice(lastDot + 1) };
+  return { path: raw.slice(0, firstDot), property: raw.slice(firstDot + 1) };
 }
 
 function parseJsonValue(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
@@ -300,7 +300,7 @@ describe('shell command parser', () => {
     it('parses node get with nested property', () => {
       const r = parse('node get /player.velocity.x');
       expect(r.kind).toBe('server');
-      expect(r.params).toEqual({ path: '/player.velocity', property: 'x' });
+      expect(r.params).toEqual({ path: '/player', property: 'velocity.x' });
     });
 
     it('parses node list', () => {

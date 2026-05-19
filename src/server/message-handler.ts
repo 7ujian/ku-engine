@@ -110,7 +110,7 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const property = payload.property as string;
       const value = payload.value;
       const node = tree.get(setPath);
-      node.setProperty(property, value as Node['properties'][string]);
+      node.setPropertyByPath(property, value);
       return {
         result: { [property]: value },
         syncOps: [{ op: 'set', path: setPath, property, value }],
@@ -122,7 +122,7 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const property = payload.property as string | undefined;
       const node = tree.get(getPath);
       if (property) {
-        return { result: { [property]: node.getProperty(property) } };
+        return { result: { [property]: node.getPropertyByPath(property) } };
       }
       return { result: node.toJSON() };
     }

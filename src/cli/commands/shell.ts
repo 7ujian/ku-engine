@@ -92,12 +92,12 @@ function blt(name: string, args: string[]): BuiltinResult {
 // ---------------------------------------------------------------------------
 
 function splitPathProp(raw: string): { path: string; property?: string } {
-  // Find last dot that isn't part of a path segment
-  const lastDot = raw.lastIndexOf('.');
-  if (lastDot <= 0 || raw[lastDot - 1] === '/') {
+  // Split on first dot so nested properties work (e.g. boss_hp_label.data.properties)
+  const firstDot = raw.indexOf('.');
+  if (firstDot <= 0 || raw[firstDot - 1] === '/') {
     return { path: raw };
   }
-  return { path: raw.slice(0, lastDot), property: raw.slice(lastDot + 1) };
+  return { path: raw.slice(0, firstDot), property: raw.slice(firstDot + 1) };
 }
 
 function parseJsonValue(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {

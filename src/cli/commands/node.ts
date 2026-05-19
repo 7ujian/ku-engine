@@ -19,7 +19,7 @@ export async function nodeRm(projectDir: string, path: string): Promise<void> {
 
 export async function nodeSet(projectDir: string, pathAndProp: string, valueJson: string): Promise<void> {
   const port = await getPort(projectDir);
-  const dotIndex = pathAndProp.lastIndexOf('.');
+  const dotIndex = pathAndProp.indexOf('.');
   if (dotIndex === -1) {
     printJson({ ok: false, error: 'expected format: path.property' });
     return;
@@ -37,7 +37,7 @@ export async function nodeGet(projectDir: string, pathAndProp?: string): Promise
     printJson({ ok: false, error: 'expected: path or path.property' });
     return;
   }
-  const dotIndex = pathAndProp.lastIndexOf('.');
+  const dotIndex = pathAndProp.indexOf('.');
   let path: string;
   let property: string | undefined;
   if (dotIndex === -1) {
