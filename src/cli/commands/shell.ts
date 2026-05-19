@@ -198,7 +198,6 @@ export class ShellSession {
   private parser: CommandParser;
   private sigintCount = 0;
   private sigintTimer: ReturnType<typeof setTimeout> | null = null;
-  private rlLineHandler: ((line: string) => void) | null = null;
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
@@ -209,13 +208,47 @@ export class ShellSession {
   getProjectDir(): string { return this.projectDir; }
   getCurrentInstance(): InstanceType { return this.currentInstance; }
 
-  pauseReadline(): void {
-    this.rl?.pause();
+  // Let FsSession take over the readline temporarily
+  delegateLine(handler: (line: string) => Promise<void>): void {
+    this.rl?.removeAllListeners('line');
+    this.rl?.on('line', async (line: string) => {
+      this.sigintCount = 0;
+      await handler(line);
+    });
   }
 
-  resumeReadline(): void {
-    this.rl?.resume();
-    this.prompt();
+  restoreLine(): void {
+    this.rl?.removeAllListeners('line');
+    this.rl?.on('line', async (line: string) => {
+      this.sigintCount = 0;
+      const trimmed = line.trim();
+      if (trimmed) {
+        await this.execute(trimmed);
+      }
+      this.prompt();
+    });
+  }
+
+  delegateClose(handler: () => void): void {
+    this.rl?.removeAllListeners('close');
+    this.rl?.on('close', handler);
+  }
+
+  restoreClose(): void {
+    this.rl?.removeAllListeners('close');
+    this.rl?.on('close', () => {
+      console.log('Goodbye.');
+      this.shutdown();
+      process.exit(0);
+    });
+  }
+
+  promptNow(): void {
+    this.rl?.prompt();
+  }
+
+  setRlPrompt(p: string): void {
+    this.rl?.setPrompt(p);
   }
 
   async start(): Promise<void> {

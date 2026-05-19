@@ -1,5 +1,3 @@
-import { createInterface } from 'node:readline';
-import type { InstanceType } from '../../server/discovery.js';
 import type { ShellSession } from './shell.js';
 
 // ---------------------------------------------------------------------------
@@ -163,11 +161,10 @@ export class FsSession {
   private parent: ShellSession;
   private cwd = '/';
   private prevCwd = '/';
-  private rl: ReturnType<typeof createInterface> | null = null;
   private parser: FsParser;
   private sigintCount = 0;
   private sigintTimer: ReturnType<typeof setTimeout> | null = null;
-  private resolveExit: (() => void) | null = null;
+  private exitResolve: (() => void) | null = null;
 
   constructor(parent: ShellSession) {
     this.parent = parent;
@@ -175,12 +172,11 @@ export class FsSession {
   }
 
   async start(): Promise<void> {
-    this.parent.pauseReadline();
+    // Save parent state
+    const prevSigint = process.listeners('SIGINT').slice();
 
-    // Save and replace SIGINT handler for FS mode
-    const prevListeners = process.listeners('SIGINT');
+    // Override SIGINT for FS mode (double-Ctrl+C exits FS only)
     process.removeAllListeners('SIGINT');
-
     const sigintHandler = () => {
       this.sigintCount++;
       if (this.sigintTimer) clearTimeout(this.sigintTimer);
@@ -190,20 +186,20 @@ export class FsSession {
         return;
       }
       this.sigintTimer = setTimeout(() => { this.sigintCount = 0; }, 500);
-      // readline clears the current line automatically
     };
     process.on('SIGINT', sigintHandler);
 
-    this.rl = createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      historySize: 100,
-    });
-
     return new Promise<void>((resolve) => {
-      this.resolveExit = resolve;
+      this.exitResolve = resolve;
 
-      this.rl!.on('line', async (line: string) => {
+      // Take over parent's readline 'close' — exit FS only, not whole shell
+      this.parent.delegateClose(() => {
+        this.cleanup(prevSigint, sigintHandler);
+        resolve();
+      });
+
+      // Take over parent's readline 'line' handler
+      this.parent.delegateLine(async (line: string) => {
         this.sigintCount = 0;
         const trimmed = line.trim();
         if (trimmed) {
@@ -212,25 +208,29 @@ export class FsSession {
         this.prompt();
       });
 
-      this.rl!.on('close', () => {
-        process.removeAllListeners('SIGINT');
-        for (const fn of prevListeners) process.on('SIGINT', fn as (...args: any[]) => void);
-        this.parent.resumeReadline();
-        this.rl = null;
-        resolve();
-      });
-
       console.log('Entering filesystem mode. Type "exit" to return to normal shell.');
       this.prompt();
     });
   }
 
   private exitFs(): void {
-    if (this.rl) {
-      this.rl.close();
-      this.rl = null;
-      // resolveExit will be called by the 'close' handler
+    const prevSigint = process.listeners('SIGINT').slice();
+    // Trigger close on the parent's readline — our delegateClose handler fires
+    // But we need to emit 'close' manually. rl.close() would close the whole readline.
+    // Instead, just clean up directly.
+    this.cleanup(prevSigint, process.listeners('SIGINT')[0] as () => void);
+    if (this.exitResolve) {
+      this.exitResolve();
+      this.exitResolve = null;
     }
+  }
+
+  private cleanup(prevSigint: Function[], currentSigint: Function): void {
+    process.removeAllListeners('SIGINT');
+    for (const fn of prevSigint) process.on('SIGINT', fn as (...args: any[]) => void);
+    this.parent.restoreClose();
+    this.parent.restoreLine();
+    this.parent.promptNow();
   }
 
   private async execute(input: string): Promise<void> {
@@ -625,8 +625,8 @@ export class FsSession {
 
   private prompt(): void {
     const inst = this.parent.getCurrentInstance();
-    this.rl?.setPrompt(`ku:${inst} ${this.cwd}> `);
-    this.rl?.prompt();
+    this.parent.setRlPrompt(`ku:${inst} ${this.cwd}> `);
+    this.parent.promptNow();
   }
 
   private buildParser(): FsParser {
