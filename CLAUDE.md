@@ -95,6 +95,7 @@ npm run build                  # compile TypeScript
 | `src/server/sync-client.ts` | Edit→play delta streaming |
 | `src/cli/cli.ts` | Commander.js CLI definition |
 | `src/cli/commands/shell.ts` | Interactive shell REPL with persistent WebSocket |
+| `src/cli/commands/shell-fs.ts` | Filesystem-style nested REPL (cd, ls, pwd, cat, etc.) |
 | `src/cli/commands/node.ts` | Node CRUD CLI commands |
 | `src/cli/commands/scene.ts` | Scene management CLI commands |
 | `src/cli/commands/edit.ts` | Instance lifecycle + attachment state |

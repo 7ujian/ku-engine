@@ -174,6 +174,7 @@ Available commands:
 
   Shell:
     help                 Show this help
+    fs                   Enter filesystem mode (cd, ls, pwd, cat, ...)
     exit / quit          Exit the shell
 `;
 
@@ -188,7 +189,7 @@ export async function shellCommand(projectDir: string, opts?: { command?: string
   await session.start();
 }
 
-class ShellSession {
+export class ShellSession {
   private projectDir: string;
   private currentInstance: InstanceType;
   private ws: WebSocket | null = null;
@@ -197,11 +198,24 @@ class ShellSession {
   private parser: CommandParser;
   private sigintCount = 0;
   private sigintTimer: ReturnType<typeof setTimeout> | null = null;
+  private rlLineHandler: ((line: string) => void) | null = null;
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
     this.currentInstance = 'edit'; // default, will be set properly in start()
     this.parser = this.buildParser();
+  }
+
+  getProjectDir(): string { return this.projectDir; }
+  getCurrentInstance(): InstanceType { return this.currentInstance; }
+
+  pauseReadline(): void {
+    this.rl?.pause();
+  }
+
+  resumeReadline(): void {
+    this.rl?.resume();
+    this.prompt();
   }
 
   async start(): Promise<void> {
@@ -438,6 +452,12 @@ class ShellSession {
         }
         break;
       }
+      case 'fs': {
+        const { FsSession } = await import('./shell-fs.js');
+        const fsSession = new FsSession(this);
+        await fsSession.start();
+        break;
+      }
       case 'scene.save': {
         const name = args[0];
         try {
@@ -598,6 +618,7 @@ class ShellSession {
     p.register('help', () => blt('help', []));
     p.register('exit', () => blt('exit', []));
     p.register('quit', () => blt('quit', []));
+    p.register('fs', () => blt('fs', []));
 
     return p;
   }
