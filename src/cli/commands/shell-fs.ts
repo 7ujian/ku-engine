@@ -318,13 +318,13 @@ export class FsSession {
         const nodePath = dotIdx > 0 ? listPath.slice(0, dotIdx) : listPath;
 
         try {
-          // Get children
-          const listData = await this.parent.send('node.list', { path: nodePath }) as { ok?: boolean; error?: string } | Array<{ id: string; type: string }>;
-          if ((listData as any)?.error) {
-            console.error(`Error: ${(listData as any).error}`);
+          // Get children — send() returns payload { ok, data }
+          const listResp = await this.parent.send('node.list', { path: nodePath }) as { ok?: boolean; error?: string; data?: Array<{ id: string; type: string }> };
+          if (listResp?.error) {
+            console.error(`Error: ${listResp.error}`);
             return;
           }
-          const children = Array.isArray(listData) ? listData : [];
+          const children = listResp?.data ?? [];
           // Get node info for long format
           let nodeData: any = null;
           if (long) {
@@ -333,16 +333,15 @@ export class FsSession {
             } catch { /* ignore */ }
           }
 
-          console.log(`  ${nodePath}/`);
+          console.log(`  ${nodePath === '/' ? '/' : nodePath + '/'}`);
           for (const child of children) {
             const prefix = '  ├── ';
-            if (long && nodeData && (nodeData as any).data) {
-              const fullNode = (nodeData as any).data;
+            if (long && (nodeData as any)?.data) {
               // Try to get child details for long format
               const childPath = nodePath === '/' ? `/${child.id}` : `${nodePath}/${child.id}`;
               try {
-                const childData = await this.parent.send('node.get', { path: childPath }) as any;
-                const props = childData?.data?.properties || {};
+                const childResp = await this.parent.send('node.get', { path: childPath }) as any;
+                const props = childResp?.data?.properties || {};
                 const brief = Object.entries(props)
                   .filter(([, v]) => typeof v !== 'object' || v === null)
                   .slice(0, 3)
@@ -360,8 +359,8 @@ export class FsSession {
           if (all) {
             // List properties of the node
             try {
-              const fullNode = await this.parent.send('node.get', { path: nodePath }) as any;
-              const props = fullNode?.data?.properties || {};
+              const fullResp = await this.parent.send('node.get', { path: nodePath }) as any;
+              const props = fullResp?.data?.properties || {};
               for (const [key, val] of Object.entries(props)) {
                 if (typeof val === 'object' && val !== null) {
                   console.log(`  .${key} = ${JSON.stringify(val)}  (object)`);
