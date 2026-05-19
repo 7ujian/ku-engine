@@ -10,6 +10,7 @@ import { inputKey, inputClick, inputAxis } from './commands/input.js';
 import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js';
 import { queryScene, queryNodes, queryDiff, queryCollisions } from './commands/query.js';
 import { buildCommand } from './commands/build.js';
+import { shellCommand } from './commands/shell.js';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -84,6 +85,15 @@ export function createProgram(): Command {
     .description('Package project for distribution')
     .action(async (opts: { output: string }) => {
       await buildCommand(getProjectDir(), opts.output);
+    });
+
+  // Interactive shell
+  program
+    .command('shell')
+    .option('--command <cmd>', 'Execute a single command and exit')
+    .description('Start interactive shell')
+    .action(async (opts: { command?: string }) => {
+      await shellCommand(getProjectDir(), opts);
     });
 
   // Scene
