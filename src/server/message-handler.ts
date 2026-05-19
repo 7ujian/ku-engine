@@ -122,7 +122,8 @@ function route(tree: SceneTree, mode: InstanceType, action: string, payload: Rec
       const property = payload.property as string | undefined;
       const node = tree.get(getPath);
       if (property) {
-        return { result: { [property]: node.getPropertyByPath(property) } };
+        const value = node.getPropertyByPath(property);
+        return { result: { property, value: value ?? null } };
       }
       return { result: node.toJSON() };
     }
