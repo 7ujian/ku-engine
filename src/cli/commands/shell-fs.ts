@@ -630,7 +630,7 @@ export class FsSession {
 
   private buildParser(): FsParser {
     const p = new FsParser();
-    p.register('cd', () => fBlt('cd', []));
+    p.register('cd', (args) => fBlt('cd', args));
     p.register('pwd', () => fBlt('pwd', []));
     p.register('ls', (args) => fBlt('ls', args));
     p.register('cat', (args) => fBlt('cat', args));

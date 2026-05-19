@@ -76,6 +76,7 @@ function parse(input: string): ParseResult {
 
   switch (cmd) {
     case 'cd':
+      return fBlt('cd', args);
     case 'pwd':
     case 'help':
     case 'exit':
