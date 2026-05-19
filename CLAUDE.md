@@ -18,16 +18,28 @@ ku is a CLI-based 2D game engine for AI agents. AI agents act as both developers
 
 ## Architecture
 
-Dual-instance model: **Editor** and **Play** are separate OS processes.
+Dual-instance model: **Editor** and **Play** are separate OS processes, each wrapped by a runtime class.
 
-- **Editor instance** (port 21200) — persistent, scene editing, no game loop, no physics/scripts, saves to disk. Loads scene via `ku edit <scene>`.
-- **Play instance** (port 21201) — ephemeral, syncs editor's live tree via WebSocket (`SyncClient`), runs full game loop (physics + scripts + input + rendering), state discarded on stop. `ku play --hot-reload` subscribes to incremental editor deltas.
+- **EditorRuntime** (`src/server/editor-runtime.ts`) — persistent, scene editing, no game loop, no physics/scripts. Optional 2s debounced auto-save (`--autosave`). Loads scene via `ku edit <scene>` or shell `edit <scene>`.
+- **PlayRuntime** (`src/server/play-runtime.ts`) — ephemeral, loads scenes from disk (`--load-scene`) or syncs editor's live tree via WebSocket (`--sync-from`). Runs full game loop (physics + scripts + input + rendering + audio). State discarded on stop.
 - CLI connects to either instance via WebSocket, routes commands based on current attachment (`ku attach edit|play`)
 - Discovery via `.ku.edit.pid`, `.ku.edit.port`, `.ku.play.pid`, `.ku.play.port` files
 
 Scene graph is a tree of typed nodes (Godot-inspired). 12 built-in node types: `Node`, `Node2D`, `Sprite`, `AnimatedSprite`, `RigidBody`, `Area`, `CollisionShape`, `Camera2D`, `Label`, `TileMap`, `Timer`, `AudioPlayer`. Nodes addressed by slash-separated path (e.g. `player/sprite`).
 
 Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, `on_frame`, `on_timer`, `on_touch_start`, `on_area_enter`, etc. triggers and `set`, `set_on`, `move`, `move_toward`, `spawn`, `destroy`, `emit` actions. Expressions support cross-node refs (`{{/player/score}}`), modulo (`%`). No embedded scripting language.
+
+## Persistence layer (`src/persistence/`)
+
+All filesystem I/O extracted from engine modules into dedicated persistence modules. Runtime engine modules are pure in-memory.
+
+| File | Purpose |
+|------|---------|
+| `src/persistence/scene-io.ts` | Scene JSON load/save, instance resolution, `listScenes`, `listSceneInfos` |
+| `src/persistence/atlas-loader.ts` | Atlas JSON loading + texture path resolution |
+| `src/persistence/audio-loader.ts` | WAV file reading, RIFF/WAVE parsing |
+| `src/persistence/script-loader.ts` | JS script source loading from disk |
+| `src/persistence/asset-discovery.ts` | Project asset discovery (moved from CLI) |
 
 ### Key features
 
@@ -43,7 +55,9 @@ Game logic is pure JSON — event-driven scripts with `on_key`, `on_collision`, 
 
 **CLI** — `-p, --project <dir>` global flag. Commander.js with subcommands for scene, node, input, query, runtime control, build. Interactive shell (`ku shell`) with persistent WebSocket, readline REPL, double-Ctrl+C exit.
 
-**Shell** — `ku shell` interactive REPL with persistent WebSocket connection. Reuses same message protocol as one-shot CLI commands. Command dispatch table covers all node/scene/input/query/runtime operations. Builtins for attach/detach/instances/help. `--command <cmd>` flag for one-shot non-interactive use.
+**Shell** — `ku shell` interactive REPL with persistent WebSocket connection. Filesystem-style navigation (cd, ls, pwd, cat, tree, find, stat). Tab completion for paths and properties. Builtins for edit/play/run/attach/detach/instances/help. Prompt shows instance type and current scene name. `--command <cmd>` flag for one-shot non-interactive use.
+
+**Prefab system** — `node new <type> [path] [id] [props]` creates node from type with auto-generated id (`Type_N`). `node instance <scene> [path] [id] [props]` instances a scene file as node (extracts root type from scene). `node duplicate <path> [path] [new-id]` clones sub-tree. `node save <path> [scene-name]` saves sub-tree as scene file. All support relative paths and inline JSON props (`{"x":100}`). Strict arg validation catches malformed input.
 
 **Audio** — SDL2 audio backend (`AudioManager`). WAV PCM playback with software mixing for multiple simultaneous sounds. Volume control. `AudioPlayer` nodes triggered via `play`/`stop` script actions. Graceful fallback when SDL2 unavailable.
 
@@ -87,23 +101,22 @@ npm run build                  # compile TypeScript
 | `src/engine/physics.ts` | matter-js integration, world↔local sync |
 | `src/engine/collision-events.ts` | Enter/exit tracking for collisions and areas |
 | `src/engine/game-loop.ts` | Fixed-timestep loop, accumulator pattern |
-| `src/engine/scene-file.ts` | Scene JSON load/save, instance resolution |
-| `src/engine/audio.ts` | SDL2 audio, WAV playback, software mixing |
+| `src/engine/audio.ts` | SDL2 audio, WAV playback (accepts loadWavFn callback) |
 | `src/renderer/renderer.ts` | SDL2 window, two-pass rendering, debug overlay |
-| `src/server/main.ts` | Server entry (editor + play modes) |
-| `src/server/message-handler.ts` | WebSocket message routing, sync ops |
+| `src/server/main.ts` | Server entry, simplified ~50 lines (delegates to runtime classes) |
+| `src/server/editor-runtime.ts` | EditorRuntime class: SceneTree + Instance + autosave |
+| `src/server/play-runtime.ts` | PlayRuntime class: full game loop orchestration |
+| `src/server/message-handler.ts` | WebSocket message routing, sync ops, write ops allowed in any mode |
 | `src/server/sync-client.ts` | Edit→play delta streaming |
 | `src/cli/cli.ts` | Commander.js CLI definition |
-| `src/cli/commands/shell.ts` | Interactive shell REPL with persistent WebSocket |
-| `src/cli/commands/shell-fs.ts` | Filesystem-style nested REPL (cd, ls, pwd, cat, etc.) |
-| `src/cli/commands/node.ts` | Node CRUD CLI commands |
-| `src/cli/commands/scene.ts` | Scene management CLI commands |
+| `src/cli/commands/shell.ts` | Interactive shell REPL with FS navigation, tab completion, prefab commands |
+| `src/cli/commands/node.ts` | Node CRUD + prefab CLI commands (new, instance, duplicate, save) |
+| `src/cli/commands/scene.ts` | Scene management CLI commands (create, list, load, save, rm) |
 | `src/cli/commands/edit.ts` | Instance lifecycle + attachment state |
 
 ## Key constraints
 
-- All CLI output is JSON by default (`--pretty` for humans)
-- Write commands (`node add/rm/set`, `scene create/save`) only work on editor instance
-- Play instance is read-only from CLI (except `input` commands)
+- All CLI output is JSON by default
+- Write commands work in any mode (no longer restricted to editor)
 - Ports 21200/21201 are reserved — do not use 7890 or 789x (allocated to proxy)
 - `project.json` fields: `name`, `entry`, `debug_physics`, `window.width/height`

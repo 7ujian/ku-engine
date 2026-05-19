@@ -1,0 +1,10 @@
+{
+  "scene": "level1",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [],
+    "scripts": []
+  }
+}

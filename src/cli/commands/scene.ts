@@ -1,8 +1,9 @@
 import { resolve } from 'node:path';
+import { unlink } from 'node:fs/promises';
 import { sendCommand, makeMessage } from '../client.js';
 import { getAttachedInstance } from './edit.js';
 import { findInstancePort } from './instances.js';
-import { saveScene, loadScene, listScenes, sceneFilePath } from '../../engine/scene-file.js';
+import { saveScene, loadScene, listSceneInfos, sceneFilePath } from '../../persistence/scene-io.js';
 import { SceneTree } from '../../engine/scene-tree.js';
 import { Node } from '../../engine/node.js';
 import type { NodeData } from '../../engine/types.js';
@@ -15,8 +16,14 @@ export async function sceneCreate(projectDir: string, name: string): Promise<voi
 }
 
 export async function sceneList(projectDir: string): Promise<void> {
-  const scenes = await listScenes(resolve(projectDir, 'scenes'));
+  const scenes = await listSceneInfos(resolve(projectDir, 'scenes'));
   printJson({ ok: true, data: scenes });
+}
+
+export async function sceneRm(projectDir: string, name: string): Promise<void> {
+  const path = sceneFilePath(resolve(projectDir, 'scenes'), name);
+  await unlink(path);
+  printJson({ ok: true, data: { removed: name } });
 }
 
 export async function sceneLoad(projectDir: string, name: string): Promise<void> {

@@ -2,13 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Node } from '../src/engine/node.js';
 import { SceneTree } from '../src/engine/scene-tree.js';
 import { JsScriptEngine } from '../src/engine/js-script-engine.js';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 describe('JsScriptEngine', () => {
   let tmpDir: string;
   let tree: SceneTree;
+
+  function loadSource(scriptPath: string): Promise<string> {
+    return Promise.resolve(readFileSync(resolve(tmpDir, scriptPath), 'utf-8'));
+  }
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'ku-js-test-'));
@@ -31,7 +35,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'player.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', { frame: 1 });
@@ -50,7 +54,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'player.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_key', { key: 'SPACE' });
@@ -71,7 +75,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'player.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', {});
@@ -91,7 +95,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'player.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', {});
@@ -114,7 +118,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'counter.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', {});
@@ -133,7 +137,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'broken.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', {});
@@ -155,7 +159,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'sandbox.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', {});
@@ -172,7 +176,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'player.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_frame', {});
@@ -192,7 +196,7 @@ describe('JsScriptEngine', () => {
     `);
 
     (tree.get('player') as any).js_script = 'player.js';
-    const engine = new JsScriptEngine({ tree, projectDir: tmpDir });
+    const engine = new JsScriptEngine({ tree, projectDir: tmpDir, loadSource });
     await engine.registerTree();
 
     engine.evaluateEvent('on_key', { key: 'SPACE' });

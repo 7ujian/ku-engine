@@ -1,19 +1,7 @@
 import { resolve } from 'node:path';
-import { readFile } from 'node:fs/promises';
-import { SceneTree } from '../engine/scene-tree.js';
-import { Node } from '../engine/node.js';
-import { startInstance } from './instance.js';
+import { EditorRuntime } from './editor-runtime.js';
+import { PlayRuntime } from './play-runtime.js';
 import type { InstanceType } from './discovery.js';
-import { ScriptEngine } from '../engine/script-engine.js';
-import { JsScriptEngine } from '../engine/js-script-engine.js';
-import { PhysicsWorld } from '../engine/physics.js';
-import { GameLoop } from '../engine/game-loop.js';
-import { Renderer } from '../renderer/renderer.js';
-import { InputManager } from './input-manager.js';
-import { SyncClient } from './sync-client.js';
-import { setGameLoop, setInputManager, setSaveRuntimeState } from './message-handler.js';
-import { loadScene, sceneFilePath, saveSceneSync } from '../engine/scene-file.js';
-import { AudioManager } from '../engine/audio.js';
 
 const args = process.argv.slice(2);
 let mode: InstanceType = 'edit';
@@ -22,6 +10,8 @@ let port = 0;
 let syncFrom = 0;
 let hotReload = false;
 let scene = '';
+let loadSceneName = '';
+let autosave = false;
 
 for (let i = 0; i < args.length; i++) {
   switch (args[i]) {
@@ -31,91 +21,42 @@ for (let i = 0; i < args.length; i++) {
     case '--sync-from': syncFrom = parseInt(args[++i], 10); break;
     case '--hot-reload': hotReload = true; break;
     case '--scene': scene = args[++i]; break;
+    case '--load-scene': loadSceneName = args[++i]; break;
+    case '--autosave': autosave = true; break;
   }
 }
 
 async function main(): Promise<void> {
-  let tree: SceneTree;
-
-  // Load scene from disk if --scene is provided (editor mode)
-  if (scene && mode === 'edit') {
-    const path = sceneFilePath(resolve(dir, 'scenes'), scene);
-    tree = await loadScene(path);
-  } else {
-    tree = new SceneTree(new Node('root', 'Node'));
-  }
-
-  const instance = await startInstance(mode, tree, dir, port);
-
-  let syncClient: SyncClient | null = null;
-  let loop: GameLoop | null = null;
-
   if (mode === 'play') {
-    // Sync from editor if --sync-from is provided
-    if (syncFrom > 0) {
-      syncClient = new SyncClient(tree, syncFrom, hotReload);
-      await syncClient.connect();
-    }
-
-    const scripts = new ScriptEngine(tree);
-    scripts.registerTree();
-
-    const jsScripts = new JsScriptEngine({ tree, projectDir: dir });
-    await jsScripts.registerTree();
-
-    const physics = new PhysicsWorld(tree);
-    physics.syncFromTree();
-
-    const input = new InputManager(scripts, jsScripts);
-    setInputManager(input);
-
-    const projectConfig = JSON.parse(await readFile(resolve(dir, 'project.json'), 'utf-8'));
-    const renderer = new Renderer(
-      projectConfig.window?.width ?? 640,
-      projectConfig.window?.height ?? 480,
+    const rt = await PlayRuntime.create({
       dir,
-      projectConfig.debug_physics ?? false,
-    );
-    renderer.setKeyHandler((key, down) => {
-      if (down) input.keyDown(key);
-      else input.keyUp(key);
+      port,
+      syncFrom: syncFrom || undefined,
+      hotReload,
+      loadScene: loadSceneName || undefined,
     });
-    renderer.setTouchHandler((phase, x, y, pointerId) => {
-      if (phase === 'start') input.touchStart(x, y, pointerId);
-      else if (phase === 'move') input.touchMove(x, y, pointerId);
-      else if (phase === 'end') input.touchEnd(x, y, pointerId);
-    });
-    await renderer.open('ku');
+    await rt.start();
 
-    // Wire syncClient to scripts/physics for delta application
-    if (syncClient) {
-      syncClient.scripts = scripts;
-      syncClient.jsScripts = jsScripts;
-      syncClient.physics = physics;
-    }
+    const cleanup = async () => {
+      await rt.stop();
+      process.exit(0);
+    };
 
-    const audio = new AudioManager(dir);
-    const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name));
-    loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
-    setGameLoop(loop);
-    setSaveRuntimeState(async (name: string) => {
-      saveSceneSync(loop!.getTree(), sceneFilePath(resolve(dir, 'scenes'), name), name);
-    });
-    loop.start();
+    rt.loop.setOnExit(cleanup);
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
+  } else {
+    const rt = await EditorRuntime.create(dir, port, scene || undefined, autosave);
+    await rt.start();
+
+    const cleanup = async () => {
+      await rt.stop();
+      process.exit(0);
+    };
+
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
   }
-
-  const cleanup = async () => {
-    setGameLoop(null);
-    setInputManager(null);
-    if (syncClient) syncClient.disconnect();
-    await instance.stop();
-    process.exit(0);
-  };
-
-  if (loop) loop.setOnExit(cleanup);
-
-  process.on('SIGTERM', cleanup);
-  process.on('SIGINT', cleanup);
 }
 
 main().catch(err => {

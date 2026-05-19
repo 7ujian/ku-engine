@@ -25,12 +25,16 @@ export async function setAttachedInstance(projectDir: string, instance: Instance
   await writeFile(getAttachFile(projectDir), instance, 'utf-8');
 }
 
-export async function editCommand(projectDir: string, scene?: string): Promise<void> {
+export async function editCommand(projectDir: string, scene?: string, interactive = false, autosave = false): Promise<void> {
   const disc = await readDiscovery(projectDir);
   const info = disc.edit;
 
   if (info && isAlive(info.pid)) {
     await setAttachedInstance(projectDir, 'edit');
+    if (interactive) {
+      await runInteractiveShell(projectDir, scene);
+      return;
+    }
     printJson({ ok: true, data: { status: 'attached', port: info.port } });
     return;
   }
@@ -38,11 +42,20 @@ export async function editCommand(projectDir: string, scene?: string): Promise<v
   const serverPath = resolve(import.meta.dirname, '../../server/main.js');
   const args = ['--mode', 'edit', '--dir', projectDir, '--port', '21200'];
   if (scene) args.push('--scene', scene);
+  if (autosave) args.push('--autosave');
 
   const child = fork(serverPath, args, { stdio: 'ignore' });
 
   await waitForInstance(projectDir, 'edit', 3000);
   await setAttachedInstance(projectDir, 'edit');
+
+  if (interactive) {
+    // Register cleanup: kill child when shell exits
+    process.on('exit', () => { try { child.kill('SIGTERM'); } catch {} });
+    child.on('exit', () => process.exit(0));
+    await runInteractiveShell(projectDir, scene);
+    return;
+  }
 
   const disc2 = await readDiscovery(projectDir);
   printJson({ ok: true, data: { status: 'started', pid: disc2.edit!.pid, port: disc2.edit!.port } });
@@ -102,4 +115,11 @@ export async function waitForInstance(projectDir: string, inst: InstanceType, ti
 
 function printJson(data: unknown): void {
   console.log(JSON.stringify(data));
+}
+
+async function runInteractiveShell(projectDir: string, scene?: string): Promise<void> {
+  // Remove any prior SIGINT listeners so the shell's double-Ctrl+C logic works
+  process.removeAllListeners('SIGINT');
+  const { shellCommand } = await import('./shell.js');
+  await shellCommand(projectDir, { scene });
 }

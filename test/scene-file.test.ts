@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Node } from '../src/engine/node.js';
 import { SceneTree } from '../src/engine/scene-tree.js';
-import { loadScene, saveScene, listScenes, sceneFilePath } from '../src/engine/scene-file.js';
+import { loadScene, saveScene, listScenes, sceneFilePath } from '../src/persistence/scene-io.js';
 
 describe('scene-file', () => {
   let testDir: string;

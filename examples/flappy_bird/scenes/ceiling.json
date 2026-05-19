@@ -1,0 +1,17 @@
+{
+  "scene": "ceiling",
+  "root": {
+    "id": "ceiling",
+    "type": "CollisionShape",
+    "properties": {
+      "shape": "rect",
+      "width": 640,
+      "height": 40,
+      "radius": 0,
+      "x": 320,
+      "y": -20
+    },
+    "children": [],
+    "scripts": []
+  }
+}

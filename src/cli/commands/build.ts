@@ -1,7 +1,7 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cpSync, mkdirSync, writeFileSync, existsSync, chmodSync as fsChmodSync } from 'node:fs';
-import { discoverAssets } from '../asset-discovery.js';
+import { discoverAssets } from '../../persistence/asset-discovery.js';
 
 // ku repo root: this file is at dist/cli/commands/build.js → 3 levels up
 const __filename = fileURLToPath(import.meta.url);

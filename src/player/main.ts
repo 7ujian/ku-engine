@@ -8,7 +8,9 @@ import { PhysicsWorld } from '../engine/physics.js';
 import { GameLoop } from '../engine/game-loop.js';
 import { Renderer } from '../renderer/renderer.js';
 import { InputManager } from '../server/input-manager.js';
-import { loadScene, sceneFilePath } from '../engine/scene-file.js';
+import { loadScene, sceneFilePath } from '../persistence/scene-io.js';
+import { loadWav } from '../persistence/audio-loader.js';
+import { loadScriptSource } from '../persistence/script-loader.js';
 import { AudioManager } from '../engine/audio.js';
 
 const projectDir = resolve(process.argv[2] ?? '.');
@@ -23,7 +25,7 @@ async function main(): Promise<void> {
   const scripts = new ScriptEngine(tree);
   scripts.registerTree();
 
-  const jsScripts = new JsScriptEngine({ tree, projectDir });
+  const jsScripts = new JsScriptEngine({ tree, projectDir, loadSource: (path) => loadScriptSource(projectDir, path) });
   await jsScripts.registerTree();
 
   const physics = new PhysicsWorld(tree);
@@ -43,7 +45,7 @@ async function main(): Promise<void> {
   });
   await renderer.open(config.name ?? 'ku');
 
-  const audio = new AudioManager(projectDir);
+  const audio = new AudioManager(projectDir, loadWav);
   const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(projectDir, 'scenes'), name));
   const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
   loop.setOnExit(cleanup);

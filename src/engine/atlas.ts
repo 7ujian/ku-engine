@@ -1,6 +1,3 @@
-import { resolve, dirname } from 'node:path';
-import { readFile } from 'node:fs/promises';
-
 export interface AtlasRegion {
   name: string;
   x: number;
@@ -32,15 +29,6 @@ export function parseAtlas(raw: unknown): AtlasDef {
   });
 
   return { texture: data.texture, regions };
-}
-
-export async function loadAtlas(jsonPath: string): Promise<AtlasDef> {
-  const content = await readFile(jsonPath, 'utf-8');
-  const raw = JSON.parse(content);
-  const atlas = parseAtlas(raw);
-  // Resolve texture path relative to atlas JSON location
-  atlas.texture = resolve(dirname(jsonPath), atlas.texture);
-  return atlas;
 }
 
 export function regionByName(atlas: AtlasDef, name: string): AtlasRegion | null {

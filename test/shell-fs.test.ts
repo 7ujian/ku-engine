@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// Replicated helpers (same logic as shell-fs.ts)
+// Replicated helpers (same logic as shell.ts)
 // ---------------------------------------------------------------------------
 
 function parentPath(cwd: string): string {

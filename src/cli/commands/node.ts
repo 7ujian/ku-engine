@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { sendCommand, makeMessage } from '../client.js';
 import { getAttachedInstance } from './edit.js';
 import { findInstancePort } from './instances.js';
+import { sceneFilePath } from '../../persistence/scene-io.js';
 
 export async function nodeAdd(projectDir: string, path: string, type: string, nodeId: string, propsJson?: string): Promise<void> {
   const port = await getPort(projectDir);
@@ -60,6 +63,55 @@ export async function nodeList(projectDir: string, path: string): Promise<void> 
 export async function nodeMove(projectDir: string, path: string, newParent: string): Promise<void> {
   const port = await getPort(projectDir);
   const resp = await sendCommand('localhost', port, makeMessage('node.move', { path, newParent }));
+  printJson(resp.payload);
+}
+
+export async function nodeNew(projectDir: string, type: string, path?: string, id?: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const parentPath = path || '/';
+  const nodeId = id || `${type}_1`;
+  const resp = await sendCommand('localhost', port, makeMessage('node.add', {
+    path: parentPath, nodeType: type, nodeId,
+  }));
+  printJson(resp.payload);
+}
+
+export async function nodeInstance(projectDir: string, scenePath: string, parentPath?: string, id?: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const nodeId = id ?? scenePath.replace(/^.*[\\/]/, '').replace(/\.json$/, '');
+  const path = parentPath || '/';
+  let nodeType = 'Node';
+  try {
+    const p = sceneFilePath(resolve(projectDir, 'scenes'), scenePath);
+    const raw = readFileSync(p, 'utf-8');
+    const sceneData = JSON.parse(raw);
+    if (sceneData?.root?.type) nodeType = sceneData.root.type;
+  } catch { /* use default Node type */ }
+  const resp = await sendCommand('localhost', port, makeMessage('node.add', {
+    path, nodeType, nodeId, properties: { instance: scenePath },
+  }));
+  printJson(resp.payload);
+}
+
+export async function nodeDuplicate(projectDir: string, path: string, parent?: string, newId?: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const srcResp = await sendCommand('localhost', port, makeMessage('node.get', { path }));
+  const srcData = srcResp.payload as { data?: { id: string } } | undefined;
+  const srcName = srcData?.data?.id ?? path.split('/').filter(Boolean).pop() ?? 'node';
+  const id = newId || `${srcName}_copy`;
+  const resp = await sendCommand('localhost', port, makeMessage('node.duplicate', { path, newId: id }));
+  printJson(resp.payload);
+  if (parent) {
+    // Move to new parent
+    const moveResp = await sendCommand('localhost', port, makeMessage('node.move', { path: `${parent === '/' ? '' : parent}/${id}`, newParent: parent }));
+    printJson(moveResp.payload);
+  }
+}
+
+export async function nodeSave(projectDir: string, path: string, sceneName?: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const name = sceneName ?? path.split('/').filter(Boolean).pop() ?? 'untitled';
+  const resp = await sendCommand('localhost', port, makeMessage('node.save', { path, sceneName: name, projectDir }));
   printJson(resp.payload);
 }
 

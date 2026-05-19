@@ -1,6 +1,4 @@
 import { createContext, Script as VmScript, type Context } from 'node:vm';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { Node } from './node.js';
 import { SceneTree } from './scene-tree.js';
 import { EventBus } from './event-bus.js';
@@ -12,6 +10,7 @@ export interface JsScriptEngineOptions {
   bus?: EventBus;
   onSpawn?: (node: Node) => void;
   onDestroy?: (nodeId: string) => void;
+  loadSource?: (scriptPath: string) => Promise<string>;
 }
 
 interface RegisteredScript {
@@ -30,6 +29,7 @@ export class JsScriptEngine {
   private logs: string[] = [];
   private onSpawn: ((node: Node) => void) | null;
   private onDestroy: ((nodeId: string) => void) | null;
+  private loadSource: (scriptPath: string) => Promise<string>;
 
   constructor(opts: JsScriptEngineOptions) {
     this.tree = opts.tree;
@@ -37,6 +37,7 @@ export class JsScriptEngine {
     this.bus = opts.bus ?? new EventBus();
     this.onSpawn = opts.onSpawn ?? null;
     this.onDestroy = opts.onDestroy ?? null;
+    this.loadSource = opts.loadSource ?? (async () => { throw new Error('no script loader provided'); });
   }
 
   async registerTree(): Promise<void> {
@@ -55,10 +56,11 @@ export class JsScriptEngine {
     const scriptPath = (node as any).js_script as string | undefined;
     if (!scriptPath) return;
 
+    const { resolve } = await import('node:path');
     const absPath = resolve(this.projectDir, scriptPath);
     let compiled = this.compiledCache.get(absPath);
     if (!compiled) {
-      const source = await readFile(absPath, 'utf-8');
+      const source = await this.loadSource(scriptPath);
       compiled = new VmScript(source, { filename: absPath });
       this.compiledCache.set(absPath, compiled);
     }

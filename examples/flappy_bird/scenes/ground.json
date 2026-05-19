@@ -1,0 +1,17 @@
+{
+  "scene": "ground",
+  "root": {
+    "id": "ground",
+    "type": "CollisionShape",
+    "properties": {
+      "shape": "rect",
+      "width": 640,
+      "height": 40,
+      "radius": 0,
+      "x": 320,
+      "y": 460
+    },
+    "children": [],
+    "scripts": []
+  }
+}

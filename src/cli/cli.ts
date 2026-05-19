@@ -2,10 +2,10 @@ import { Command } from 'commander';
 import { resolve } from 'node:path';
 import { initCommand } from './commands/init.js';
 import { editCommand, stopCommand, attachCommand, detachCommand } from './commands/edit.js';
-import { playCommand } from './commands/play.js';
+import { playCommand, runCommand } from './commands/play.js';
 import { listInstances } from './commands/instances.js';
-import { sceneCreate, sceneList, sceneLoad, sceneTree, sceneSave } from './commands/scene.js';
-import { nodeAdd, nodeRm, nodeSet, nodeGet, nodeList, nodeMove } from './commands/node.js';
+import { sceneCreate, sceneList, sceneLoad, sceneTree, sceneSave, sceneRm } from './commands/scene.js';
+import { nodeAdd, nodeNew, nodeInstance, nodeDuplicate, nodeSave, nodeRm, nodeSet, nodeGet, nodeList, nodeMove } from './commands/node.js';
 import { inputKey, inputClick, inputAxis } from './commands/input.js';
 import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js';
 import { queryScene, queryNodes, queryDiff, queryCollisions } from './commands/query.js';
@@ -37,9 +37,11 @@ export function createProgram(): Command {
   // Instance management
   program
     .command('edit [scene]')
+    .option('-i, --interactive', 'Start interactive shell after launch')
+    .option('--autosave', 'Auto-save scene to disk on changes (2s debounce)')
     .description('Start editor instance')
-    .action(async (scene?: string) => {
-      await editCommand(getProjectDir(), scene);
+    .action(async (scene?: string, opts?: { interactive?: boolean; autosave?: boolean }) => {
+      await editCommand(getProjectDir(), scene, opts?.interactive ?? false, opts?.autosave ?? false);
     });
 
   program
@@ -72,10 +74,18 @@ export function createProgram(): Command {
 
   program
     .command('play')
-    .option('--hot-reload', 'Subscribe to editor changes while running')
-    .description('Spawn play instance from editor snapshot')
-    .action(async (opts: { hotReload?: boolean }) => {
-      await playCommand(getProjectDir(), opts.hotReload ?? false);
+    .option('-i, --interactive', 'Start interactive shell after launch')
+    .description('Start play instance cloned from editor (auto-starts editor if needed)')
+    .action(async (opts: { interactive?: boolean }) => {
+      await playCommand(getProjectDir(), opts.interactive ?? false);
+    });
+
+  program
+    .command('run')
+    .option('-i, --interactive', 'Start interactive shell after launch')
+    .description('Build project and run the standalone player')
+    .action(async (opts: { interactive?: boolean }) => {
+      await runCommand(getProjectDir(), opts.interactive ?? false);
     });
 
   // Build
@@ -134,6 +144,13 @@ export function createProgram(): Command {
       await sceneSave(getProjectDir(), name);
     });
 
+  scene
+    .command('rm <name>')
+    .description('Delete a scene file')
+    .action(async (name: string) => {
+      await sceneRm(getProjectDir(), name);
+    });
+
   // Node
   const node = program.command('node').description('Node operations');
 
@@ -143,6 +160,34 @@ export function createProgram(): Command {
     .description('Add child node')
     .action(async (path: string, type: string, id: string, opts: { props: string }) => {
       await nodeAdd(getProjectDir(), path, type, id, opts.props);
+    });
+
+  node
+    .command('new <type> [path] [id]')
+    .description('Create node from type (defaults: path=/, id=auto)')
+    .action(async (type: string, path: string | undefined, id: string | undefined) => {
+      await nodeNew(getProjectDir(), type, path, id);
+    });
+
+  node
+    .command('instance <scene> [path] [id]')
+    .description('Instance a scene as a node (defaults: path=/, id=from filename)')
+    .action(async (scene: string, path: string | undefined, id: string | undefined) => {
+      await nodeInstance(getProjectDir(), scene, path, id);
+    });
+
+  node
+    .command('duplicate <path> [parent] [new-id]')
+    .description('Clone a sub-tree as a new node (defaults: parent=same, new-id=name_copy)')
+    .action(async (path: string, parent: string | undefined, newId: string | undefined) => {
+      await nodeDuplicate(getProjectDir(), path, parent, newId);
+    });
+
+  node
+    .command('save <path> [scene-name]')
+    .description('Save a sub-tree as a scene file (defaults: scene-name=node id)')
+    .action(async (path: string, sceneName: string | undefined) => {
+      await nodeSave(getProjectDir(), path, sceneName);
     });
 
   node

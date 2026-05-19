@@ -7,7 +7,7 @@ import { getAttachedInstance, setAttachedInstance } from './edit.js';
 import { findInstancePort } from './instances.js';
 import { makeMessage } from '../client.js';
 import { readDiscovery, isAlive } from '../../server/discovery.js';
-import { loadScene, saveScene, listScenes, sceneFilePath } from '../../engine/scene-file.js';
+import { loadScene, saveScene, listSceneInfos, sceneFilePath } from '../../persistence/scene-io.js';
 import type { InstanceType } from '../../server/discovery.js';
 
 // ---------------------------------------------------------------------------
@@ -128,18 +128,189 @@ function extractPropsFlag(args: string[]): { remaining: string[]; props?: Record
 }
 
 // ---------------------------------------------------------------------------
+// FS helpers (path resolution, tree printing, etc.)
+// ---------------------------------------------------------------------------
+
+function parentPath(cwd: string): string {
+  const dotIdx = cwd.indexOf('.');
+  if (dotIdx > 0) {
+    const propChain = cwd.slice(dotIdx + 1);
+    const lastDot = propChain.lastIndexOf('.');
+    if (lastDot >= 0) return cwd.slice(0, dotIdx + 1 + lastDot);
+    return cwd.slice(0, dotIdx);
+  }
+  if (cwd === '/' || cwd === '') return '/';
+  const lastSlash = cwd.lastIndexOf('/');
+  if (lastSlash <= 0) return '/';
+  return cwd.slice(0, lastSlash);
+}
+
+function resolvePath(cwd: string, input: string): string {
+  if (!input || input === '.') return cwd;
+  if (input === '..') return parentPath(cwd);
+  if (input.startsWith('/')) return input;
+  const raw = cwd === '/' ? `/${input}` : `${cwd}/${input}`;
+  const segments = raw.split('/').filter(Boolean);
+  const out: string[] = [];
+  for (const seg of segments) {
+    if (seg === '..') out.pop();
+    else if (seg !== '.') out.push(seg);
+  }
+  return '/' + out.join('/');
+}
+
+function resolveTarget(cwd: string, args: string[]): string | null {
+  if (args.length < 1) {
+    console.error('Usage: <command> <path[.property]>');
+    return null;
+  }
+  let target = args[0];
+  if (target === '.') return cwd;
+  if (target === '..') return parentPath(cwd);
+  if (target.startsWith('./')) return cwd === '/' ? target.slice(1) : cwd + target.slice(1);
+  if (target.startsWith('../')) {
+    const parent = parentPath(cwd);
+    return parent === '/' ? '/' + target.slice(3) : parent + '/' + target.slice(3);
+  }
+  if (!target.startsWith('/') && !target.startsWith('.')) {
+    const dotIdx = target.indexOf('.');
+    if (dotIdx < 0) return resolvePath(cwd, target);
+    const nodePart = resolvePath(cwd, target.slice(0, dotIdx));
+    return nodePart + target.slice(dotIdx);
+  }
+  return target;
+}
+
+function formatValue(val: unknown): string {
+  if (typeof val === 'string') return val;
+  return JSON.stringify(val);
+}
+
+const BLUE = '\x1b[34m';
+const RESET = '\x1b[0m';
+
+function dirName(name: string, childCount: number): string {
+  return childCount > 0 ? `${BLUE}${name}${RESET}` : name;
+}
+
+function findNodeByPath(root: any, targetPath: string): any | null {
+  if (targetPath === '/' || targetPath === '/root') return root;
+  const parts = targetPath.split('/').filter(Boolean);
+  let current = root;
+  for (const part of parts) {
+    if (!current.children) return null;
+    current = current.children.find((c: any) => c.id === part);
+    if (!current) return null;
+  }
+  return current;
+}
+
+function printGnuTree(node: any, maxDepth: number = Infinity): void {
+  const childCount = node.children?.length ?? 0;
+  if (node.id === 'root') {
+    console.log('/');
+  } else {
+    console.log(`${dirName(node.id, childCount)} (${node.type})`);
+  }
+  const counts = { dirs: 0, files: 0 };
+  if (maxDepth <= 0) return;
+  const children = node.children || [];
+  for (let i = 0; i < children.length; i++) {
+    const c = printGnuTreeChild(children[i], '', i === children.length - 1, maxDepth - 1);
+    counts.dirs += c.dirs;
+    counts.files += c.files;
+  }
+  const total = counts.dirs + counts.files;
+  if (total > 0) {
+    const dLabel = counts.dirs === 1 ? 'directory' : 'directories';
+    const fLabel = counts.files === 1 ? 'file' : 'files';
+    console.log(`\n${counts.dirs} ${dLabel}, ${counts.files} ${fLabel}`);
+  }
+}
+
+function printGnuTreeChild(node: any, prefix: string, isLast: boolean, maxDepth: number): { dirs: number; files: number } {
+  const childCount = node.children?.length ?? 0;
+  const connector = isLast ? '└── ' : '├── ';
+  console.log(`${prefix}${connector}${dirName(node.id, childCount)} (${node.type})`);
+  const counts = { dirs: childCount > 0 ? 1 : 0, files: childCount > 0 ? 0 : 1 };
+  if (maxDepth <= 0) return counts;
+  const children = node.children || [];
+  const childPrefix = prefix + (isLast ? '    ' : '│   ');
+  for (let i = 0; i < children.length; i++) {
+    const c = printGnuTreeChild(children[i], childPrefix, i === children.length - 1, maxDepth - 1);
+    counts.dirs += c.dirs;
+    counts.files += c.files;
+  }
+  return counts;
+}
+
+export function autoGenId(type: string, existing: string[]): string {
+  let n = 1;
+  while (existing.includes(`${type}_${n}`)) n++;
+  return `${type}_${n}`;
+}
+
+function findNodes(node: any, path: string, query: string, _results: string[]): void {
+  const pattern = query.replace(/\*/g, '.*');
+  const re = new RegExp(pattern, 'i');
+  if (re.test(node.id) || re.test(node.type)) {
+    console.log(`  ${path}  (${node.type})`);
+  }
+  if (node.children && Array.isArray(node.children)) {
+    for (const child of node.children) {
+      const childPath = path === '/' ? `/${child.id}` : `${path}/${child.id}`;
+      findNodes(child, childPath, query, _results);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shell session
 // ---------------------------------------------------------------------------
 
 const HELP = `
 Available commands:
 
+  Navigation:
+    cd <path>            Change working directory (/ for root, .. for parent)
+    cd -                 Go to previous directory
+    pwd                  Print working directory
+
+  Listing:
+    ls [path]            List children names
+    ls -l [path]         List with child count and type columns
+
+  Read/write:
+    cat <path[.prop]>    List node properties (or single prop value)
+    get <path[.prop]>    Print node JSON (or single prop value)
+    set <prop> <value>   Set property on current node
+    touch <prop> [val]   Set property (default: "")
+
+  Mutation:
+    rm <path>            Remove node
+    mv <src> <dst>       Move/reparent node
+    mkdir <type> <id>    Create child node (Sprite, Label, etc.)
+
+  Prefab:
+    node new <type> [parent] [id] [props]    Create node from type (auto-id, parent=.)
+    node instance <scene> [parent] [id] [props]  Instance scene as node
+    node duplicate <path> [parent] [new-id]  Clone sub-tree
+    node save <path> [scene-name]            Save sub-tree as scene
+
+  Inspection:
+    tree [-L N] [path]   Print subtree (limit depth with -L)
+    find <type|*name*>   Search nodes
+    stat [path]          Print node metadata
+
   Instance:
+    edit <scene>         Load/replace scene in editor (alias: scene load)
+    play                 Launch play instance (clones editor, auto-starts editor)
+    run                  Build and run standalone player
     attach <edit|play>   Connect to an instance
     detach               Disconnect from current instance
     instances            List running instances
 
-  Node:
+  Node (full paths):
     node add <path> <type> <id> [--props <json>]
     node rm <path>
     node set <path.property> <value>
@@ -153,6 +324,7 @@ Available commands:
     scene list           List all scenes
     scene load <name>    Load scene into editor
     scene save [name]    Save editor state to file
+    scene rm <name>      Delete a scene file
 
   Runtime:
     pause / runtime pause
@@ -174,12 +346,14 @@ Available commands:
 
   Shell:
     help                 Show this help
-    fs                   Enter filesystem mode (cd, ls, pwd, cat, ...)
     exit / quit          Exit the shell
+
+  Tip: ku edit -i / ku play -i  Start instance with interactive shell
 `;
 
-export async function shellCommand(projectDir: string, opts?: { command?: string }): Promise<void> {
+export async function shellCommand(projectDir: string, opts?: { command?: string; scene?: string }): Promise<void> {
   const session = new ShellSession(projectDir);
+  if (opts?.scene) session.setCurrentScene(opts.scene);
   if (opts?.command) {
     await session.connect();
     await session.execute(opts.command);
@@ -196,6 +370,9 @@ export class ShellSession {
   private pending = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private rl: ReturnType<typeof createInterface> | null = null;
   private parser: CommandParser;
+  private cwd = '/';
+  private prevCwd = '/';
+  private currentScene = '';
   private sigintCount = 0;
   private sigintTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -208,71 +385,26 @@ export class ShellSession {
   getProjectDir(): string { return this.projectDir; }
   getCurrentInstance(): InstanceType { return this.currentInstance; }
 
-  // Let FsSession take over the readline temporarily
-  delegateLine(handler: (line: string) => Promise<void>): void {
-    this.rl?.removeAllListeners('line');
-    this.rl?.on('line', async (line: string) => {
-      this.sigintCount = 0;
-      await handler(line);
-    });
-  }
+  setCurrentScene(name: string): void { this.currentScene = name; }
 
-  restoreLine(): void {
-    this.rl?.removeAllListeners('line');
-    this.rl?.on('line', async (line: string) => {
-      this.sigintCount = 0;
-      const trimmed = line.trim();
-      if (trimmed) {
-        await this.execute(trimmed);
-      }
-      this.prompt();
-    });
-  }
-
-  delegateClose(handler: () => void): void {
-    this.rl?.removeAllListeners('close');
-    this.rl?.on('close', handler);
-  }
-
-  setCompleter(completer: (line: string) => Promise<[string[], string]>): void {
-    if (this.rl) {
-      (this.rl as any).completer = (line: string, cb: (err: any, result: [string[], string]) => void) => {
-        completer(line).then(r => cb(null, r), err => cb(err, [[], line]));
-      };
-    }
-  }
-
-  clearCompleter(): void {
-    if (this.rl) {
-      (this.rl as any).completer = null;
-    }
-  }
-
-  restoreClose(): void {
-    this.rl?.removeAllListeners('close');
-    this.rl?.on('close', () => {
-      console.log('Goodbye.');
-      this.shutdown();
-      process.exit(0);
-    });
-  }
-
-  promptNow(): void {
-    this.rl?.prompt();
-  }
-
-  setRlPrompt(p: string): void {
-    this.rl?.setPrompt(p);
+  resolvePath(input: string): string {
+    return resolvePath(this.cwd, input);
   }
 
   async start(): Promise<void> {
     this.currentInstance = await getAttachedInstance(this.projectDir);
-    await this.connect();
+    const connected = await this.connect();
+    if (!connected) {
+      console.log(`No instance running. Use 'play' or 'edit' to start, then 'attach'.`);
+    }
 
     this.rl = createInterface({
       input: process.stdin,
       output: process.stdout,
       historySize: 100,
+      completer: (line: string, cb: (err: any, result: [string[], string]) => void) => {
+        this.complete(line).then(r => cb(null, r), err => cb(err, [[], line]));
+      },
     });
 
     this.rl.on('line', async (line: string) => {
@@ -306,7 +438,7 @@ export class ShellSession {
     this.prompt();
   }
 
-  async connect(): Promise<void> {
+  async connect(): Promise<boolean> {
     try {
       const port = await findInstancePort(this.projectDir, this.currentInstance);
       this.ws = new WebSocket(`ws://localhost:${port}`);
@@ -346,11 +478,10 @@ export class ShellSession {
       });
 
       console.log(`Connected to ${this.currentInstance} instance.`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`Error: cannot connect to ${this.currentInstance} instance — ${msg}`);
-      console.error(`Start it with 'ku edit' or 'ku play', then 'attach ${this.currentInstance}'.`);
+      return true;
+    } catch {
       this.ws = null;
+      return false;
     }
   }
 
@@ -370,7 +501,10 @@ export class ShellSession {
     this.disconnect();
     setAttachedInstance(this.projectDir, inst);
     this.currentInstance = inst;
-    await this.connect();
+    const connected = await this.connect();
+    if (!connected) {
+      console.log(`'${inst}' instance is not running. Start it first.`);
+    }
   }
 
   async send(action: string, params: Record<string, unknown>): Promise<unknown> {
@@ -427,6 +561,48 @@ export class ShellSession {
 
   private async executeBuiltin(name: string, args: string[]): Promise<void> {
     switch (name) {
+      case 'play': {
+        const { fork } = await import('node:child_process');
+        const { resolve } = await import('node:path');
+        const { readDiscovery, isAlive } = await import('../../server/discovery.js');
+        const { waitForInstance } = await import('./edit.js');
+
+        // Auto-start editor if needed
+        let disc = await readDiscovery(this.projectDir);
+        if (!disc.edit || !isAlive(disc.edit.pid)) {
+          console.log('Starting editor...');
+          const srvPath = resolve(import.meta.dirname, '../../server/main.js');
+          fork(srvPath, ['--mode', 'edit', '--dir', this.projectDir, '--port', '21200'], { stdio: 'ignore' });
+          await waitForInstance(this.projectDir, 'edit', 5000);
+          disc = await readDiscovery(this.projectDir);
+        }
+
+        // Spawn play instance synced from editor
+        const srvPath = resolve(import.meta.dirname, '../../server/main.js');
+        fork(srvPath, ['--mode', 'play', '--dir', this.projectDir, '--port', '21201', '--sync-from', String(disc.edit!.port)], { stdio: 'ignore' });
+        await waitForInstance(this.projectDir, 'play', 3000);
+        await this.switchInstance('play');
+        break;
+      }
+      case 'run': {
+        const { fork } = await import('node:child_process');
+        const { resolve } = await import('node:path');
+        const { existsSync } = await import('node:fs');
+
+        const outputDir = resolve(this.projectDir, 'build');
+        const playerPath = resolve(outputDir, 'runtime', 'dist', 'player', 'main.js');
+        const gameDir = resolve(outputDir, 'game');
+
+        if (!existsSync(playerPath)) {
+          console.log('No build found. Building...');
+          const { buildCommand } = await import('./build.js');
+          await buildCommand(this.projectDir, outputDir);
+        }
+
+        console.log('Starting player...');
+        fork(playerPath, [gameDir], { stdio: 'ignore' });
+        break;
+      }
       case 'attach': {
         const inst = args[0] as InstanceType | undefined;
         if (!inst || (inst !== 'edit' && inst !== 'play')) {
@@ -464,6 +640,25 @@ export class ShellSession {
         this.shutdown();
         process.exit(0);
       }
+      case 'edit': {
+        if (args.length < 1) {
+          console.error('Usage: edit <scene>');
+          return;
+        }
+        if (this.currentInstance !== 'edit') await this.switchInstance('edit');
+        const path = sceneFilePath(resolve(this.projectDir, 'scenes'), args[0]);
+        const content = readFileSync(path, 'utf-8');
+        const sceneData = JSON.parse(content);
+        try {
+          const data = await this.send('scene.load', { sceneData: sceneData.root });
+          console.log(JSON.stringify(data, null, 2));
+          this.currentScene = args[0];
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error loading scene: ${msg}`);
+        }
+        break;
+      }
       case 'scene.create': {
         if (args.length < 1) {
           console.error('Usage: scene create <name>');
@@ -477,9 +672,25 @@ export class ShellSession {
         console.log(JSON.stringify({ created: args[0], path }));
         break;
       }
+      case 'scene.rm': {
+        if (args.length < 1) {
+          console.error('Usage: scene rm <name>');
+          return;
+        }
+        try {
+          const { unlink } = await import('node:fs/promises');
+          const path = sceneFilePath(resolve(this.projectDir, 'scenes'), args[0]);
+          await unlink(path);
+          console.log(JSON.stringify({ removed: args[0] }));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error removing scene: ${msg}`);
+        }
+        break;
+      }
       case 'scene.list': {
-        const scenes = await listScenes(resolve(this.projectDir, 'scenes'));
-        console.log(JSON.stringify(scenes, null, 2));
+        const scenes = await listSceneInfos(resolve(this.projectDir, 'scenes'));
+        for (const s of scenes) console.log(`${s.name.padEnd(30)} ${s.type}`);
         break;
       }
       case 'scene.load': {
@@ -493,33 +704,426 @@ export class ShellSession {
         try {
           const data = await this.send('scene.load', { sceneData: sceneData.root });
           console.log(JSON.stringify(data, null, 2));
+          this.currentScene = args[0];
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`Error loading scene: ${msg}`);
         }
         break;
       }
-      case 'fs': {
-        const { FsSession } = await import('./shell-fs.js');
-        const fsSession = new FsSession(this);
-        await fsSession.start();
+      // -- FS navigation --
+      case 'cd': {
+        if (args.length === 0) { this.prevCwd = this.cwd; this.cwd = '/'; break; }
+        let target = args[0];
+        if (target === '-') {
+          if (this.prevCwd === this.cwd) { console.error('Error: no previous directory'); break; }
+          const tmp = this.cwd; this.cwd = this.prevCwd; this.prevCwd = tmp;
+          console.log(this.cwd);
+          break;
+        }
+        const resolved = resolvePath(this.cwd, target);
+        try {
+          const dotIdx = resolved.indexOf('.');
+          const nodePath = dotIdx > 0 ? resolved.slice(0, dotIdx) : resolved;
+          const data = await this.send('node.get', { path: nodePath }) as any;
+          if (data?.ok === false) { console.error(`Error: ${data.error}`); break; }
+          this.prevCwd = this.cwd;
+          this.cwd = resolved;
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'pwd': { console.log(this.cwd); break; }
+      case 'ls': {
+        let listPath = this.cwd;
+        let long = false;
+        const positional: string[] = [];
+        for (const a of args) {
+          if (a === '-l' || a === '-la' || a === '-al') long = true;
+          else positional.push(a);
+        }
+        if (positional.length > 0) listPath = resolvePath(this.cwd, positional[0]);
+        const dotIdx = listPath.indexOf('.');
+        const nodePath = dotIdx > 0 ? listPath.slice(0, dotIdx) : listPath;
+        try {
+          const resp = await this.send('node.list', { path: nodePath }) as any;
+          if (resp?.error) { console.error(`Error: ${resp.error}`); break; }
+          const children = resp?.data ?? [];
+          if (long) {
+            console.log(`total ${children.length}`);
+            for (const child of children) {
+              const cc = child.childCount ?? 0;
+              console.log(`${String(cc).padStart(3)} ${child.type.padEnd(16)} ${dirName(child.id, cc)}`);
+            }
+          } else {
+            const names = children.map((c: any) => dirName(c.id, c.childCount ?? 0));
+            if (names.length > 0) console.log(names.join('  '));
+          }
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'cat':
+      case 'get': {
+        const target = resolveTarget(this.cwd, args);
+        if (target === null) break;
+        if (target.startsWith('.') && target.length > 1 && target[1] !== '/') {
+          const np = this.cwd.indexOf('.') > 0 ? this.cwd.slice(0, this.cwd.indexOf('.')) : this.cwd;
+          try {
+            const resp = await this.send('node.get', { path: np, property: target.slice(1) }) as any;
+            if (resp?.ok === false) { console.error(`Error: ${resp.error}`); }
+            else { console.log(formatValue(resp?.data?.value)); }
+          } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+          break;
+        }
+        const td = target.indexOf('.');
+        const tp = td > 0 ? target.slice(0, td) : target;
+        const tprop = td > 0 ? target.slice(td + 1) : undefined;
+        try {
+          if (name === 'cat') {
+            const resp = await this.send('node.get', { path: tp }) as any;
+            if (resp?.ok === false) { console.error(`Error: ${resp.error}`); break; }
+            const node = resp?.data;
+            if (tprop) {
+              console.log(formatValue(node?.properties?.[tprop]));
+            } else {
+              const props: Record<string, unknown> = node?.properties || {};
+              const entries = Object.entries(props);
+              if (entries.length === 0) { console.log('(no properties)'); }
+              else { for (const [k, v] of entries) console.log(`.${k} = ${typeof v === 'object' && v !== null ? JSON.stringify(v) : JSON.stringify(v)}`); }
+            }
+          } else {
+            const params: Record<string, unknown> = { path: tp };
+            if (tprop) params.property = tprop;
+            const resp = await this.send('node.get', params) as any;
+            if (resp?.ok === false) { console.error(`Error: ${resp.error}`); }
+            else {
+              const d = resp?.data;
+              if (tprop && d && 'value' in d) { console.log(formatValue(d.value)); }
+              else { console.log(JSON.stringify(d, null, 2)); }
+            }
+          }
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'set': {
+        if (args.length < 2) { console.error('Usage: set <prop> <value>'); break; }
+        const parsed = parseJsonValue(args[1]);
+        if (!parsed.ok) { console.error(`Error: ${parsed.error}`); break; }
+        const np = this.cwd.indexOf('.') > 0 ? this.cwd.slice(0, this.cwd.indexOf('.')) : this.cwd;
+        try {
+          const data = await this.send('node.set', { path: np, property: args[0], value: parsed.value });
+          if ((data as any)?.ok === false) console.error(`Error: ${(data as any).error}`);
+          else console.log(JSON.stringify(data, null, 2));
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'touch': {
+        if (args.length < 1) { console.error('Usage: touch <prop> [value]'); break; }
+        const val = args.length >= 2 ? parseJsonValue(args[1]) : { ok: true as const, value: '' };
+        if (!val.ok) { console.error(`Error: ${val.error}`); break; }
+        const np = this.cwd.indexOf('.') > 0 ? this.cwd.slice(0, this.cwd.indexOf('.')) : this.cwd;
+        try {
+          await this.send('node.set', { path: np, property: args[0], value: val.value });
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'rm': {
+        if (args.length < 1) { console.error('Usage: rm <path>'); break; }
+        let target = resolvePath(this.cwd, args[0]);
+        const td = target.indexOf('.');
+        if (td > 0) { console.error('Error: cannot remove a property'); break; }
+        if (target === '/' || target === '') { console.error('Error: cannot remove root'); break; }
+        try {
+          const data = await this.send('node.rm', { path: target });
+          console.log(JSON.stringify(data, null, 2));
+          if (this.cwd === target || this.cwd.startsWith(target + '/') || this.cwd.startsWith(target + '.')) {
+            this.cwd = parentPath(target);
+            console.log(`cd to ${this.cwd}`);
+          }
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'mv': {
+        if (args.length < 2) { console.error('Usage: mv <src> <dst>'); break; }
+        const src = resolvePath(this.cwd, args[0]);
+        const dst = resolvePath(this.cwd, args[1]);
+        try {
+          const data = await this.send('node.move', { path: src, newParent: dst });
+          console.log(JSON.stringify(data, null, 2));
+          if (this.cwd === src || this.cwd.startsWith(src + '/')) {
+            this.cwd = dst + '/' + src.split('/').pop();
+            console.log(`cd to ${this.cwd}`);
+          }
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'mkdir': {
+        if (args.length < 2) { console.error('Usage: mkdir <type> <id>'); break; }
+        try {
+          const data = await this.send('node.add', { path: this.cwd, nodeType: args[0], nodeId: args[1] });
+          console.log(JSON.stringify(data, null, 2));
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'tree': {
+        let maxDepth = Infinity;
+        const positional: string[] = [];
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '-L' && i + 1 < args.length) {
+            const lv = parseInt(args[i + 1], 10);
+            if (!isNaN(lv) && lv >= 0) { maxDepth = lv; i++; }
+          } else if (args[i].startsWith('-L')) {
+            const lv = parseInt(args[i].slice(2), 10);
+            if (!isNaN(lv) && lv >= 0) maxDepth = lv;
+          } else { positional.push(args[i]); }
+        }
+        const target = positional.length > 0 ? resolvePath(this.cwd, positional[0]) : this.cwd;
+        const td = target.indexOf('.');
+        const nodePath = td > 0 ? target.slice(0, td) : target;
+        try {
+          const data = await this.send('scene.tree', {}) as any;
+          const root = data?.data;
+          if (root) {
+            const targetNode = findNodeByPath(root, nodePath);
+            if (targetNode) { printGnuTree(targetNode, maxDepth); }
+            else { console.error(`Error: node not found: ${nodePath}`); }
+          } else { console.log(JSON.stringify(data, null, 2)); }
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        break;
+      }
+      case 'find': {
+        if (args.length < 1) { console.error('Usage: find <type|*name*>'); break; }
+        const query = args[0];
+        if (query.includes('*')) {
+          try {
+            const data = await this.send('scene.tree', {}) as any;
+            const root = data?.data;
+            if (root) findNodes(root, '/', query, []);
+          } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        } else {
+          try {
+            const data = await this.send('query.nodes', { nodeType: query });
+            console.log(JSON.stringify(data, null, 2));
+          } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
+        }
+        break;
+      }
+      case 'stat': {
+        const target = args.length > 0 ? resolvePath(this.cwd, args[0]) : this.cwd;
+        const td = target.indexOf('.');
+        const nodePath = td > 0 ? target.slice(0, td) : target;
+        try {
+          const data = await this.send('node.get', { path: nodePath }) as any;
+          const node = data?.data || data;
+          if (node && node.type) {
+            console.log(`  Path:     ${nodePath}`);
+            console.log(`  Type:     ${node.type}`);
+            console.log(`  Children: ${node.children?.length ?? 0}`);
+            console.log(`  Scripts:  ${node.scripts?.length ?? 0}`);
+            if (node.js_script) console.log(`  JS:       ${node.js_script}`);
+            const props = node.properties ?? {};
+            const keys = Object.keys(props);
+            console.log(`  Props:    ${keys.length > 0 ? keys.join(', ') : '(none)'}`);
+            if (keys.length > 0) { for (const [k, v] of Object.entries(props)) { console.log(`    .${k} = ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`); } }
+          } else { console.log(JSON.stringify(data, null, 2)); }
+        } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
         break;
       }
       case 'scene.save': {
         const name = args[0];
         try {
-          const data = await this.send('scene.tree', {}) as { root?: unknown } | undefined;
-          if (data && (data as any).root) {
+          const data = await this.send('scene.tree', {}) as { ok?: boolean; data?: unknown } | undefined;
+          if (data?.data) {
             const path = sceneFilePath(resolve(this.projectDir, 'scenes'), name || 'untitled');
             await mkdir(resolve(this.projectDir, 'scenes'), { recursive: true });
             const { writeFile: wf } = await import('node:fs/promises');
-            const sceneFile = { scene: name ?? 'untitled', root: (data as any).root };
+            const sceneFile = { scene: name ?? 'untitled', root: data.data };
             await wf(path, JSON.stringify(sceneFile, null, 2) + '\n', 'utf-8');
             console.log(JSON.stringify({ saved: true, name: name || 'untitled' }));
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`Error saving scene: ${msg}`);
+        }
+        break;
+      }
+      case 'node.new': {
+        // Usage: node new <type> [parent] [id] [props]
+        if (args.length < 1) {
+          console.error('Usage: node new <type> [parent] [id] [props]');
+          return;
+        }
+        const nodeType = args[0];
+        if (nodeType.startsWith('/') || nodeType.startsWith('{') || nodeType.startsWith('[')) {
+          console.error('First argument must be a type name, not a path or JSON');
+          return;
+        }
+        let nodeId: string | undefined;
+        let parentPath = '.';
+        let inlineProps: Record<string, unknown> | undefined;
+        let pathCount = 0;
+        let propCount = 0;
+        for (let i = 1; i < args.length; i++) {
+          const a = args[i];
+          if (a.startsWith('/') || a === '.') {
+            pathCount++;
+            if (pathCount > 1) { console.error(`Unexpected path argument: ${a}`); return; }
+            parentPath = a;
+          } else if ((a.startsWith('{') || a.startsWith('['))) {
+            propCount++;
+            if (propCount > 1) { console.error(`Unexpected JSON argument: ${a}`); return; }
+            try { inlineProps = JSON.parse(a); } catch { console.error(`Invalid JSON: ${a}`); return; }
+          } else if (!nodeId) {
+            nodeId = a;
+          } else {
+            console.error(`Unexpected argument: ${a}`);
+            return;
+          }
+        }
+        parentPath = this.resolvePath(parentPath);
+        try {
+          if (!nodeId) {
+            const resp = await this.send('node.list', { path: parentPath }) as { ok?: boolean; data?: { id: string }[] };
+            const existing = (resp?.data ?? []).map((c: { id: string }) => c.id);
+            nodeId = autoGenId(nodeType, existing);
+          }
+          const params: Record<string, unknown> = { path: parentPath, nodeType, nodeId };
+          if (inlineProps && Object.keys(inlineProps).length > 0) params.properties = inlineProps;
+          const data = await this.send('node.add', params);
+          console.log(JSON.stringify(data, null, 2));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error: ${msg}`);
+        }
+        break;
+      }
+      case 'node.instance': {
+        // Usage: node instance <scene> [parent] [id] [props]
+        if (args.length < 1) {
+          console.error('Usage: node instance <scene> [parent] [id] [props]');
+          return;
+        }
+        const scenePath = args[0];
+        if (scenePath.startsWith('/') || scenePath.startsWith('{') || scenePath.startsWith('[')) {
+          console.error('First argument must be a scene name/path, not a path or JSON');
+          return;
+        }
+        const defaultId = scenePath.replace(/^.*[\\/]/, '').replace(/\.json$/, '');
+        let nodeId: string | undefined;
+        let parentPath = '.';
+        let inlineProps: Record<string, unknown> | undefined;
+        let pathCount = 0;
+        let propCount = 0;
+        for (let i = 1; i < args.length; i++) {
+          const a = args[i];
+          if (a.startsWith('/') || a === '.') {
+            pathCount++;
+            if (pathCount > 1) { console.error(`Unexpected path argument: ${a}`); return; }
+            parentPath = a;
+          } else if ((a.startsWith('{') || a.startsWith('['))) {
+            propCount++;
+            if (propCount > 1) { console.error(`Unexpected JSON argument: ${a}`); return; }
+            try { inlineProps = JSON.parse(a); } catch { console.error(`Invalid JSON: ${a}`); return; }
+          } else if (!nodeId) {
+            nodeId = a;
+          } else {
+            console.error(`Unexpected argument: ${a}`);
+            return;
+          }
+        }
+        parentPath = this.resolvePath(parentPath);
+        if (!nodeId) nodeId = defaultId;
+        try {
+          // Read scene file to get root type
+          let nodeType = 'Node';
+          try {
+            const p = sceneFilePath(resolve(this.projectDir, 'scenes'), scenePath);
+            const raw = readFileSync(p, 'utf-8');
+            const sceneData = JSON.parse(raw);
+            if (sceneData?.root?.type) nodeType = sceneData.root.type;
+          } catch { /* use default Node type */ }
+          const properties: Record<string, unknown> = { instance: scenePath, ...(inlineProps ?? {}) };
+          const data = await this.send('node.add', { path: parentPath, nodeType, nodeId, properties });
+          console.log(JSON.stringify(data, null, 2));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error: ${msg}`);
+        }
+        break;
+      }
+      case 'node.duplicate': {
+        // Usage: node duplicate <path> [parent] [new-id]
+        if (args.length < 1) {
+          console.error('Usage: node duplicate <path> [parent] [new-id]');
+          return;
+        }
+        const srcPath = args[0].startsWith('/') ? args[0] : this.resolvePath(args[0]);
+        let newId: string | undefined;
+        let parentPath: string | undefined;
+        let pathCount = 0;
+        for (let i = 1; i < args.length; i++) {
+          if (args[i].startsWith('/') || args[i] === '.') {
+            pathCount++;
+            if (pathCount > 1) { console.error(`Unexpected path argument: ${args[i]}`); return; }
+            parentPath = args[i];
+          } else if (!newId) {
+            newId = args[i];
+          } else {
+            console.error(`Unexpected argument: ${args[i]}`);
+            return;
+          }
+        }
+        try {
+          // Get source info for defaults
+          const srcData = await this.send('node.get', { path: srcPath }) as { ok?: boolean; data?: { id: string } };
+          const srcId = srcData?.data?.id ?? srcPath.split('/').pop()!;
+          if (!newId) newId = srcId + '_copy';
+          if (!parentPath) {
+            // Default to same parent
+            const parts = srcPath.split('/');
+            parts.pop();
+            parentPath = parts.join('/') || '/';
+          } else if (parentPath === '.') {
+            parentPath = this.resolvePath('.');
+          }
+          const data = await this.send('node.duplicate', { path: srcPath, newId });
+          console.log(JSON.stringify(data, null, 2));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error: ${msg}`);
+        }
+        break;
+      }
+      case 'node.save': {
+        // Usage: node save <path> [scene-name]
+        if (args.length < 1) {
+          console.error('Usage: node save <path> [scene-name]');
+          return;
+        }
+        const savePath = this.resolvePath(args[0]);
+        let sceneName: string | undefined;
+        for (let i = 1; i < args.length; i++) {
+          if (!sceneName && !args[i].startsWith('/') && args[i] !== '.') {
+            sceneName = args[i];
+          } else {
+            console.error(`Unexpected argument: ${args[i]}`);
+            return;
+          }
+        }
+        if (!sceneName) sceneName = savePath.split('/').filter(Boolean).pop() ?? 'untitled';
+        try {
+          const data = await this.send('node.get', { path: savePath }) as { ok?: boolean; data?: unknown } | undefined;
+          if (data?.data) {
+            const rootData = data.data as Record<string, unknown>;
+            const path = sceneFilePath(resolve(this.projectDir, 'scenes'), sceneName);
+            await mkdir(resolve(this.projectDir, 'scenes'), { recursive: true });
+            const { writeFile: wf } = await import('node:fs/promises');
+            const sceneFile = { scene: sceneName, root: rootData };
+            await wf(path, JSON.stringify(sceneFile, null, 2) + '\n', 'utf-8');
+            console.log(JSON.stringify({ saved: true, name: sceneName, path }));
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error saving node: ${msg}`);
         }
         break;
       }
@@ -534,9 +1138,90 @@ export class ShellSession {
     }
   }
 
+  // Tab completion for FS commands
+  private async complete(line: string): Promise<[string[], string]> {
+    const tokens = line.trim().split(/\s+/);
+    const cmd = tokens[0] ?? '';
+    const pathCommands = new Set(['cd', 'ls', 'cat', 'get', 'rm', 'mv', 'stat', 'tree']);
+    const nonFlags = tokens.filter(t => !t.startsWith('-'));
+    const lastArg = nonFlags[nonFlags.length - 1] ?? '';
+
+    // Complete FS command names when no command typed yet or only first token
+    if (tokens.length <= 1) {
+      const fsCommands = ['cd', 'pwd', 'ls', 'cat', 'get', 'set', 'touch', 'rm', 'mv', 'mkdir', 'tree', 'find', 'stat', 'help', 'exit'];
+      const hits = fsCommands.filter(c => c.startsWith(cmd));
+      if (hits.length > 0) return [hits, cmd];
+      return [[], line];
+    }
+
+    if (!pathCommands.has(cmd)) return [[], line];
+
+    // Only complete up to second path argument
+    if (nonFlags.length > 2) return [[], line];
+
+    const partial = nonFlags.length <= 1 ? '' : lastArg;
+    const dir = partial.includes('/') ? partial.slice(0, partial.lastIndexOf('/') + 1) : '';
+    const prefix = partial.includes('/') ? partial.slice(partial.lastIndexOf('/') + 1) : partial;
+    const baseDir = dir ? resolvePath(this.cwd, dir) : this.cwd;
+
+    const dotIdx = baseDir.indexOf('.');
+    const nodePath = dotIdx > 0 ? baseDir.slice(0, dotIdx) : baseDir;
+
+    // Property completion for cat/get
+    const propCommands = new Set(['cat', 'get']);
+    if (propCommands.has(cmd) && partial.includes('.')) {
+      const propDot = partial.lastIndexOf('.');
+      const nodePart = partial.slice(0, propDot) || '.';
+      const propPrefix = partial.slice(propDot + 1);
+      let targetNode: string;
+      if (nodePart === '.') {
+        targetNode = this.cwd;
+      } else if (nodePart === '..') {
+        targetNode = parentPath(this.cwd);
+      } else if (nodePart.startsWith('/')) {
+        targetNode = nodePart;
+      } else {
+        targetNode = resolvePath(this.cwd, nodePart);
+      }
+      const tDot = targetNode.indexOf('.');
+      const tPath = tDot > 0 ? targetNode.slice(0, tDot) : targetNode;
+      try {
+        const resp = await this.send('node.get', { path: tPath }) as any;
+        const props = resp?.data?.properties || {};
+        const propHits: string[] = [];
+        const lcPropPrefix = propPrefix.toLowerCase();
+        for (const key of Object.keys(props)) {
+          if (key.toLowerCase().startsWith(lcPropPrefix)) {
+            propHits.push(nodePart + '.' + key);
+          }
+        }
+        if (propHits.length > 0) return [propHits, partial];
+      } catch { /* fall through */ }
+      return [[], line];
+    }
+
+    try {
+      const resp = await this.send('node.list', { path: nodePath }) as any;
+      if (resp?.error || !resp?.data) return [[], line];
+      const children: Array<{ id: string }> = resp.data;
+      const hits: string[] = [];
+      const lcPrefix = prefix.toLowerCase();
+      for (const child of children) {
+        if (child.id.toLowerCase().startsWith(lcPrefix)) {
+          hits.push(dir + child.id + '/');
+        }
+      }
+      if (hits.length === 0) return [[], line];
+      return [hits, partial];
+    } catch {
+      return [[], line];
+    }
+  }
+
   private prompt(): void {
     const status = this.ws ? this.currentInstance : 'disconnected';
-    this.rl?.setPrompt(`ku:${status}> `);
+    const scene = this.currentScene ? ` ${this.currentScene}` : '';
+    this.rl?.setPrompt(`ku:${status}${scene} ${this.cwd}> `);
     this.rl?.prompt();
   }
 
@@ -560,6 +1245,26 @@ export class ShellSession {
       };
       if (props) params.properties = props;
       return svr('node.add', params);
+    });
+
+    p.register('node new', (args) => {
+      if (args.length < 1) return err('Usage: node new <type> [parent] [id] [props]');
+      return blt('node.new', args);
+    });
+
+    p.register('node instance', (args) => {
+      if (args.length < 1) return err('Usage: node instance <scene> [parent] [id] [props]');
+      return blt('node.instance', args);
+    });
+
+    p.register('node duplicate', (args) => {
+      if (args.length < 1) return err('Usage: node duplicate <path> [parent] [new-id]');
+      return blt('node.duplicate', args);
+    });
+
+    p.register('node save', (args) => {
+      if (args.length < 1) return err('Usage: node save <path> [scene-name]');
+      return blt('node.save', args);
     });
 
     p.register('node rm', (args) => {
@@ -601,6 +1306,7 @@ export class ShellSession {
     p.register('scene list', () => sceneBuiltin('list', []));
     p.register('scene load', (args) => sceneBuiltin('load', args));
     p.register('scene save', (args) => sceneBuiltin('save', args));
+    p.register('scene rm', (args) => sceneBuiltin('rm', args));
 
     // -- Input commands --
     p.register('input key', (args) => {
@@ -658,14 +1364,31 @@ export class ShellSession {
     p.register('runtime step', () => svr('runtime.step', {}));
     p.register('runtime status', () => svr('runtime.status', {}));
 
+    // -- FS commands --
+    p.register('cd', (args) => blt('cd', args));
+    p.register('pwd', () => blt('pwd', []));
+    p.register('ls', (args) => blt('ls', args));
+    p.register('cat', (args) => blt('cat', args));
+    p.register('get', (args) => blt('get', args));
+    p.register('set', (args) => blt('set', args));
+    p.register('touch', (args) => blt('touch', args));
+    p.register('rm', (args) => blt('rm', args));
+    p.register('mv', (args) => blt('mv', args));
+    p.register('mkdir', (args) => blt('mkdir', args));
+    p.register('tree', (args) => blt('tree', args));
+    p.register('find', (args) => blt('find', args));
+    p.register('stat', (args) => blt('stat', args));
+
     // -- Shell builtins --
+    p.register('edit', (args) => blt('edit', args));
+    p.register('play', () => blt('play', []));
+    p.register('run', () => blt('run', []));
     p.register('attach', (args) => blt('attach', args));
     p.register('detach', () => blt('detach', []));
     p.register('instances', () => blt('instances', []));
     p.register('help', () => blt('help', []));
     p.register('exit', () => blt('exit', []));
     p.register('quit', () => blt('quit', []));
-    p.register('fs', () => blt('fs', []));
 
     return p;
   }

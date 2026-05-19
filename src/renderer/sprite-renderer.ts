@@ -2,7 +2,8 @@ import { type Canvas, loadImage, type Image } from '@napi-rs/canvas';
 import { resolve } from 'node:path';
 import { Node } from '../engine/node.js';
 import type { AtlasDef } from '../engine/atlas.js';
-import { loadAtlas, regionByName } from '../engine/atlas.js';
+import { regionByName } from '../engine/atlas.js';
+import { loadAtlas } from '../persistence/atlas-loader.js';
 import { type AnimState, advanceFrame, createAnimState, resolveAnimation } from '../engine/animation.js';
 
 type Ctx = ReturnType<Canvas['getContext']>;

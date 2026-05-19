@@ -1,9 +1,9 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { Node } from './node.js';
-import { SceneTree } from './scene-tree.js';
-import type { SceneFile, NodeData } from './types.js';
+import { Node } from '../engine/node.js';
+import { SceneTree } from '../engine/scene-tree.js';
+import type { SceneFile, NodeData } from '../engine/types.js';
 
 export async function loadScene(filePath: string): Promise<SceneTree> {
   const content = await readFile(filePath, 'utf-8');
@@ -94,6 +94,26 @@ export async function listScenes(dir: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+export interface SceneInfo {
+  name: string;
+  type: string;
+}
+
+export async function listSceneInfos(dir: string): Promise<SceneInfo[]> {
+  const names = await listScenes(dir);
+  const infos: SceneInfo[] = [];
+  for (const name of names) {
+    let type = '?';
+    try {
+      const raw = readFileSync(join(dir, name), 'utf-8');
+      const data = JSON.parse(raw);
+      type = data?.root?.type ?? '?';
+    } catch { /* keep '?' */ }
+    infos.push({ name, type });
+  }
+  return infos;
 }
 
 export function sceneFilePath(scenesDir: string, name: string): string {

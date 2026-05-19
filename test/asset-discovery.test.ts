@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { discoverAssets } from '../src/cli/asset-discovery.js';
+import { discoverAssets } from '../src/persistence/asset-discovery.js';
 
 describe('discoverAssets', () => {
   let tmpDir: string;
