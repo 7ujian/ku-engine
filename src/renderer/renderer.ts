@@ -73,6 +73,7 @@ export class Renderer {
       title,
       width: this.width,
       height: this.height,
+      vsync: false,
     });
     this.running = true;
     this.lastTime = Date.now();

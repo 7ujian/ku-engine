@@ -44,7 +44,7 @@ async function resolveInstances(
 
   // Recurse into children
   const resolvedChildren: NodeData[] = [];
-  for (const child of nodeData.children) {
+  for (const child of nodeData.children ?? []) {
     resolvedChildren.push(await resolveInstances(child, scenesDir, stack));
   }
 
@@ -61,7 +61,7 @@ function mergeNodeData(template: NodeData, instance: NodeData): NodeData {
     id: instance.id,
     type: instance.type,
     properties: { ...template.properties, ...instance.properties },
-    children: [...template.children, ...instance.children],
+    children: [...(template.children ?? []), ...(instance.children ?? [])],
     scripts: [...template.scripts, ...instance.scripts],
     ...(template.js_script || instance.js_script
       ? { js_script: instance.js_script || template.js_script }

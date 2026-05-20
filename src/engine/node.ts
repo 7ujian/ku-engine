@@ -77,7 +77,7 @@ export class Node {
       id: this.id,
       type: this.type,
       properties: { ...this.properties },
-      children: this.children.map(c => c.toJSON()),
+      ...(this.children.length > 0 ? { children: this.children.map(c => c.toJSON()) } : {}),
       scripts: this.scripts.map(s => ({ ...s, filter: s.filter ? { ...s.filter } : undefined, actions: [...s.actions] })),
       ...(this.instance ? { instance: this.instance } : {}),
       ...(this.js_script ? { js_script: this.js_script } : {}),
@@ -86,7 +86,7 @@ export class Node {
 
   static fromJSON(data: NodeData): Node {
     const node = new Node(data.id, data.type, { ...data.properties });
-    node.children = data.children.map(c => {
+    node.children = (data.children ?? []).map(c => {
       const child = Node.fromJSON(c);
       child.parent = node;
       return child;

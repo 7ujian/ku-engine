@@ -45,7 +45,7 @@ export interface NodeData {
   id: string;
   type: string;
   properties: PropertyMap;
-  children: NodeData[];
+  children?: NodeData[];
   scripts: ScriptRule[];
   instance?: string;
   js_script?: string;
