@@ -5,6 +5,7 @@ import { JsScriptEngine } from './js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { Renderer } from '../renderer/renderer.js';
 import { CollisionEvents } from './collision-events.js';
+import { interpolateKeyframes, getEasing, type PropertyAnimation, type AnimTrack } from './animation.js';
 import type { AudioManager } from '../engine/audio.js';
 
 export class GameLoop {
@@ -27,6 +28,7 @@ export class GameLoop {
   private collisionEvents: CollisionEvents;
   private prevSnapshot: Record<string, Record<string, unknown>> | null = null;
   private timers = new Map<string, { elapsed: number; fired: boolean }>();
+  private animPlayerState = new Map<string, { elapsed: number; finished: boolean }>();
   private audio: AudioManager | null = null;
   private pendingScene: { name: string } | null = null;
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
@@ -105,6 +107,7 @@ export class GameLoop {
     this.audio?.destroy();
     this.collisionEvents.reset();
     this.timers.clear();
+    this.animPlayerState.clear();
   }
 
   pause(): void {
@@ -135,8 +138,24 @@ export class GameLoop {
     return this.tree;
   }
 
+  syncNodeProperty(path: string): void {
+    const node = this.tree.get(path);
+    if (node) this.physics.syncNode(node);
+  }
+
   getCollisions(): Array<{ nodeA: string; nodeB: string }> {
     return this.physics.getCollisions();
+  }
+
+  getLogs(): string[] {
+    const logs = this.scripts.getLogs();
+    if (this.jsScripts) logs.push(...this.jsScripts.getLogs());
+    return logs;
+  }
+
+  clearLogs(): void {
+    this.scripts.clearLogs();
+    this.jsScripts?.clearLogs();
   }
 
   getDiff(): Array<{ node: string; property: string; old: unknown; new: unknown }> {
@@ -211,6 +230,7 @@ export class GameLoop {
       const areaOverlaps = this.physics.getAreaOverlaps();
       this.collisionEvents.updateAreas(areaOverlaps);
     }
+    this.tickAnimationPlayers(dt);
     this.scripts.evaluateEvent('on_frame', { frame: this.frame, dt });
     this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame, dt });
 
@@ -225,6 +245,31 @@ export class GameLoop {
     if (change) {
       this.pendingScene = change;
     }
+  }
+
+  replaceTree(newTree: SceneTree): void {
+    this.physics.destroy();
+    this.collisionEvents.reset();
+    this.timers.clear();
+    this.animPlayerState.clear();
+    this.tree = newTree;
+    this.physics = new PhysicsWorld(newTree);
+    this.physics.syncFromTree();
+    this.scripts.setTree(newTree);
+    this.scripts.registerTree();
+    this.jsScripts?.registerTree();
+    if (this.jsScripts) {
+      const scripts = this.scripts;
+      const jsScripts = this.jsScripts;
+      const physics = this.physics;
+      this.jsScripts.setSpawnCallback((node: Node) => {
+        scripts.registerNode(node);
+        jsScripts.registerNode(node);
+        physics.syncNode(node);
+      });
+    }
+    this.scripts.evaluateEvent('on_enter', {});
+    this.jsScripts?.evaluateEvent('on_enter', {});
   }
 
   private snapshotProperties(): Record<string, Record<string, unknown>> {
@@ -289,6 +334,71 @@ export class GameLoop {
         state.elapsed = 0;
         this.scripts.evaluateEvent('on_timer', { timer: node.id });
         this.jsScripts?.evaluateEvent('on_timer', { timer: node.id });
+      }
+    });
+  }
+
+  private tickAnimationPlayers(dt: number): void {
+    this.tree.traverse((node) => {
+      if (node.type !== 'AnimationPlayer') return;
+      const playing = (node.getProperty('playing') as boolean) ?? false;
+      if (!playing) return;
+
+      const current = (node.getProperty('current') as string) ?? '';
+      const targetPath = (node.getProperty('target') as string) ?? '';
+      const speed = (node.getProperty('speed') as number) ?? 1;
+      const loop = (node.getProperty('loop') as boolean) ?? false;
+
+      if (!current || !targetPath) return;
+
+      const animations = (node.getProperty('animations') as Record<string, unknown>) ?? {};
+      const animDef = animations[current];
+      if (!animDef || typeof animDef !== 'object') return;
+      const anim = animDef as PropertyAnimation;
+      if (!anim.tracks || !anim.duration) return;
+
+      let target: Node;
+      try { target = this.tree.get(targetPath); } catch { return; }
+
+      let state = this.animPlayerState.get(node.id);
+      if (!state) {
+        state = { elapsed: 0, finished: false };
+        this.animPlayerState.set(node.id, state);
+      }
+      if (state.finished && !loop) {
+        // Reset state when replaying a finished non-looping animation
+        state.elapsed = 0;
+        state.finished = false;
+      }
+
+      const durationMs = anim.duration * 1000;
+      state.elapsed += dt * speed;
+
+      let progress: number;
+      if (loop) {
+        progress = (state.elapsed % durationMs) / durationMs;
+      } else {
+        progress = Math.min(state.elapsed / durationMs, 1);
+        if (progress >= 1) {
+          state.finished = true;
+          progress = 1;
+        }
+      }
+
+      const animLoop = anim.loop ?? loop;
+      for (const [prop, track] of Object.entries(anim.tracks)) {
+        const t = track as AnimTrack;
+        if (!t.keyframes || t.keyframes.length === 0) continue;
+        const value = interpolateKeyframes(t.keyframes, progress, getEasing(t.easing));
+        target.setPropertyByPath(prop, value);
+      }
+
+      if (state.finished && !animLoop) {
+        node.setProperty('playing', false);
+        this.scripts.evaluateEvent('on_animation_finished', { animation: current, node: node.id });
+        this.jsScripts?.evaluateEvent('on_animation_finished', { animation: current, node: node.id });
+        state.elapsed = 0;
+        state.finished = false;
       }
     });
   }

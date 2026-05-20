@@ -4,7 +4,9 @@ import { EventBus } from './event-bus.js';
 import { evaluateExpression } from './expression-evaluator.js';
 import { evaluateCondition } from './conditions.js';
 import { createNodeByType } from './node-types.js';
+import { pluginRegistry } from './plugin-registry.js';
 import type { ScriptRule, ScriptAction, PropertyMap, ScriptError } from './types.js';
+import type { ActionContext } from './plugin.js';
 
 import type { AudioManager } from './audio.js';
 
@@ -18,9 +20,17 @@ export class ScriptEngine {
   private audio: AudioManager | null = null;
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
   private pendingSceneChange: { name: string } | null = null;
+  private actionContext: ActionContext;
 
   constructor(tree: SceneTree) {
     this.tree = tree;
+    this.actionContext = {
+      tree,
+      evaluateExpression,
+      recordError: (nodeId, event, actionType, reason) => this.recordError(nodeId, event, actionType, reason),
+      createNodeByType,
+      bus: this.bus,
+    };
   }
 
   setAudio(audio: AudioManager | null): void { this.audio = audio; }
@@ -34,6 +44,7 @@ export class ScriptEngine {
 
   setTree(tree: SceneTree): void {
     this.tree = tree;
+    this.actionContext = { ...this.actionContext, tree };
   }
 
   unregisterNodeById(id: string): void {
@@ -164,6 +175,18 @@ export class ScriptEngine {
       this.executeStop(node, action, context, event);
     } else if (action.change_scene) {
       this.pendingSceneChange = { name: action.change_scene };
+    } else if (action.animate) {
+      this.executeAnimate(node, action, context, event);
+    } else if (action.animate_stop) {
+      this.executeAnimateStop(node, action, context, event);
+    } else {
+      // Plugin-registered actions
+      for (const [key, handler] of pluginRegistry.getAllActionHandlers()) {
+        if ((action as any)[key] !== undefined) {
+          handler(node, action, context, event, this.actionContext);
+          return;
+        }
+      }
     }
   }
 
@@ -238,6 +261,35 @@ export class ScriptEngine {
       }
     } catch {
       this.recordError(node.id, event, 'stop', `target not found: ${targetPath}`);
+    }
+  }
+
+  private executeAnimate(node: Node, action: ScriptAction, _context: Record<string, unknown>, event: string): void {
+    const animName = action.animate;
+    const targetPath = action.on ?? '';
+    if (!animName || !targetPath) return;
+    try {
+      const target = this.tree.get(targetPath);
+      if (target.type !== 'AnimationPlayer') return;
+      target.setProperty('current', animName);
+      target.setProperty('playing', true);
+      if (action.animate_speed !== undefined) {
+        target.setProperty('speed', action.animate_speed);
+      }
+    } catch {
+      this.recordError(node.id, event, 'animate', `target not found: ${targetPath}`);
+    }
+  }
+
+  private executeAnimateStop(_node: Node, action: ScriptAction, _context: Record<string, unknown>, event: string): void {
+    const targetPath = action.animate_stop;
+    if (!targetPath) return;
+    try {
+      const target = this.tree.get(targetPath);
+      if (target.type !== 'AnimationPlayer') return;
+      target.setProperty('playing', false);
+    } catch {
+      this.recordError(_node.id, event, 'animate_stop', `target not found: ${targetPath}`);
     }
   }
 

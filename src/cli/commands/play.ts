@@ -1,42 +1,45 @@
 import { fork } from 'node:child_process';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { readDiscovery, isAlive } from '../../server/discovery.js';
+import { readDiscovery, isAlive, normalizePlayName } from '../../server/discovery.js';
 import { waitForInstance, setAttachedInstance } from './edit.js';
 import { buildCommand } from './build.js';
 
-export async function playCommand(projectDir: string, interactive = false): Promise<void> {
-  // Ensure editor is running; auto-start if needed
-  let disc = await readDiscovery(projectDir);
-  if (!disc.edit || !isAlive(disc.edit.pid)) {
-    // Launch editor
-    const serverPath = resolve(import.meta.dirname, '../../server/main.js');
-    const editArgs = ['--mode', 'edit', '--dir', projectDir, '--port', '21200'];
-    const editChild = fork(serverPath, editArgs, { stdio: 'ignore' });
-    await waitForInstance(projectDir, 'edit', 5000);
-    // Don't wait for editChild — it stays running
-    editChild.unref();
+function pickNextPlayName(disc: Record<string, { pid: number; port: number }>): string {
+  for (let i = 1; i <= 100; i++) {
+    const name = `play${i}`;
+    const info = disc[name];
+    if (!info || !isAlive(info.pid)) return name;
   }
+  throw new Error('too many play instances');
+}
 
-  disc = await readDiscovery(projectDir);
-  const editorPort = disc.edit!.port;
+export async function playCommand(projectDir: string, opts: { interactive?: boolean; scene?: string; name?: string; watch?: boolean } = {}): Promise<void> {
+  const disc = await readDiscovery(projectDir);
+  const playName = opts.name ? normalizePlayName(opts.name) : pickNextPlayName(disc);
 
   const serverPath = resolve(import.meta.dirname, '../../server/main.js');
-  const args = ['--mode', 'play', '--dir', projectDir, '--port', '21201', '--sync-from', String(editorPort)];
+  const args = ['--mode', playName, '--dir', projectDir, '--port', '0'];
+  if (opts.scene) args.push('--load-scene', opts.scene);
+  if (opts.watch) args.push('--watch');
 
-  const child = fork(serverPath, args, { stdio: 'ignore' });
+  const child = fork(serverPath, args, { silent: true });
 
-  await waitForInstance(projectDir, 'play', 3000);
+  child.stderr?.on('data', (data: Buffer) => {
+    process.stderr.write(data);
+  });
 
-  if (interactive) {
-    await setAttachedInstance(projectDir, 'play');
+  await waitForInstance(projectDir, playName, 5000, child);
+
+  if (opts.interactive) {
+    await setAttachedInstance(projectDir, playName);
     process.on('exit', () => { try { child.kill('SIGTERM'); } catch {} });
     child.on('exit', () => process.exit(0));
     await runInteractiveShell(projectDir);
     return;
   }
 
-  printJson({ ok: true, data: { spawned: 'play', mode: 'preview' } });
+  printJson({ ok: true, data: { spawned: playName, scene: opts.scene ?? '(entry)' } });
 
   const onSigint = () => {
     child.kill('SIGTERM');

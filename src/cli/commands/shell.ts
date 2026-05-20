@@ -6,7 +6,7 @@ import WebSocket from 'ws';
 import { getAttachedInstance, setAttachedInstance } from './edit.js';
 import { findInstancePort } from './instances.js';
 import { makeMessage } from '../client.js';
-import { readDiscovery, isAlive } from '../../server/discovery.js';
+import { readDiscovery, isAlive, isPlayInstance, normalizePlayName, isValidInstanceName } from '../../server/discovery.js';
 import { loadScene, saveScene, listSceneInfos, sceneFilePath } from '../../persistence/scene-io.js';
 import type { InstanceType } from '../../server/discovery.js';
 
@@ -60,7 +60,8 @@ class CommandParser {
       return handler(args, '');
     }
 
-    return { kind: 'error', message: `Unknown command: '${group}'. Type 'help' for available commands.` };
+    // Passthrough: unrecognized commands exec as CLI subcommand
+    return { kind: 'builtin', name: group, args: sub ? [sub, ...tokens.slice(2)] : tokens.slice(1) };
   }
 
   private tokenize(input: string): string[] {
@@ -130,6 +131,26 @@ function extractPropsFlag(args: string[]): { remaining: string[]; props?: Record
 // ---------------------------------------------------------------------------
 // FS helpers (path resolution, tree printing, etc.)
 // ---------------------------------------------------------------------------
+
+function resolvePropertyTarget(cwd: string, arg: string): { path: string; prop: string } | null {
+  let tp: string;
+  let tprop: string;
+  if (arg.startsWith('.')) {
+    tp = cwd.indexOf('.') > 0 ? cwd.slice(0, cwd.indexOf('.')) : cwd;
+    tprop = arg.slice(1);
+  } else {
+    const target = resolveTarget(cwd, [arg]);
+    if (target === null) return null;
+    const td = target.indexOf('.');
+    if (td <= 0) {
+      console.error('Usage: <command> <path.prop> <value> — must specify a property');
+      return null;
+    }
+    tp = target.slice(0, td);
+    tprop = target.slice(td + 1);
+  }
+  return { path: tp, prop: tprop };
+}
 
 function parentPath(cwd: string): string {
   const dotIdx = cwd.indexOf('.');
@@ -304,9 +325,9 @@ Available commands:
 
   Instance:
     edit <scene>         Load/replace scene in editor (alias: scene load)
-    play                 Launch play instance (clones editor, auto-starts editor)
+    play [scene]         Launch play instance (loads scene, or entry scene if omitted)
     run                  Build and run standalone player
-    attach <edit|play>   Connect to an instance
+    attach <edit|playN>  Connect to an instance
     detach               Disconnect from current instance
     instances            List running instances
 
@@ -343,12 +364,25 @@ Available commands:
     query nodes [type]   List nodes, optionally filtered
     query diff           Frame-over-frame deltas
     query collisions     Active collision pairs
+    query logs [--clear] Script engine log output
+    query node <path>    Show node properties
+
+  Plugin:
+    plugin list          List installed plugins
+    plugin install <pkg> Install plugin from npm
+    plugin remove <name> Remove a plugin
+    plugin create <name> Create new plugin scaffold
+    plugin info <name>   Show plugin details
+    plugin check <path>  Validate a plugin module
+    plugin disable <n>   Disable plugin (keep files)
+    plugin enable <n>    Re-enable disabled plugin
 
   Shell:
     help                 Show this help
     exit / quit          Exit the shell
 
   Tip: ku edit -i / ku play -i  Start instance with interactive shell
+        ku play main --name play2  Launch specific scene with named instance
 `;
 
 export async function shellCommand(projectDir: string, opts?: { command?: string; scene?: string }): Promise<void> {
@@ -373,6 +407,7 @@ export class ShellSession {
   private cwd = '/';
   private prevCwd = '/';
   private currentScene = '';
+  private childPids: number[] = [];
   private sigintCount = 0;
   private sigintTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -441,22 +476,23 @@ export class ShellSession {
   async connect(): Promise<boolean> {
     try {
       const port = await findInstancePort(this.projectDir, this.currentInstance);
-      this.ws = new WebSocket(`ws://localhost:${port}`);
+      const ws = new WebSocket(`ws://localhost:${port}`);
+      this.ws = ws;
 
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('connection timeout')), 5000);
 
-        this.ws!.on('open', () => {
+        ws.on('open', () => {
           clearTimeout(timeout);
           resolve();
         });
 
-        this.ws!.on('error', (err: Error) => {
+        ws.on('error', (err: Error) => {
           clearTimeout(timeout);
           reject(err);
         });
 
-        this.ws!.on('message', (data: Buffer) => {
+        ws.on('message', (data: Buffer) => {
           try {
             const msg = JSON.parse(data.toString());
             if (msg.type === 'response' && this.pending.has(msg.id)) {
@@ -467,17 +503,32 @@ export class ShellSession {
           } catch { /* ignore malformed messages */ }
         });
 
-        this.ws!.on('close', () => {
-          // Reject all pending
+        ws.on('close', () => {
+          // Only clear if this is still the active socket (prevent race on reconnect)
+          if (this.ws !== ws) return;
           for (const [, p] of this.pending) {
             p.reject(new Error('connection closed'));
           }
           this.pending.clear();
           this.ws = null;
+          // Auto-fallback to edit when play instance dies
+          if (isPlayInstance(this.currentInstance)) {
+            console.log(`${this.currentInstance} instance disconnected.`);
+            this.pruneChildPids();
+            void this.switchInstance('edit');
+          }
         });
       });
 
       console.log(`Connected to ${this.currentInstance} instance.`);
+
+      // Fetch scene name for prompt
+      try {
+        const info = await this.send('instance.info', {});
+        const scene = (info as any)?.data?.scene;
+        if (scene) this.currentScene = scene;
+      } catch { /* non-critical */ }
+
       return true;
     } catch {
       this.ws = null;
@@ -509,7 +560,7 @@ export class ShellSession {
 
   async send(action: string, params: Record<string, unknown>): Promise<unknown> {
     if (!this.ws) {
-      throw new Error('Not connected. Use attach <edit|play> to connect.');
+      throw new Error('Not connected. Use attach <edit|playN> to connect.');
     }
 
     const msg = makeMessage(action, params);
@@ -567,21 +618,36 @@ export class ShellSession {
         const { readDiscovery, isAlive } = await import('../../server/discovery.js');
         const { waitForInstance } = await import('./edit.js');
 
-        // Auto-start editor if needed
-        let disc = await readDiscovery(this.projectDir);
-        if (!disc.edit || !isAlive(disc.edit.pid)) {
-          console.log('Starting editor...');
-          const srvPath = resolve(import.meta.dirname, '../../server/main.js');
-          fork(srvPath, ['--mode', 'edit', '--dir', this.projectDir, '--port', '21200'], { stdio: 'ignore' });
-          await waitForInstance(this.projectDir, 'edit', 5000);
-          disc = await readDiscovery(this.projectDir);
+        const disc = await readDiscovery(this.projectDir);
+
+        // Parse: play [scene] [--name <name>] [--watch]
+        let scene: string | undefined;
+        let playName: string | undefined;
+        let doWatch = false;
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '--name' && args[i + 1]) { playName = normalizePlayName(args[++i]); }
+          else if (args[i] === '--watch') { doWatch = true; }
+          else if (!scene) { scene = args[i]; }
+        }
+        if (!playName) {
+          playName = 'play1';
+          for (let i = 1; i <= 100; i++) {
+            const name = `play${i}`;
+            const info = disc[name];
+            if (!info || !isAlive(info.pid)) { playName = name; break; }
+          }
         }
 
-        // Spawn play instance synced from editor
+        // Spawn play instance (loads scene or entry scene)
         const srvPath = resolve(import.meta.dirname, '../../server/main.js');
-        fork(srvPath, ['--mode', 'play', '--dir', this.projectDir, '--port', '21201', '--sync-from', String(disc.edit!.port)], { stdio: 'ignore' });
-        await waitForInstance(this.projectDir, 'play', 3000);
-        await this.switchInstance('play');
+        const forkArgs = ['--mode', playName, '--dir', this.projectDir, '--port', '0'];
+        if (scene) forkArgs.push('--load-scene', scene);
+        if (doWatch) forkArgs.push('--watch');
+        const pl = fork(srvPath, forkArgs, { silent: true });
+        if (pl.pid) this.childPids.push(pl.pid);
+        pl.stderr?.on('data', (data: Buffer) => process.stderr.write(data));
+        await waitForInstance(this.projectDir, playName, 5000, pl);
+        await this.switchInstance(playName);
         break;
       }
       case 'run': {
@@ -600,16 +666,17 @@ export class ShellSession {
         }
 
         console.log('Starting player...');
-        fork(playerPath, [gameDir], { stdio: 'ignore' });
+        const pl = fork(playerPath, [gameDir], { stdio: 'ignore' });
+        if (pl.pid) this.childPids.push(pl.pid);
         break;
       }
       case 'attach': {
-        const inst = args[0] as InstanceType | undefined;
-        if (!inst || (inst !== 'edit' && inst !== 'play')) {
-          console.error('Usage: attach <edit|play>');
+        const inst = args[0];
+        if (!inst || !isValidInstanceName(inst)) {
+          console.error('Usage: attach <edit|playN>');
           return;
         }
-        await this.switchInstance(inst);
+        await this.switchInstance(normalizePlayName(inst));
         break;
       }
       case 'detach': {
@@ -618,14 +685,79 @@ export class ShellSession {
       }
       case 'instances': {
         const disc = await readDiscovery(this.projectDir);
-        for (const inst of ['edit', 'play'] as const) {
+        const keys = Object.keys(disc).sort((a, b) => {
+          if (a === 'edit') return -1;
+          if (b === 'edit') return 1;
+          return a.localeCompare(b, undefined, { numeric: true });
+        });
+        for (const inst of keys) {
           const info = disc[inst];
-          if (!info) {
-            console.log(`${inst}:  stopped`);
-          } else if (!isAlive(info.pid)) {
+          if (!info) continue;
+          if (!isAlive(info.pid)) {
             console.log(`${inst}:  stopped (stale)`);
           } else {
             console.log(`${inst}:  running (pid=${info.pid}, port=${info.port})`);
+          }
+        }
+        break;
+      }
+      case 'plugin': {
+        const sub = args[0];
+        if (!sub) {
+          console.log(HELP.split('\n').slice(13, 22).join('\n'));
+          break;
+        }
+        switch (sub) {
+          case 'list': {
+            const { pluginListCommand } = await import('./plugin.js');
+            await pluginListCommand(this.projectDir);
+            break;
+          }
+          case 'install': {
+            if (args.length < 2) { console.error('Usage: plugin install <package>'); break; }
+            const { pluginInstallCommand } = await import('./plugin.js');
+            await pluginInstallCommand(this.projectDir, args[1]);
+            break;
+          }
+          case 'remove': {
+            if (args.length < 2) { console.error('Usage: plugin remove <name>'); break; }
+            const { pluginRemoveCommand } = await import('./plugin.js');
+            await pluginRemoveCommand(this.projectDir, args[1]);
+            break;
+          }
+          case 'create': {
+            if (args.length < 2) { console.error('Usage: plugin create <name>'); break; }
+            const { pluginCreateCommand } = await import('./plugin.js');
+            await pluginCreateCommand(this.projectDir, args[1]);
+            break;
+          }
+          case 'info': {
+            if (args.length < 2) { console.error('Usage: plugin info <name>'); break; }
+            const { pluginInfoCommand } = await import('./plugin.js');
+            await pluginInfoCommand(this.projectDir, args[1]);
+            break;
+          }
+          case 'check': {
+            if (args.length < 2) { console.error('Usage: plugin check <path>'); break; }
+            const { pluginCheckCommand } = await import('./plugin.js');
+            await pluginCheckCommand(args[1]);
+            break;
+          }
+          case 'disable': {
+            if (args.length < 2) { console.error('Usage: plugin disable <name>'); break; }
+            const { pluginDisableCommand } = await import('./plugin.js');
+            await pluginDisableCommand(this.projectDir, args[1]);
+            break;
+          }
+          case 'enable': {
+            if (args.length < 2) { console.error('Usage: plugin enable <name>'); break; }
+            const { pluginEnableCommand } = await import('./plugin.js');
+            await pluginEnableCommand(this.projectDir, args[1]);
+            break;
+          }
+          default: {
+            console.error(`Unknown plugin subcommand: ${sub}. Type 'help' for available commands.`);
+            break;
           }
         }
         break;
@@ -805,24 +937,26 @@ export class ShellSession {
         break;
       }
       case 'set': {
-        if (args.length < 2) { console.error('Usage: set <prop> <value>'); break; }
+        if (args.length < 2) { console.error('Usage: set <path.prop> <value>'); break; }
         const parsed = parseJsonValue(args[1]);
         if (!parsed.ok) { console.error(`Error: ${parsed.error}`); break; }
-        const np = this.cwd.indexOf('.') > 0 ? this.cwd.slice(0, this.cwd.indexOf('.')) : this.cwd;
+        const target = resolvePropertyTarget(this.cwd, args[0]);
+        if (!target) break;
         try {
-          const data = await this.send('node.set', { path: np, property: args[0], value: parsed.value });
+          const data = await this.send('node.set', { path: target.path, property: target.prop, value: parsed.value });
           if ((data as any)?.ok === false) console.error(`Error: ${(data as any).error}`);
           else console.log(JSON.stringify(data, null, 2));
         } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
         break;
       }
       case 'touch': {
-        if (args.length < 1) { console.error('Usage: touch <prop> [value]'); break; }
+        if (args.length < 1) { console.error('Usage: touch <path.prop> [value]'); break; }
         const val = args.length >= 2 ? parseJsonValue(args[1]) : { ok: true as const, value: '' };
         if (!val.ok) { console.error(`Error: ${val.error}`); break; }
-        const np = this.cwd.indexOf('.') > 0 ? this.cwd.slice(0, this.cwd.indexOf('.')) : this.cwd;
+        const target = resolvePropertyTarget(this.cwd, args[0]);
+        if (!target) break;
         try {
-          await this.send('node.set', { path: np, property: args[0], value: val.value });
+          await this.send('node.set', { path: target.path, property: target.prop, value: val.value });
         } catch (err) { console.error(`Error: ${err instanceof Error ? err.message : String(err)}`); }
         break;
       }
@@ -1127,11 +1261,39 @@ export class ShellSession {
         }
         break;
       }
+
+      default: {
+        // Passthrough: run as CLI command via ku binary
+        const cliPath = resolve(import.meta.dirname, '../../bin/ku.js');
+        const cmdArgs = [cliPath, ...name.split('.'), ...args, '--project', this.projectDir];
+        try {
+          const { execFile } = await import('node:child_process');
+          const output = await new Promise<string>((resolve, reject) => {
+            execFile('node', cmdArgs, { timeout: 30000 }, (err, stdout, stderr) => {
+              const combined = (stdout + (stderr ? '\n' + stderr : '')).trim();
+              if (err && !combined) reject(err);
+              else resolve(combined);
+            });
+          });
+          if (output) console.log(output);
+        } catch (err) {
+          console.error(`Unknown command: ${name}. Type 'help' for available commands.`);
+        }
+        break;
+      }
     }
+  }
+
+  private pruneChildPids(): void {
+    this.childPids = this.childPids.filter(pid => isAlive(pid));
   }
 
   shutdown(): void {
     this.disconnect();
+    for (const pid of this.childPids) {
+      try { process.kill(pid, 'SIGTERM'); } catch { /* already dead */ }
+    }
+    this.childPids.length = 0;
     if (this.rl) {
       this.rl.close();
       this.rl = null;
@@ -1386,6 +1548,7 @@ export class ShellSession {
     p.register('attach', (args) => blt('attach', args));
     p.register('detach', () => blt('detach', []));
     p.register('instances', () => blt('instances', []));
+    p.register('plugin', (args) => blt('plugin', args));
     p.register('help', () => blt('help', []));
     p.register('exit', () => blt('exit', []));
     p.register('quit', () => blt('quit', []));

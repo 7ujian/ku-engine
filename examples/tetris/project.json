@@ -1,0 +1,6 @@
+{
+  "name": "tetris",
+  "entry": "main",
+  "window": { "width": 480, "height": 540 },
+  "debug_physics": false
+}

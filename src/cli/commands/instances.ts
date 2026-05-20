@@ -4,13 +4,15 @@ import { sendCommand, makeMessage } from '../client.js';
 export async function listInstances(projectDir: string): Promise<void> {
   const disc = await readDiscovery(projectDir);
   const results: Record<string, unknown>[] = [];
+  const keys = Object.keys(disc).sort((a, b) => {
+    if (a === 'edit') return -1;
+    if (b === 'edit') return 1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
 
-  for (const inst of ['edit', 'play'] as InstanceType[]) {
+  for (const inst of keys) {
     const info = disc[inst];
-    if (!info) {
-      results.push({ instance: inst, status: 'stopped' });
-      continue;
-    }
+    if (!info) continue;
     const alive = isAlive(info.pid);
     if (!alive) {
       results.push({ instance: inst, status: 'stopped (stale pid)' });

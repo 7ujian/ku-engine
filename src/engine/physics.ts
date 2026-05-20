@@ -4,6 +4,10 @@ import { Node } from './node.js';
 import type { PropertyMap } from './types.js';
 import { getWorldTransform, worldToLocal, getLocalTransform } from './transform.js';
 
+export const PHYSICS_PROPERTIES = new Set([
+  'x', 'y', 'velocity.x', 'velocity.y', 'rotation', 'scale_x', 'scale_y',
+]);
+
 export class PhysicsWorld {
   private engine: Matter.Engine;
   private bodyMap = new Map<string, Matter.Body>();
@@ -172,6 +176,10 @@ export class PhysicsWorld {
 
     if (existing) {
       Matter.Body.setPosition(existing, { x: wx, y: wy });
+      // Sync velocity from node props; fall back to current body velocity if unset
+      const vx = (node.getPropertyByPath('velocity.x') as number) ?? existing.velocity.x;
+      const vy = (node.getPropertyByPath('velocity.y') as number) ?? existing.velocity.y;
+      Matter.Body.setVelocity(existing, { x: vx, y: vy });
       return;
     }
 

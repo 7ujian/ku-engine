@@ -1,6 +1,6 @@
 import { fork } from 'node:child_process';
 import { resolve } from 'node:path';
-import { readDiscovery, isAlive, type InstanceType } from '../../server/discovery.js';
+import { readDiscovery, isAlive, normalizePlayName, isValidInstanceName, type InstanceType } from '../../server/discovery.js';
 import { findInstancePort } from './instances.js';
 import { sendCommand, makeMessage } from '../client.js';
 import { writeFile, readFile } from 'node:fs/promises';
@@ -16,7 +16,7 @@ export async function getAttachedInstance(projectDir: string): Promise<InstanceT
   const file = getAttachFile(projectDir);
   if (existsSync(file)) {
     const content = await readFile(file, 'utf-8').catch(() => '');
-    if (content === 'edit' || content === 'play') return content;
+    if (isValidInstanceName(content)) return normalizePlayName(content);
   }
   return 'edit';
 }
@@ -71,7 +71,7 @@ export async function editCommand(projectDir: string, scene?: string, interactiv
 }
 
 export async function stopCommand(projectDir: string, instance?: string): Promise<void> {
-  const inst = (instance ?? 'play') as InstanceType;
+  const inst = normalizePlayName(instance ?? 'play');
   const disc = await readDiscovery(projectDir);
   const info = disc[inst];
   if (!info || !isAlive(info.pid)) {
@@ -87,10 +87,11 @@ export async function stopCommand(projectDir: string, instance?: string): Promis
   printJson({ ok: true, data: { stopped: inst } });
 }
 
-export async function attachCommand(projectDir: string, instance: InstanceType): Promise<void> {
-  await findInstancePort(projectDir, instance);
-  await setAttachedInstance(projectDir, instance);
-  printJson({ ok: true, data: { attached: instance } });
+export async function attachCommand(projectDir: string, instance: string): Promise<void> {
+  const inst = normalizePlayName(instance);
+  await findInstancePort(projectDir, inst);
+  await setAttachedInstance(projectDir, inst);
+  printJson({ ok: true, data: { attached: inst } });
 }
 
 export async function detachCommand(projectDir: string): Promise<void> {
@@ -102,15 +103,23 @@ export async function detachCommand(projectDir: string): Promise<void> {
   printJson({ ok: true, data: { detached: true } });
 }
 
-export async function waitForInstance(projectDir: string, inst: InstanceType, timeoutMs: number): Promise<void> {
+export async function waitForInstance(projectDir: string, inst: InstanceType, timeoutMs: number, child?: import('node:child_process').ChildProcess): Promise<void> {
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const disc = await readDiscovery(projectDir);
-    const info = disc[inst];
-    if (info && isAlive(info.pid)) return;
-    await new Promise(r => setTimeout(r, 100));
+  let exitCode: number | null = null;
+  const onExit = (code: number | null) => { exitCode = code; };
+  child?.on('exit', onExit);
+  try {
+    while (Date.now() - start < timeoutMs) {
+      if (exitCode !== null) throw new Error(`${inst} process exited with code ${exitCode}`);
+      const disc = await readDiscovery(projectDir);
+      const info = disc[inst];
+      if (info && isAlive(info.pid)) return;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    throw new Error(`timed out waiting for ${inst} instance`);
+  } finally {
+    child?.off('exit', onExit);
   }
-  throw new Error(`timed out waiting for ${inst} instance`);
 }
 
 function printJson(data: unknown): void {

@@ -1,26 +1,36 @@
 import { writeFile, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 
 export interface InstanceInfo {
   pid: number;
   port: number;
 }
 
-export interface DiscoveryData {
-  edit?: InstanceInfo;
-  play?: InstanceInfo;
+export type DiscoveryData = Record<string, InstanceInfo>;
+
+export type InstanceType = string;
+
+const PLAY_RE = /^play\d*$/;
+
+export function isPlayInstance(name: string): boolean {
+  return PLAY_RE.test(name);
 }
 
-const files = {
-  edit: { pid: '.ku.edit.pid', port: '.ku.edit.port' },
-  play: { pid: '.ku.play.pid', port: '.ku.play.port' },
-} as const;
+export function isEditInstance(name: string): boolean {
+  return name === 'edit';
+}
 
-export type InstanceType = 'edit' | 'play';
+export function normalizePlayName(name: string): string {
+  return name === 'play' ? 'play1' : name;
+}
+
+export function isValidInstanceName(name: string): boolean {
+  return name === 'edit' || PLAY_RE.test(name);
+}
 
 export function discoveryPath(projectDir: string, instance: InstanceType, kind: 'pid' | 'port'): string {
-  return join(projectDir, files[instance][kind]);
+  return join(projectDir, `.ku.${instance}.${kind}`);
 }
 
 export async function writeDiscovery(projectDir: string, instance: InstanceType, pid: number, port: number): Promise<void> {
@@ -35,16 +45,26 @@ export async function cleanDiscovery(projectDir: string, instance: InstanceType)
   }
 }
 
+const DISCOVERY_RE = /^\.ku\.(edit|play\d+)\.pid$/;
+
 export async function readDiscovery(projectDir: string): Promise<DiscoveryData> {
   const result: DiscoveryData = {};
-  for (const inst of ['edit', 'play'] as InstanceType[]) {
-    const pidPath = discoveryPath(projectDir, inst, 'pid');
+  let entries: string[];
+  try {
+    entries = readdirSync(projectDir);
+  } catch {
+    return result;
+  }
+  for (const name of entries) {
+    const m = name.match(DISCOVERY_RE);
+    if (!m) continue;
+    const inst = m[1];
+    const pidPath = join(projectDir, name);
     const portPath = discoveryPath(projectDir, inst, 'port');
-    if (existsSync(pidPath) && existsSync(portPath)) {
-      const pid = parseInt(await readFile(pidPath, 'utf-8'), 10);
-      const port = parseInt(await readFile(portPath, 'utf-8'), 10);
-      result[inst] = { pid, port };
-    }
+    if (!existsSync(portPath)) continue;
+    const pid = parseInt(await readFile(pidPath, 'utf-8'), 10);
+    const port = parseInt(await readFile(portPath, 'utf-8'), 10);
+    result[inst] = { pid, port };
   }
   return result;
 }

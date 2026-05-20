@@ -18,6 +18,7 @@ interface RegisteredScript {
   compiled: VmScript;
   sandbox: Context;
   handlers: Record<string, (...args: unknown[]) => void>;
+  state: Record<string, unknown>;
 }
 
 export class JsScriptEngine {
@@ -83,7 +84,22 @@ export class JsScriptEngine {
       this.logs.push(`JS error in ${absPath}: ${(err as Error).message}`);
     }
 
-    this.registrations.set(node.id, { node, compiled, sandbox, handlers });
+    // Script may have used `const handlers = {...}` which shadows the sandbox
+    // global without populating it. Read the context-scoped binding instead.
+    if (Object.keys(handlers).length === 0) {
+      try {
+        const globalHandlers = new VmScript('handlers').runInContext(sandbox) as Record<string, (...args: unknown[]) => void> | undefined;
+        if (globalHandlers && typeof globalHandlers === 'object') {
+          for (const key of Object.keys(globalHandlers)) {
+            if (typeof globalHandlers[key] === 'function') {
+              handlers[key] = globalHandlers[key];
+            }
+          }
+        }
+      } catch { /* handlers not defined in context */ }
+    }
+
+    this.registrations.set(node.id, { node, compiled, sandbox, handlers, state: {} });
   }
 
   unregisterNodeById(id: string): void {
@@ -95,10 +111,14 @@ export class JsScriptEngine {
       const handler = reg.handlers[event];
       if (typeof handler !== 'function') continue;
 
+      // Merge event data into persisted per-node state
+      const merged = { ...reg.state, ...data };
+      reg.state = merged;
+
       const ctx = {
         node: this.createNodeApi(reg.node),
         scene: this.createSceneApi(),
-        data,
+        data: merged,
         dt: (data.dt as number) ?? (1000 / 60),
         emit: (name: string, payload?: Record<string, unknown>) => {
           this.bus.emit(name, payload ?? {});
@@ -146,10 +166,10 @@ export class JsScriptEngine {
         try { this.tree.get(path).setPropertyByPath(prop, value); }
         catch { /* node not found */ }
       },
-      spawn: (type: string, id: string, props?: Record<string, unknown>) => {
+      spawn: (type: string, id: string, props?: Record<string, unknown>, parent?: string) => {
         try {
           const node = createNodeByType(type, id, props as any);
-          this.tree.add('/', node);
+          this.tree.add(parent ?? '/', node);
           this.onSpawn?.(node);
         } catch { /* ignore */ }
       },

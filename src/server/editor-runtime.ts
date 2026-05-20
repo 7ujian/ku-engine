@@ -3,7 +3,7 @@ import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
 import { Instance } from './instance.js';
 import { loadScene, sceneFilePath, saveSceneSync } from '../persistence/scene-io.js';
-import { setOnDirty, setAutosaveHandler } from './message-handler.js';
+import { setOnDirty, setAutosaveHandler, setSceneName } from './message-handler.js';
 import type { InstanceType } from './discovery.js';
 
 const AUTOSAVE_DEBOUNCE_MS = 2000;
@@ -28,6 +28,10 @@ export class EditorRuntime {
     let tree: SceneTree;
     let lastSavePath: string | null = null;
 
+    // Load plugins before engine subsystems
+    const { pluginRegistry } = await import('../engine/plugin-registry.js');
+    await pluginRegistry.loadFromDir(dir, 'edit');
+
     if (scene) {
       const path = sceneFilePath(resolve(dir, 'scenes'), scene);
       tree = await loadScene(path);
@@ -37,6 +41,7 @@ export class EditorRuntime {
     }
 
     const instance = new Instance('edit' as InstanceType, tree, dir, port);
+    instance.sceneName = scene ?? '';
     return new EditorRuntime(tree, instance, dir, lastSavePath, autosave);
   }
 
@@ -45,6 +50,7 @@ export class EditorRuntime {
       setOnDirty(() => this.scheduleSave());
       setAutosaveHandler((enabled: boolean) => this.toggleAutosave(enabled));
     }
+    setSceneName(this.instance.sceneName);
     await this.instance.start();
   }
 
@@ -52,6 +58,8 @@ export class EditorRuntime {
     setOnDirty(null);
     setAutosaveHandler(null);
     if (this.saveTimer) clearTimeout(this.saveTimer);
+    const { pluginRegistry } = await import('../engine/plugin-registry.js');
+    await pluginRegistry.destroyAll();
     await this.instance.stop();
   }
 

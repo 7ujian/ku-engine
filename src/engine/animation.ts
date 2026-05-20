@@ -80,3 +80,61 @@ export function resolveAnimation(
 
   return null;
 }
+
+// --- Property Animation (AnimationPlayer) ---
+
+export interface Keyframe {
+  t: number;
+  value: number;
+}
+
+export interface AnimTrack {
+  keyframes: Keyframe[];
+  easing?: string;
+}
+
+export interface PropertyAnimation {
+  duration: number;
+  loop?: boolean;
+  tracks: Record<string, AnimTrack>;
+}
+
+export type EasingFn = (t: number) => number;
+
+const easingFunctions: Record<string, EasingFn> = {
+  linear: (t) => t,
+  ease_in: (t) => t * t,
+  ease_out: (t) => t * (2 - t),
+  ease_in_out: (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
+  bounce: (t) => {
+    if (t < 1 / 2.75) return 7.5625 * t * t;
+    if (t < 2 / 2.75) return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
+    if (t < 2.5 / 2.75) return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
+    return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
+  },
+};
+
+export function getEasing(name?: string): EasingFn {
+  if (!name) return easingFunctions.linear;
+  return easingFunctions[name] ?? easingFunctions.linear;
+}
+
+export function interpolateKeyframes(keyframes: Keyframe[], progress: number, easingFn: EasingFn): number {
+  if (keyframes.length === 0) return 0;
+  if (keyframes.length === 1) return keyframes[0].value;
+
+  const t = easingFn(Math.max(0, Math.min(1, progress)));
+
+  let lo = 0;
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    if (t >= keyframes[i].t && t <= keyframes[i + 1].t) { lo = i; break; }
+    if (i === keyframes.length - 2) lo = i;
+  }
+
+  const a = keyframes[lo];
+  const b = keyframes[lo + 1];
+  const segLen = b.t - a.t;
+  const segT = segLen > 0 ? (t - a.t) / segLen : 0;
+  return a.value + (b.value - a.value) * segT;
+}
+

@@ -4,45 +4,53 @@ A CLI-based 2D game engine for AI agents. AI agents act as both developers (crea
 
 ## Architecture
 
-Dual-instance model with separate OS processes:
-
-- **Editor instance** (port 21200) — persistent, scene editing, no game loop, saves to disk
-- **Play instance** (port 21201) — ephemeral, spawned from editor snapshot, runs full game loop (physics + scripts + input + rendering), state discarded on stop
+One editor + multiple play instances, each a separate OS process connected via WebSocket:
 
 ```
-┌──────────┐     WebSocket      ┌──────────────────┐
-│  ku CLI  │ ◄──────────────► │  Editor :21200    │
+┌──────────┐     WebSocket     ┌──────────────────┐
+│  ku CLI  │ ◄───────────────► │  edit :21200      │
 │          │                    │  (scene editing)  │
-│  AI SDK  │                    └──────────────────┘
-│          │ ◄──────────────► │  Play :21201       │
-└──────────┘     WebSocket      │  (game loop)      │
+│  AI SDK  │ ◄───────────────► │  play1 :OS-port   │
+│          │     WebSocket     │  (game loop)      │
+│          │ ◄───────────────► │  play2 :OS-port   │
+└──────────┘                    │  (game loop)      │
                                 └──────────────────┘
 ```
 
-The scene graph is a tree of typed nodes (Godot-inspired). 12 built-in node types: `Node`, `Node2D`, `Sprite`, `AnimatedSprite`, `RigidBody`, `Area`, `CollisionShape`, `Camera2D`, `Label`, `TileMap`, `Timer`, `AudioPlayer`. Nodes are addressed by slash-separated path (e.g. `player/sprite`).
+- **Editor** (`edit`, port 21200) — persistent, scene editing, no game loop, saves to disk
+- **Play instances** (`play1`, `play2`, ...) — ephemeral, loads scenes from disk, runs full game loop (physics + scripts + input + rendering). Each gets its own window and OS-assigned port. Optional `--watch` for hot reload on scene file changes.
 
-Game logic is pure JSON — event-driven scripts with triggers (`on_key`, `on_collision`, `on_frame`) and actions (`set`, `move`, `spawn`, `destroy`, `emit`). No embedded scripting language.
+The scene graph is a tree of typed nodes (Godot-inspired). 14 built-in node types: `Node`, `Node2D`, `Sprite`, `AnimatedSprite`, `RigidBody`, `Area`, `CollisionShape`, `Camera2D`, `Label`, `TileMap`, `Timer`, `AudioPlayer`, `AnimationPlayer`, `Block`. Nodes are addressed by slash-separated path (e.g. `player/sprite`).
+
+Game logic is pure JSON — event-driven scripts with triggers (`on_key`, `on_collision`, `on_frame`, `on_timer`, `on_area_enter`, `on_touch_start`, `on_animation_finished`) and actions (`set`, `move`, `spawn`, `destroy`, `emit`, `play`, `change_scene`, `animate`, `log`). Cross-node references via `{{/player/score}}` expressions. Optional JS scripting via sandboxed `vm` engine.
 
 ## Quick Start
 
 ```bash
-# Install dependencies and build
-npm install
-npm run build
+npm install && npm run build
 
-# Create a project and start editing
+# Create a project
 mkdir my-game && cd my-game
 echo '{"window":{"width":640,"height":480},"entry":"scenes/main.json"}' > project.json
 
-# Start the editor (creates scenes/main.json if it doesn't exist)
-ku edit main
+# Start the editor and open a shell
+ku edit main -i
 
-# Start playing (opens SDL2 window with physics)
-ku play
+# In the shell:
+play            # launches play1 (opens SDL2 window, loads entry scene)
+play            # launches play2
+instances       # lists edit, play1, play2
+attach play1    # switch to play1
+```
 
-# Send input
-ku input key space down
-ku input key space up
+Or non-interactive:
+
+```bash
+ku edit main            # start editor
+ku play                 # start play1 (loads entry scene)
+ku play level2          # start play1 with specific scene
+ku play --name play2    # start play2 (entry scene)
+ku input key space down # send input to attached instance
 ```
 
 ## CLI Commands
@@ -52,34 +60,38 @@ ku input key space up
 | Command | Description |
 |---------|-------------|
 | `ku edit [scene]` | Start editor instance |
-| `ku play [scene]` | Start play instance (snapshot from editor) |
-| `ku stop [edit\|play]` | Stop an instance |
-| `ku attach <edit\|play>` | Attach CLI to an instance |
+| `ku play [scene]` | Start play instance (loads scene, or entry scene if none given; `--name` to set instance name; `--watch` for hot reload) |
+| `ku stop [playN]` | Stop an instance (default: play1) |
+| `ku attach <edit\|playN>` | Attach CLI to an instance |
 | `ku detach` | Detach CLI from current instance |
 | `ku instances` | List running instances |
 
-### Scene editing (editor only)
+### Scene editing
 
 | Command | Description |
 |---------|-------------|
 | `ku scene create <name>` | Create a new scene |
-| `ku scene save` | Save current scene to disk |
-| `ku scene load <name>` | Load a scene |
+| `ku scene save [name]` | Save current scene to disk |
+| `ku scene load <name>` | Load a scene into editor |
 | `ku scene list` | List all scenes |
-| `ku scene snapshot` | Return scene JSON |
+| `ku scene rm <name>` | Delete a scene file |
 
-### Node operations (editor only)
+### Node operations
 
 | Command | Description |
 |---------|-------------|
-| `ku node add <path> <type>` | Add a node |
-| `ku node rm <path>` | Remove a node |
-| `ku node set <path> <key> <value>` | Set a property |
-| `ku node get <path> [key]` | Get a property |
-| `ku node mv <from> <to>` | Move/rename a node |
-| `ku node ls [path]` | List children |
+| `ku node new <type> [path] [id]` | Create node from type |
+| `ku node instance <scene> [path] [id]` | Instance a scene as a node |
+| `ku node duplicate <path> [parent] [id]` | Clone a sub-tree |
+| `ku node save <path> [scene-name]` | Save sub-tree as scene file |
+| `ku node add <path> <type> <id>` | Add child node |
+| `ku node rm <path>` | Remove node |
+| `ku node set <path.prop> <value>` | Set property |
+| `ku node get <path[.prop]>` | Get property or full node |
+| `ku node list <path>` | List children |
+| `ku node move <path> <newParent>` | Reparent node |
 
-### Runtime (play only)
+### Runtime (play instances)
 
 | Command | Description |
 |---------|-------------|
@@ -87,7 +99,7 @@ ku input key space up
 | `ku resume` | Resume game loop |
 | `ku step` | Advance one frame |
 
-### Input (play only)
+### Input (play instances)
 
 | Command | Description |
 |---------|-------------|
@@ -101,6 +113,16 @@ ku input key space up
 |---------|-------------|
 | `ku query scene` | Full scene state as JSON |
 | `ku query nodes [type]` | List nodes, optionally filtered by type |
+| `ku query node <path>` | Get single node state |
+| `ku query diff` | Frame-over-frame property deltas |
+| `ku query collisions` | Active collision pairs |
+| `ku query logs [--clear]` | View script log output |
+
+### Build
+
+| Command | Description |
+|---------|-------------|
+| `ku build [--output <dir>]` | Package project for distribution |
 
 ## Scene JSON Format
 
@@ -150,39 +172,61 @@ ku input key space up
 
 Scripts are event-driven JSON rules with three optional filtering stages:
 
-- **event** — which event triggers the script (e.g. `on_frame`, `on_key`, `on_collision`, `on_enter`)
+- **event** — which event triggers the script (`on_frame`, `on_key`, `on_collision`, `on_enter`, `on_timer`, `on_area_enter`, `on_touch_start`)
 - **filter** — key-value match against event data (e.g. `{"key": "space"}` or `{"with": "pipe"}`)
 - **condition** — expression evaluated against node properties (e.g. `{"gt": ["score", 10]}`)
 
 ### Actions
 
-| Action | Example |
-|--------|---------|
-| `set` | `{"set": "velocity.y", "to": -250}` |
-| `move` | `{"move": {"x": -2}}` |
-| `emit` | `{"emit": "scored", "data": {}}` |
-| `destroy` | `{"destroy": "{{other}}"}` |
-| `log` | `{"log": "hit pipe!"}` |
+| Action | Example | Description |
+|--------|---------|-------------|
+| `set` | `{"set": "velocity.y", "to": -250}` | Set property |
+| `set_on` | `{"set_on": "/player", "prop": "visible", "to": false}` | Set property on another node |
+| `move` | `{"move": {"x": -2}}` | Apply offset |
+| `move_toward` | `{"move_toward": {"x": 300, "y": 0}}` | Move toward target |
+| `spawn` | `{"spawn": "bullet", "at": "player"}` | Spawn from prefab |
+| `destroy` | `{"destroy": "{{other}}"}` | Remove node |
+| `emit` | `{"emit": "scored", "data": {}}` | Fire custom event |
+| `play` | `{"play": "shoot.wav"}` | Play audio/animation |
+| `change_scene` | `{"change_scene": "level2"}` | Switch scene |
+| `animate` | `{"animate": "jump", "on": "/player/anims"}` | Start AnimationPlayer |
+| `animate_stop` | `{"animate_stop": "/player/anims"}` | Stop AnimationPlayer |
+| `log` | `{"log": "hit pipe!"}` | Debug log |
 
 ### Expressions
 
-Template expressions use `{{...}}` syntax with access to node properties and event context variables:
+Template expressions use `{{...}}` syntax:
 
 - `"{{score + 1}}"` — arithmetic with node properties
 - `"{{velocity.y}}"` — dot-path property access
-- `"{{other}}"` — event context variable (the other node in a collision)
+- `"{{/player/score}}"` — cross-node reference
+- `"{{other}}"` — event context variable (collision partner)
 - `"{{otherTags}}"` — array of tags from the other node
 
-## Example: Flappy Bird
+### JS Scripts
 
-A complete Flappy Bird game scene lives in `/tmp/flappy-bird/scenes/flappy.json`. Start it with:
+For complex logic, nodes can have JS scripts loaded from the `scripts/` directory:
 
-```bash
-cd /tmp/flappy-bird
-ku edit flappy
-ku play
-# Press space to flap
-ku input key space down
+```javascript
+// scripts/player.js
+handlers.on_frame = function(ctx) {
+  var vx = ctx.node.get('velocity.x');
+  ctx.node.set('velocity.x', vx + ctx.dt * 100);
+  if (ctx.data.jumps > 3) ctx.emit('tired', {});
+};
+```
+
+## Project Configuration
+
+`project.json`:
+
+```json
+{
+  "name": "my-game",
+  "entry": "main",
+  "window": { "width": 640, "height": 480 },
+  "debug_physics": false
+}
 ```
 
 ## Tech Stack
@@ -191,55 +235,15 @@ ku input key space down
 - `commander` — CLI framework
 - `ws` — WebSocket server/client
 - `matter-js` — 2D physics engine
-- `@kmamal/sdl` — SDL2 window rendering
+- `@kmamal/sdl` — SDL2 window rendering + audio
 - `@napi-rs/canvas` — software canvas rendering
 - `vitest` — testing
 
 ## Development
 
 ```bash
-npm test          # run all tests (62 passing)
-npm run build     # compile TypeScript
+npm test                       # run all tests
+npx vitest run                 # run tests once
+npx vitest run test/file.test.ts  # single test file
+npm run build                  # compile TypeScript
 ```
-
-### Project structure
-
-```
-src/
-├── bin/ku.ts            # CLI entry point
-├── cli/                 # CLI commands
-│   ├── cli.ts           # Commander program
-│   ├── client.ts        # WebSocket client
-│   └── commands/        # edit, play, node, scene, input, query, runtime, instances
-├── engine/              # Core engine
-│   ├── types.ts         # TypeScript interfaces
-│   ├── node.ts          # Node class
-│   ├── node-types.ts    # 12 built-in node type factories
-│   ├── scene-tree.ts    # Scene tree with traversal
-│   ├── scene-file.ts    # Scene JSON load/save
-│   ├── script-engine.ts # Event-driven script execution
-│   ├── expression-evaluator.ts
-│   ├── conditions.ts    # Condition evaluation
-│   ├── event-bus.ts     # Pub/sub event bus
-│   ├── physics.ts       # Matter.js physics world
-│   └── game-loop.ts     # 60 FPS game loop
-├── server/              # WebSocket server
-│   ├── main.ts          # Server entry point
-│   ├── instance.ts      # Instance lifecycle
-│   ├── discovery.ts     # PID/port file discovery
-│   ├── message-handler.ts
-│   └── input-manager.ts
-└── renderer/
-    └── renderer.ts      # SDL2 + canvas renderer
-```
-
-## Status
-
-All 6 implementation phases complete. 62 tests passing across 4 test files.
-
-- [x] Phase 1: Core data model (types, node tree, scene files)
-- [x] Phase 2: Server + CLI (WebSocket, discovery, instance management, node CRUD)
-- [x] Phase 3: Script engine (event bus, expression evaluator, action execution)
-- [x] Phase 4: Physics (matter-js integration, collision events)
-- [x] Phase 5: Renderer (SDL2, canvas, sprites, labels)
-- [x] Phase 6: Game loop + input (60 FPS loop, play instance, AI input)

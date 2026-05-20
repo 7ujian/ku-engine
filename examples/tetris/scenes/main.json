@@ -1,0 +1,192 @@
+{
+  "scene": "main",
+  "root": {
+    "id": "world",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "bg",
+        "type": "Block",
+        "properties": { "x": 140, "y": 260, "width": 240, "height": 480, "color": "#0a0a2e" },
+        "children": []
+      },
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": { "zoom": 1, "offset_x": 0, "offset_y": 0 },
+        "children": []
+      },
+      {
+        "id": "layer_blocks",
+        "type": "Node",
+        "properties": {},
+        "children": []
+      },
+      {
+        "id": "layer_effects",
+        "type": "Node",
+        "properties": {},
+        "children": []
+      },
+      {
+        "id": "layer_overlay",
+        "type": "Node",
+        "properties": {},
+        "children": []
+      },
+      {
+        "id": "gameover_panel",
+        "type": "Node2D",
+        "properties": { "x": 140, "y": 260, "visible": false, "scale_x": 0, "scale_y": 0 },
+        "children": [
+          {
+            "id": "panel_bg",
+            "type": "Block",
+            "properties": { "x": 0, "y": 0, "width": 200, "height": 90, "color": "#1a1a3e" },
+            "children": []
+          },
+          {
+            "id": "panel_border",
+            "type": "Block",
+            "properties": { "x": 0, "y": 0, "width": 204, "height": 94, "color": "#00ffff" },
+            "children": []
+          },
+          {
+            "id": "panel_title",
+            "type": "Label",
+            "properties": { "x": -58, "y": -18, "text": "GAME OVER", "font_size": 22, "color": "#ff3333" },
+            "children": []
+          },
+          {
+            "id": "panel_score",
+            "type": "Label",
+            "properties": { "x": -50, "y": 8, "text": "SCORE: 0", "font_size": 14, "color": "#ffffff" },
+            "children": []
+          },
+          {
+            "id": "panel_restart",
+            "type": "Label",
+            "properties": { "x": -72, "y": 28, "text": "Press R to restart", "font_size": 13, "color": "#aaaaaa" },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "panel_anim",
+        "type": "AnimationPlayer",
+        "properties": {
+          "target": "gameover_panel",
+          "current": "pop_in",
+          "playing": false,
+          "loop": false,
+          "animations": {
+            "pop_in": {
+              "duration": 0.3,
+              "loop": false,
+              "tracks": {
+                "scale_x": {
+                  "keyframes": [
+                    { "t": 0, "value": 0 },
+                    { "t": 0.6, "value": 1.2 },
+                    { "t": 1, "value": 1 }
+                  ],
+                  "easing": "ease_out"
+                },
+                "scale_y": {
+                  "keyframes": [
+                    { "t": 0, "value": 0 },
+                    { "t": 0.6, "value": 1.2 },
+                    { "t": 1, "value": 1 }
+                  ],
+                  "easing": "ease_out"
+                }
+              }
+            }
+          }
+        },
+        "children": []
+      },
+      {
+        "id": "title",
+        "type": "Label",
+        "properties": { "x": 280, "y": 20, "text": "TETRIS", "font_size": 20, "color": "#00ffff" },
+        "children": []
+      },
+      {
+        "id": "score_label",
+        "type": "Label",
+        "properties": { "x": 280, "y": 60, "text": "SCORE: 0", "font_size": 14, "color": "#ffffff" },
+        "children": []
+      },
+      {
+        "id": "level_label",
+        "type": "Label",
+        "properties": { "x": 280, "y": 80, "text": "LEVEL: 1", "font_size": 14, "color": "#ffffff" },
+        "children": []
+      },
+      {
+        "id": "lines_label",
+        "type": "Label",
+        "properties": { "x": 280, "y": 100, "text": "LINES: 0", "font_size": 14, "color": "#ffffff" },
+        "children": []
+      },
+      {
+        "id": "next_label",
+        "type": "Label",
+        "properties": { "x": 280, "y": 140, "text": "NEXT:", "font_size": 14, "color": "#ffffff" },
+        "children": []
+      },
+      {
+        "id": "controls_title",
+        "type": "Label",
+        "properties": { "x": 280, "y": 280, "text": "CONTROLS", "font_size": 14, "color": "#00ffff" },
+        "children": []
+      },
+      {
+        "id": "ctrl1",
+        "type": "Label",
+        "properties": { "x": 280, "y": 300, "text": "Arrow keys Move", "font_size": 11, "color": "#aaaaaa" },
+        "children": []
+      },
+      {
+        "id": "ctrl2",
+        "type": "Label",
+        "properties": { "x": 280, "y": 316, "text": "UP    Rotate", "font_size": 11, "color": "#aaaaaa" },
+        "children": []
+      },
+      {
+        "id": "ctrl3",
+        "type": "Label",
+        "properties": { "x": 280, "y": 332, "text": "SPACE Hard Drop", "font_size": 11, "color": "#aaaaaa" },
+        "children": []
+      },
+      {
+        "id": "ctrl4",
+        "type": "Label",
+        "properties": { "x": 280, "y": 348, "text": "P     Pause", "font_size": 11, "color": "#aaaaaa" },
+        "children": []
+      },
+      {
+        "id": "controller",
+        "type": "Node",
+        "properties": {},
+        "children": [],
+        "js_script": "scripts/tetris.js"
+      },
+      {
+        "id": "hello_test",
+        "type": "HelloPlugin",
+        "properties": { "x": 60, "y": 460, "message": "hello plugin!" },
+        "children": [],
+        "scripts": [
+          {
+            "event": "on_enter",
+            "actions": [{ "hello": true }]
+          }
+        ]
+      }
+    ],
+    "scripts": []
+  }
+}

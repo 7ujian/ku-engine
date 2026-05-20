@@ -14,15 +14,17 @@ import { AudioManager } from '../engine/audio.js';
 import { loadScene, sceneFilePath, saveSceneSync } from '../persistence/scene-io.js';
 import { loadWav } from '../persistence/audio-loader.js';
 import { loadScriptSource } from '../persistence/script-loader.js';
-import { setGameLoop, setInputManager, setSaveRuntimeState } from './message-handler.js';
+import { setGameLoop, setInputManager, setSaveRuntimeState, setSceneName } from './message-handler.js';
 import type { InstanceType } from './discovery.js';
 
 export interface PlayConfig {
   dir: string;
   port: number;
+  name?: string;
   syncFrom?: number;
   hotReload?: boolean;
   loadScene?: string;
+  watch?: boolean;
 }
 
 export class PlayRuntime {
@@ -38,6 +40,10 @@ export class PlayRuntime {
   renderer: Renderer;
   audio: AudioManager;
   loop: GameLoop;
+  private watcher: import('node:fs').FSWatcher | null = null;
+  private watchSceneName = '';
+  private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
+  private doWatch = false;
 
   private constructor(
     tree: SceneTree,
@@ -68,6 +74,12 @@ export class PlayRuntime {
 
     let tree: SceneTree;
     const projectConfig = JSON.parse(await readFile(resolve(dir, 'project.json'), 'utf-8'));
+    const raw = (projectConfig.entry as string) ?? 'main';
+    const entryScene = raw.replace(/^scenes\/|\.json$/g, '');
+
+    // Load plugins before engine subsystems
+    const { pluginRegistry } = await import('../engine/plugin-registry.js');
+    await pluginRegistry.loadFromDir(dir, 'play');
 
     // PREVIEW mode: sync from editor
     if (config.syncFrom && config.syncFrom > 0) {
@@ -80,12 +92,12 @@ export class PlayRuntime {
     }
     // RELEASE mode: load entry scene from project.json
     else {
-      const entryScene = projectConfig.entry ?? 'main';
       const path = sceneFilePath(resolve(dir, 'scenes'), entryScene);
       tree = await loadScene(path);
     }
 
-    const instance = new Instance('play' as InstanceType, tree, dir, config.port);
+    const instance = new Instance(config.name ?? 'play1', tree, dir, config.port);
+    instance.sceneName = config.loadScene ?? entryScene;
 
     const scripts = new ScriptEngine(tree);
     scripts.registerTree();
@@ -122,11 +134,15 @@ export class PlayRuntime {
     const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
 
     setGameLoop(loop);
+    setSceneName(instance.sceneName);
     setSaveRuntimeState(async (name: string) => {
       saveSceneSync(loop.getTree(), sceneFilePath(resolve(dir, 'scenes'), name), name);
     });
 
     const rt = new PlayRuntime(tree, instance, dir, scripts, jsScripts, physics, input, renderer, audio, loop);
+    rt.sceneLoader = sceneLoader;
+    rt.watchSceneName = instance.sceneName;
+    rt.doWatch = config.watch ?? false;
 
     // Wire syncClient for delta application (preview mode)
     if (config.syncFrom && config.syncFrom > 0) {
@@ -147,12 +163,41 @@ export class PlayRuntime {
     }
 
     this.loop.start();
+
+    if (this.doWatch && this.sceneLoader && this.watchSceneName) {
+      this.startWatcher();
+    }
   }
 
   async stop(): Promise<void> {
+    if (this.watcher) { this.watcher.close(); this.watcher = null; }
     setGameLoop(null);
     setInputManager(null);
     if (this.syncClient) this.syncClient.disconnect();
+    const { pluginRegistry } = await import('../engine/plugin-registry.js');
+    await pluginRegistry.destroyAll();
     await this.instance.stop();
+  }
+
+  private startWatcher(): void {
+    const { watch } = require('node:fs') as typeof import('node:fs');
+    const scenesDir = resolve(this.dir, 'scenes');
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    this.watcher = watch(scenesDir, (_event: string, filename: string | null) => {
+      if (!filename || !filename.endsWith('.json')) return;
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        debounce = null;
+        this.reloadScene();
+      }, 300);
+    });
+  }
+
+  private async reloadScene(): Promise<void> {
+    if (!this.sceneLoader || !this.watchSceneName) return;
+    try {
+      const newTree = await this.sceneLoader(this.watchSceneName);
+      this.loop.replaceTree(newTree);
+    } catch { /* reload failed, keep current scene */ }
   }
 }

@@ -1,5 +1,6 @@
 import type { PropertyMap } from './types.js';
 import { Node } from './node.js';
+import { pluginRegistry } from './plugin-registry.js';
 
 type NodeFactory = (id: string, overrides?: Partial<PropertyMap>) => Node;
 
@@ -104,6 +105,22 @@ export const createAudioPlayer = factory('AudioPlayer', {
   playing: false,
 });
 
+export const createAnimationPlayer = factory('AnimationPlayer', {
+  target: '',
+  animations: {},
+  current: '',
+  playing: false,
+  speed: 1,
+  loop: false,
+});
+
+export const createBlock = factory('Block', {
+  width: 32,
+  height: 32,
+  color: '#ffffff',
+  visible: true,
+});
+
 const factories: Record<string, NodeFactory> = {
   Node: createNode,
   Node2D: createNode2D,
@@ -117,9 +134,13 @@ const factories: Record<string, NodeFactory> = {
   TileMap: createTileMap,
   Timer: createTimer,
   AudioPlayer: createAudioPlayer,
+  AnimationPlayer: createAnimationPlayer,
+  Block: createBlock,
 };
 
 export function createNodeByType(type: string, id: string, overrides?: Partial<PropertyMap>): Node {
+  const pluginFactory = pluginRegistry.getNodeTypeFactory(type);
+  if (pluginFactory) return pluginFactory(id, overrides);
   const fn = factories[type];
   if (!fn) throw new Error(`unknown node type: ${type}`);
   return fn(id, overrides);

@@ -27,6 +27,10 @@ export interface ScriptAction {
   call?: string;
   move_toward?: { x?: number; y?: number; speed?: number };
   change_scene?: string;
+  animate?: string;
+  on?: string;
+  animate_speed?: number;
+  animate_stop?: string;
 }
 
 export interface ScriptRule {

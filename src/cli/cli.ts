@@ -8,9 +8,10 @@ import { sceneCreate, sceneList, sceneLoad, sceneTree, sceneSave, sceneRm } from
 import { nodeAdd, nodeNew, nodeInstance, nodeDuplicate, nodeSave, nodeRm, nodeSet, nodeGet, nodeList, nodeMove } from './commands/node.js';
 import { inputKey, inputClick, inputAxis } from './commands/input.js';
 import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js';
-import { queryScene, queryNodes, queryDiff, queryCollisions } from './commands/query.js';
+import { queryScene, queryNodes, queryDiff, queryCollisions, queryLogs, queryNode } from './commands/query.js';
 import { buildCommand } from './commands/build.js';
 import { shellCommand } from './commands/shell.js';
+import { pluginInstallCommand, pluginRemoveCommand, pluginListCommand, pluginCreateCommand, pluginInfoCommand, pluginCheckCommand, pluginDisableCommand, pluginEnableCommand } from './commands/plugin.js';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -53,9 +54,9 @@ export function createProgram(): Command {
 
   program
     .command('attach <instance>')
-    .description('Attach CLI to an instance (edit|play)')
+    .description('Attach CLI to an instance (edit|playN)')
     .action(async (instance: string) => {
-      await attachCommand(getProjectDir(), instance as 'edit' | 'play');
+      await attachCommand(getProjectDir(), instance);
     });
 
   program
@@ -73,11 +74,13 @@ export function createProgram(): Command {
     });
 
   program
-    .command('play')
+    .command('play [scene]')
     .option('-i, --interactive', 'Start interactive shell after launch')
-    .description('Start play instance cloned from editor (auto-starts editor if needed)')
-    .action(async (opts: { interactive?: boolean }) => {
-      await playCommand(getProjectDir(), opts.interactive ?? false);
+    .option('--name <name>', 'Instance name (default: auto-assign play1, play2...)')
+    .option('--watch', 'Auto-reload scene when files change')
+    .description('Start play instance (loads scene, or entry scene if none specified)')
+    .action(async (scene?: string, opts?: { interactive?: boolean; name?: string; watch?: boolean }) => {
+      await playCommand(getProjectDir(), { interactive: opts?.interactive ?? false, scene, name: opts?.name, watch: opts?.watch });
     });
 
   program
@@ -301,6 +304,94 @@ export function createProgram(): Command {
     .action(async () => {
       await queryCollisions(getProjectDir());
     });
+
+  query
+    .command('logs')
+    .option('--clear', 'Clear logs after reading')
+    .description('Script engine log output')
+    .action(async (opts: { clear?: boolean }) => {
+      await queryLogs(getProjectDir(), opts.clear ?? false);
+    });
+
+  query
+    .command('node <path>')
+    .description('Show node properties and children')
+    .action(async (path: string) => {
+      await queryNode(getProjectDir(), path);
+    });
+
+  // Plugin management
+  const plugin = program.command('plugin').description('Plugin management');
+
+  plugin
+    .command('install <package>')
+    .description('Install a plugin from npm')
+    .action(async (pkg: string) => {
+      await pluginInstallCommand(getProjectDir(), pkg);
+    });
+
+  plugin
+    .command('remove <name>')
+    .description('Remove a plugin')
+    .action(async (name: string) => {
+      await pluginRemoveCommand(getProjectDir(), name);
+    });
+
+  plugin
+    .command('list')
+    .description('List installed plugins')
+    .action(async () => {
+      await pluginListCommand(getProjectDir());
+    });
+
+  plugin
+    .command('create <name>')
+    .description('Create a new plugin with boilerplate')
+    .action(async (name: string) => {
+      await pluginCreateCommand(getProjectDir(), name);
+    });
+
+  plugin
+    .command('info <name>')
+    .description('Show detailed plugin info')
+    .action(async (name: string) => {
+      await pluginInfoCommand(getProjectDir(), name);
+    });
+
+  plugin
+    .command('check <path>')
+    .description('Validate a plugin module file')
+    .action(async (path: string) => {
+      await pluginCheckCommand(path);
+    });
+
+  plugin
+    .command('disable <name>')
+    .description('Disable a plugin without removing')
+    .action(async (name: string) => {
+      await pluginDisableCommand(getProjectDir(), name);
+    });
+
+  plugin
+    .command('enable <name>')
+    .description('Re-enable a disabled plugin')
+    .action(async (name: string) => {
+      await pluginEnableCommand(getProjectDir(), name);
+    });
+
+  // Apply plugin CLI commands (lazy load on first command execution)
+  let pluginsLoaded = false;
+  program.hook('preAction', async () => {
+    if (pluginsLoaded) return;
+    pluginsLoaded = true;
+    try {
+      const { pluginRegistry } = await import('../engine/plugin-registry.js');
+      await pluginRegistry.loadFromDir(getProjectDir(), 'edit');
+      for (const registrar of pluginRegistry.getCliRegistrars()) {
+        registrar(program);
+      }
+    } catch { /* ignore — plugins dir may not exist */ }
+  });
 
   return program;
 }

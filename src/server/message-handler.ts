@@ -2,8 +2,10 @@ import { resolve } from 'node:path';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
 import { createNodeByType } from '../engine/node-types.js';
+import { PHYSICS_PROPERTIES } from '../engine/physics.js';
 import { saveSceneSync, sceneFilePath } from '../persistence/scene-io.js';
-import type { InstanceType } from './discovery.js';
+import { isEditInstance, isPlayInstance, type InstanceType } from './discovery.js';
+import { pluginRegistry } from '../engine/plugin-registry.js';
 import type { GameLoop } from '../engine/game-loop.js';
 import type { InputManager } from './input-manager.js';
 import type { NodeData, ScriptRule } from '../engine/types.js';
@@ -13,12 +15,14 @@ let inputManager: InputManager | null = null;
 let saveRuntimeState: ((name: string) => Promise<void>) | null = null;
 let onDirty: (() => void) | null = null;
 let autosaveHandler: ((enabled: boolean) => void) | null = null;
+let sceneName = '';
 
 export function setGameLoop(loop: GameLoop | null): void { gameLoop = loop; }
 export function setInputManager(mgr: InputManager | null): void { inputManager = mgr; }
 export function setSaveRuntimeState(fn: ((name: string) => Promise<void>) | null): void { saveRuntimeState = fn; }
 export function setOnDirty(fn: (() => void) | null): void { onDirty = fn; }
 export function setAutosaveHandler(fn: ((enabled: boolean) => void) | null): void { autosaveHandler = fn; }
+export function setSceneName(name: string): void { sceneName = name; }
 
 export interface Message {
   type: string;
@@ -54,7 +58,7 @@ export function handleMessage(tree: SceneTree, instanceMode: InstanceType, msg: 
   try {
     const action = msg.payload.action as string;
     const { result, syncOps } = route(tree, instanceMode, action, msg.payload);
-    if (syncOps && instanceMode === 'edit') onDirty?.();
+    if (syncOps && isEditInstance(instanceMode)) onDirty?.();
     return {
       response: { type: 'response', id: msg.id, payload: { ok: true, data: result } },
       ...(syncOps ? { syncOps } : {}),
@@ -125,6 +129,10 @@ const setPath = payload.path as string;
       const value = payload.value;
       const node = tree.get(setPath);
       node.setPropertyByPath(property, value);
+      // Sync back to physics body if in play mode
+      if (gameLoop && PHYSICS_PROPERTIES.has(property)) {
+        gameLoop.syncNodeProperty(setPath);
+      }
       return {
         result: { [property]: value },
         syncOps: [{ op: 'set', path: setPath, property, value }],
@@ -188,7 +196,7 @@ const srcPath = payload.path as string;
 
     // Instance info
     case 'instance.info':
-      return { result: { mode, rootId: tree.root.id } };
+      return { result: { mode, rootId: tree.root.id, scene: sceneName } };
 
     // Runtime control (play instance)
     case 'runtime.pause':
@@ -279,6 +287,23 @@ const srcPath = payload.path as string;
       return { result: { collisions: gameLoop.getCollisions() } };
     }
 
+    case 'query.logs': {
+      if (!gameLoop) return { result: { logs: [] } };
+      const logs = gameLoop.getLogs();
+      return { result: { logs } };
+    }
+
+    case 'query.logs_clear': {
+      gameLoop?.clearLogs();
+      return { result: { cleared: true } };
+    }
+
+    case 'query.node': {
+      const nodePath = payload.path as string;
+      const node = tree.get(nodePath);
+      return { result: node.toJSON() };
+    }
+
     // Sync (editor-side)
     case 'sync.snapshot': {
 return { result: { root: tree.root.toJSON() } };
@@ -348,8 +373,11 @@ if (autosaveHandler) {
       }
       return { result: { autosave: false, error: 'autosave not available' } };
 
-    default:
+    default: {
+      const handler = pluginRegistry.getMessageHandler(action);
+      if (handler) return handler(tree, mode, payload);
       throw new Error(`unknown action: ${action}`);
+    }
   }
 }
 
@@ -362,5 +390,5 @@ function findNodePath(tree: SceneTree, target: Node): string | null {
 }
 
 function requirePlay(mode: InstanceType): void {
-  if (mode !== 'play') throw new Error('input requires play instance');
+  if (!isPlayInstance(mode)) throw new Error('input requires play instance');
 }

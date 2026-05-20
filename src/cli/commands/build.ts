@@ -51,7 +51,7 @@ export async function buildCommand(projectDir: string, outputDir: string): Promi
   }
 
   // 5. Copy game assets
-  const dirsToCopy = ['scenes', 'assets', 'scripts'];
+  const dirsToCopy = ['scenes', 'assets', 'scripts', 'plugins'];
   for (const dir of dirsToCopy) {
     const src = resolve(projectDir, dir);
     const dst = resolve(gameDir, dir);

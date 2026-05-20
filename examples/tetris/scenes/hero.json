@@ -1,0 +1,10 @@
+{
+  "scene": "hero",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [],
+    "scripts": []
+  }
+}

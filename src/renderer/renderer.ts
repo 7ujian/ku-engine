@@ -9,6 +9,7 @@ import { TilemapRenderer } from './tilemap-renderer.js';
 import { LabelRenderer } from './label-renderer.js';
 import type { PropertyMap } from '../engine/types.js';
 import { type Transform2D, IDENTITY, getLocalTransform, composeTransform } from '../engine/transform.js';
+import { pluginRegistry } from '../engine/plugin-registry.js';
 
 type KeyHandler = (key: string, down: boolean) => void;
 type TouchHandler = (phase: 'start' | 'move' | 'end', x: number, y: number, pointerId: number) => void;
@@ -204,7 +205,20 @@ export class Renderer {
     }
   }
 
-  private drawNode(node: Node, wx: number, wy: number, _sx: number, _sy: number, dt: number): void {
+  private drawNode(node: Node, wx: number, wy: number, sx: number, sy: number, dt: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    ctx.save();
+    ctx.translate(wx, wy);
+    ctx.scale(sx, sy);
+    ctx.translate(-wx, -wy);
+
+    const pluginRenderer = pluginRegistry.getNodeRenderer(node.type);
+    if (pluginRenderer) {
+      pluginRenderer(ctx, node, wx, wy, sx, sy, dt, this.projectDir);
+      ctx.restore();
+      return;
+    }
     switch (node.type) {
       case 'Sprite':
         this.spriteRenderer.drawSprite(node, wx, wy, dt);
@@ -215,6 +229,15 @@ export class Renderer {
       case 'Label':
         this.labelRenderer.drawLabel(node, wx, wy);
         break;
+      case 'Block': {
+        const w = (node.getProperty('width') as number) ?? 32;
+        const h = (node.getProperty('height') as number) ?? 32;
+        const color = (node.getProperty('color') as string) ?? '#ffffff';
+        const ctx = this.ctx;
+        ctx.fillStyle = color;
+        ctx.fillRect(wx - w / 2, wy - h / 2, w, h);
+        break;
+      }
       case 'TileMap':
         this.tilemapRenderer.drawTilemap(node, wx, wy);
         break;
@@ -234,6 +257,7 @@ export class Renderer {
       }
       // Area nodes only render in debug overlay
     }
+    ctx.restore();
   }
 
   private drawDebugOverlay(tree: SceneTree): void {

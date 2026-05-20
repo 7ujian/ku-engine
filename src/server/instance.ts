@@ -9,6 +9,7 @@ export class Instance {
   tree: SceneTree;
   projectDir: string;
   port: number;
+  sceneName = '';
   wss: WebSocketServer | null = null;
   private syncSubscribers = new Set<WebSocket>();
 
@@ -54,7 +55,11 @@ export class Instance {
     });
 
     await new Promise<void>((resolve, reject) => {
-      this.wss!.on('listening', resolve);
+      this.wss!.on('listening', () => {
+        const addr = this.wss!.address() as { port: number } | string | null;
+        if (addr && typeof addr === 'object') this.port = addr.port;
+        resolve();
+      });
       this.wss!.on('error', reject);
     });
 

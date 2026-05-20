@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { EditorRuntime } from './editor-runtime.js';
 import { PlayRuntime } from './play-runtime.js';
-import type { InstanceType } from './discovery.js';
+import { isPlayInstance, type InstanceType } from './discovery.js';
 
 const args = process.argv.slice(2);
 let mode: InstanceType = 'edit';
@@ -12,6 +12,7 @@ let hotReload = false;
 let scene = '';
 let loadSceneName = '';
 let autosave = false;
+let watch = false;
 
 for (let i = 0; i < args.length; i++) {
   switch (args[i]) {
@@ -23,17 +24,20 @@ for (let i = 0; i < args.length; i++) {
     case '--scene': scene = args[++i]; break;
     case '--load-scene': loadSceneName = args[++i]; break;
     case '--autosave': autosave = true; break;
+    case '--watch': watch = true; break;
   }
 }
 
 async function main(): Promise<void> {
-  if (mode === 'play') {
+  if (isPlayInstance(mode)) {
     const rt = await PlayRuntime.create({
       dir,
       port,
+      name: mode,
       syncFrom: syncFrom || undefined,
       hotReload,
       loadScene: loadSceneName || undefined,
+      watch,
     });
     await rt.start();
 
