@@ -136,7 +136,6 @@ export class PhysicsWorld {
     const collisions: Array<{ nodeA: string; nodeB: string }> = [];
     const events = Matter.Detector.collisions(detector);
     for (const pair of events) {
-      // Skip sensor-only overlaps (Area nodes)
       if (pair.bodyA.isSensor && pair.bodyB.isSensor) continue;
       const idA = pair.bodyA.label;
       const idB = pair.bodyB.label;

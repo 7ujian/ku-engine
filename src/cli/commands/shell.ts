@@ -408,8 +408,6 @@ export class ShellSession {
   private prevCwd = '/';
   private currentScene = '';
   private childPids: number[] = [];
-  private sigintCount = 0;
-  private sigintTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
@@ -443,7 +441,6 @@ export class ShellSession {
     });
 
     this.rl.on('line', async (line: string) => {
-      this.sigintCount = 0;
       const trimmed = line.trim();
       if (trimmed) {
         await this.execute(trimmed);
@@ -457,17 +454,41 @@ export class ShellSession {
       process.exit(0);
     });
 
-    // Ctrl+C handling
+    // Ctrl+C handling — first press closes readline (restores terminal),
+    // second press within 1s exits. Prevents raw-mode leak.
     process.on('SIGINT', () => {
-      this.sigintCount++;
-      if (this.sigintTimer) clearTimeout(this.sigintTimer);
-      if (this.sigintCount >= 2) {
-        console.log('Goodbye.');
-        this.shutdown();
+      if (!this.rl) {
+        // Already closed — second Ctrl+C, exit immediately
         process.exit(0);
       }
-      this.sigintTimer = setTimeout(() => { this.sigintCount = 0; }, 500);
-      // readline clears the current line automatically
+      // First Ctrl+C: close readline to restore terminal, show hint
+      this.rl.close();
+      this.rl = null;
+      process.stdout.write('^C\n(Press Ctrl+C again to exit)\n');
+
+      const exitTimer = setTimeout(() => {
+        // Timeout: restore readline and resume
+        this.rl = createInterface({
+          input: process.stdin,
+          output: process.stdout,
+          historySize: 100,
+          completer: (line: string, cb: (err: any, result: [string[], string]) => void) => {
+            this.complete(line).then(r => cb(null, r), err => cb(err, [[], line]));
+          },
+        });
+        this.rl.on('line', async (line: string) => {
+          const trimmed = line.trim();
+          if (trimmed) await this.execute(trimmed);
+          this.prompt();
+        });
+        this.rl.on('close', () => {
+          console.log('Goodbye.');
+          this.shutdown();
+          process.exit(0);
+        });
+        this.prompt();
+      }, 1000);
+      exitTimer.unref();
     });
 
     this.prompt();

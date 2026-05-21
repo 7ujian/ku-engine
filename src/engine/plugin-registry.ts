@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { resolve, join, dirname } from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { Node } from './node.js';
 import type {
   KuPlugin, PluginHost, PluginNodeFactory, PluginInfo,
@@ -11,6 +11,11 @@ import type {
 } from './plugin.js';
 import type { InstanceType } from '../server/discovery.js';
 import type { PropertyMap } from './types.js';
+
+// Engine plugins directory: <repo_root>/plugins/ (sibling of dist/)
+// Resolved from this file's compiled location: dist/engine/plugin-registry.js → ../../plugins/
+const __filename = fileURLToPath(import.meta.url);
+const ENGINE_PLUGINS_DIR = resolve(dirname(__filename), '..', '..', 'plugins');
 
 export class PluginRegistry implements PluginHost {
   private nodeFactories = new Map<string, PluginNodeFactory>();
@@ -81,7 +86,27 @@ export class PluginRegistry implements PluginHost {
     this._projectDir = projectDir;
     this._mode = mode;
 
+    // Load engine plugins first (from ku's own plugins/ directory)
+    await this.loadPluginsFromDir(ENGINE_PLUGINS_DIR, 'engine');
+
+    // Then load project plugins
     const pluginsDir = join(projectDir, 'plugins');
+    await this.loadPluginsFromDir(pluginsDir, 'project');
+  }
+
+  /** Load only engine plugins (for early CLI registration) */
+  async loadEnginePlugins(): Promise<void> {
+    await this.loadPluginsFromDir(ENGINE_PLUGINS_DIR, 'engine');
+  }
+
+  /** Load only project plugins (called after engine plugins) */
+  async loadProjectPlugins(projectDir: string): Promise<void> {
+    this._projectDir = projectDir;
+    const pluginsDir = join(projectDir, 'plugins');
+    await this.loadPluginsFromDir(pluginsDir, 'project');
+  }
+
+  private async loadPluginsFromDir(pluginsDir: string, source: string): Promise<void> {
     let entries: string[];
     try {
       entries = await readdir(pluginsDir);
@@ -89,19 +114,7 @@ export class PluginRegistry implements PluginHost {
       return; // no plugins dir — fine
     }
 
-    // Determine load order
-    let orderedNames: string[];
-    try {
-      const cfg = JSON.parse(await readFile(resolve(projectDir, 'project.json'), 'utf-8'));
-      const declared = cfg.plugins as string[] | undefined;
-      if (declared && Array.isArray(declared)) {
-        orderedNames = declared;
-      } else {
-        orderedNames = entries.filter(e => !e.startsWith('.') && !e.startsWith('_')).sort();
-      }
-    } catch {
-      orderedNames = entries.filter(e => !e.startsWith('.') && !e.startsWith('_')).sort();
-    }
+    const orderedNames = entries.filter(e => !e.startsWith('.') && !e.startsWith('_')).sort();
 
     for (const name of orderedNames) {
       const entryPath = await this.resolvePluginPath(pluginsDir, name);
@@ -114,11 +127,13 @@ export class PluginRegistry implements PluginHost {
           console.warn(`[plugin] skipping ${name}: missing name/version`);
           continue;
         }
+        // Skip if already loaded (e.g. engine plugin loaded in CLI then again in server)
+        if (this.plugins.some(p => p.name === plugin.name)) continue;
         if (plugin.init) plugin.init(this);
         this.plugins.push(plugin);
-        console.log(`[plugin] loaded ${plugin.name}@${plugin.version}`);
+        console.log(`[plugin:${source}] loaded ${plugin.name}@${plugin.version}`);
       } catch (err) {
-        console.warn(`[plugin] failed to load ${name}: ${(err as Error).message}`);
+        console.warn(`[plugin:${source}] failed to load ${name}: ${(err as Error).message}`);
       }
     }
   }

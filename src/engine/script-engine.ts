@@ -165,6 +165,7 @@ export class ScriptEngine {
     } else if (action.log) {
       const msg = evaluateExpression(action.log, node.properties, context, this.tree) as string;
       this.logs.push(msg);
+      console.log(msg);
     } else if (action.spawn) {
       this.executeSpawn(node, action, context, event);
     } else if (action.call) {

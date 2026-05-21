@@ -1,0 +1,137 @@
+{
+  "scene": "spritesheet-editor",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "scripts": [],
+    "js_script": "scripts/spritesheet-editor.js",
+    "children": [
+      {
+        "id": "canvas",
+        "type": "Camera2D",
+        "properties": { "zoom": 1, "offset_x": 0, "offset_y": 0, "smoothing": 0 },
+        "children": []
+      },
+      {
+        "id": "background",
+        "type": "Panel",
+        "properties": { "x": 0, "y": 0, "width": 640, "height": 480, "color": "#2d2d3d" },
+        "children": []
+      },
+      {
+        "id": "toolbar",
+        "type": "Panel",
+        "properties": { "x": 0, "y": 0, "width": 640, "height": 32, "color": "#1a1a2e", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "filename_label",
+            "type": "Label",
+            "properties": { "x": 8, "y": 7, "text": "Sprite Sheet Editor", "font_size": 14, "color": "#ffffff", "align": "left", "valign": "top" },
+            "children": []
+          },
+          {
+            "id": "coords_label",
+            "type": "Label",
+            "properties": { "x": 400, "y": 9, "text": "0, 0", "font_size": 12, "color": "#888888", "align": "right", "valign": "top" },
+            "children": []
+          },
+          {
+            "id": "zoom_label",
+            "type": "Label",
+            "properties": { "x": 580, "y": 9, "text": "100%", "font_size": 12, "color": "#888888", "align": "left", "valign": "top" },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "viewport",
+        "type": "ScrollView",
+        "properties": { "x": 0, "y": 32, "width": 480, "height": 448, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "spritesheet",
+            "type": "ImageRect",
+            "properties": { "x": 0, "y": 0, "width": 256, "height": 256, "texture": "", "region_w": 0, "region_h": 0 },
+            "children": []
+          },
+          {
+            "id": "regions",
+            "type": "Node2D",
+            "properties": { "x": 0, "y": 0 },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "sidebar",
+        "type": "Panel",
+        "properties": { "x": 480, "y": 32, "width": 160, "height": 448, "color": "#1a1a2e", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "sidebar_title",
+            "type": "Label",
+            "properties": { "x": 80, "y": 4, "text": "Regions", "font_size": 14, "color": "#ffffff", "align": "center", "valign": "top" },
+            "children": []
+          },
+          {
+            "id": "region_list",
+            "type": "ScrollView",
+            "properties": { "x": 4, "y": 24, "width": 152, "height": 200, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#222233" },
+            "children": []
+          },
+          {
+            "id": "buttons",
+            "type": "Node2D",
+            "properties": { "x": 4, "y": 230 },
+            "children": [
+              {
+                "id": "grid_btn",
+                "type": "Button",
+                "properties": { "x": 0, "y": 0, "width": 152, "height": 30, "text": "Grid Slice", "color": "#3a5a3e", "hover_color": "#4a6a4e", "pressed_color": "#2a4a2e", "clickable": true },
+                "children": []
+              },
+              {
+                "id": "add_btn",
+                "type": "Button",
+                "properties": { "x": 0, "y": 36, "width": 152, "height": 30, "text": "Add Region", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "clickable": true },
+                "children": []
+              },
+              {
+                "id": "preview_btn",
+                "type": "Button",
+                "properties": { "x": 0, "y": 72, "width": 152, "height": 30, "text": "Preview", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "clickable": true },
+                "children": []
+              },
+              {
+                "id": "save_btn",
+                "type": "Button",
+                "properties": { "x": 0, "y": 108, "width": 152, "height": 30, "text": "Save Atlas", "color": "#5a3a3e", "hover_color": "#6a4a4e", "pressed_color": "#4a2a2e", "clickable": true },
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "preview_panel",
+        "type": "Panel",
+        "properties": { "x": 484, "y": 420, "width": 152, "height": 56, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "preview_image",
+            "type": "ImageRect",
+            "properties": { "x": 4, "y": 4, "width": 48, "height": 48, "texture": "", "region_w": 0, "region_h": 0 },
+            "children": []
+          },
+          {
+            "id": "preview_label",
+            "type": "Label",
+            "properties": { "x": 56, "y": 4, "text": "", "font_size": 10, "color": "#aaaaaa", "align": "left", "valign": "top" },
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

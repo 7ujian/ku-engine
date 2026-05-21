@@ -629,9 +629,7 @@
                 "idle_0",
                 "idle_1",
                 "idle_2",
-                "idle_3",
-                "idle_4",
-                "idle_5"
+                "idle_3"
               ],
               "speed": 6,
               "loop": true,
@@ -644,7 +642,9 @@
                 "move_2",
                 "move_3",
                 "move_4",
-                "move_5"
+                "move_5",
+                "move_6",
+                "move_7"
               ],
               "speed": 8,
               "loop": true,
@@ -657,7 +657,9 @@
                 "death_2",
                 "death_3",
                 "death_4",
-                "death_5"
+                "death_5",
+                "death_6",
+                "death_7"
               ],
               "speed": 10,
               "loop": false
@@ -703,9 +705,7 @@
                 "idle_0",
                 "idle_1",
                 "idle_2",
-                "idle_3",
-                "idle_4",
-                "idle_5"
+                "idle_3"
               ],
               "speed": 6,
               "loop": true,
@@ -718,7 +718,9 @@
                 "move_2",
                 "move_3",
                 "move_4",
-                "move_5"
+                "move_5",
+                "move_6",
+                "move_7"
               ],
               "speed": 8,
               "loop": true,
@@ -731,7 +733,9 @@
                 "death_2",
                 "death_3",
                 "death_4",
-                "death_5"
+                "death_5",
+                "death_6",
+                "death_7"
               ],
               "speed": 10,
               "loop": false

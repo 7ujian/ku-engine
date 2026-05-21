@@ -75,6 +75,14 @@ export class GameLoop {
         jsScripts?.unregisterNodeById(nodeId);
         physics.removeBody(nodeId);
       });
+      jsScripts.setEmitCallback((event, data) => {
+        if (event === 'change_scene' && data.scene) {
+          this.pendingScene = { name: data.scene as string };
+          return;
+        }
+        scripts.evaluateEvent(event, data);
+        jsScripts?.evaluateEvent(event, data);
+      });
     }
   }
 
@@ -198,8 +206,12 @@ export class GameLoop {
 
     // Process scene change between ticks (async, out of accumulator loop)
     if (this.pendingScene && this.sceneLoader) {
-      this.applySceneChange(this.pendingScene.name);
+      const sceneName = this.pendingScene.name;
       this.pendingScene = null;
+      this.paused = true;
+      this.applySceneChange(sceneName).then(() => {
+        this.paused = false;
+      });
     }
 
     if (this.renderer) {
@@ -247,7 +259,7 @@ export class GameLoop {
     }
   }
 
-  replaceTree(newTree: SceneTree): void {
+  async replaceTree(newTree: SceneTree): Promise<void> {
     this.physics.destroy();
     this.collisionEvents.reset();
     this.timers.clear();
@@ -257,7 +269,10 @@ export class GameLoop {
     this.physics.syncFromTree();
     this.scripts.setTree(newTree);
     this.scripts.registerTree();
-    this.jsScripts?.registerTree();
+    if (this.jsScripts) {
+      this.jsScripts.setTree(newTree);
+      await this.jsScripts.registerTree();
+    }
     if (this.jsScripts) {
       const scripts = this.scripts;
       const jsScripts = this.jsScripts;
@@ -266,6 +281,14 @@ export class GameLoop {
         scripts.registerNode(node);
         jsScripts.registerNode(node);
         physics.syncNode(node);
+      });
+      this.jsScripts.setEmitCallback((event, data) => {
+        if (event === 'change_scene' && data.scene) {
+          this.pendingScene = { name: data.scene as string };
+          return;
+        }
+        scripts.evaluateEvent(event, data);
+        jsScripts.evaluateEvent(event, data);
       });
     }
     this.scripts.evaluateEvent('on_enter', {});
@@ -292,7 +315,10 @@ export class GameLoop {
       this.physics.syncFromTree();
       this.scripts.setTree(newTree);
       this.scripts.registerTree();
-      this.jsScripts?.registerTree();
+      if (this.jsScripts) {
+        this.jsScripts.setTree(newTree);
+        await this.jsScripts.registerTree();
+      }
       // Re-wire spawn/destroy for new tree
       if (this.jsScripts) {
         const scripts = this.scripts;
@@ -302,6 +328,14 @@ export class GameLoop {
           scripts.registerNode(node);
           jsScripts.registerNode(node);
           physics.syncNode(node);
+        });
+        this.jsScripts.setEmitCallback((event, data) => {
+          if (event === 'change_scene' && data.scene) {
+            this.pendingScene = { name: data.scene as string };
+            return;
+          }
+          scripts.evaluateEvent(event, data);
+          jsScripts.evaluateEvent(event, data);
         });
       }
       this.scripts.evaluateEvent('on_enter', {});

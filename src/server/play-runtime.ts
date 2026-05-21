@@ -10,6 +10,8 @@ import { PhysicsWorld } from '../engine/physics.js';
 import { GameLoop } from '../engine/game-loop.js';
 import { Renderer } from '../renderer/renderer.js';
 import { InputManager } from './input-manager.js';
+import { hitTest } from '../engine/hit-test.js';
+import { findCamera } from '../renderer/camera.js';
 import { AudioManager } from '../engine/audio.js';
 import { loadScene, sceneFilePath, saveSceneSync } from '../persistence/scene-io.js';
 import { loadWav } from '../persistence/audio-loader.js';
@@ -111,6 +113,12 @@ export class PlayRuntime {
     const input = new InputManager(scripts, jsScripts);
     setInputManager(input);
 
+    // Wire hit testing for GUI click events
+    input.setHitTestFn((screenX: number, screenY: number) => {
+      const cam = findCamera(tree);
+      return hitTest(tree, screenX, screenY, renderer.getWidth(), renderer.getHeight(), cam);
+    });
+
     const cfg = projectConfig as Record<string, unknown>;
     const renderer = new Renderer(
       (cfg.window as any)?.width ?? 640,
@@ -197,7 +205,7 @@ export class PlayRuntime {
     if (!this.sceneLoader || !this.watchSceneName) return;
     try {
       const newTree = await this.sceneLoader(this.watchSceneName);
-      this.loop.replaceTree(newTree);
+      await this.loop.replaceTree(newTree);
     } catch { /* reload failed, keep current scene */ }
   }
 }

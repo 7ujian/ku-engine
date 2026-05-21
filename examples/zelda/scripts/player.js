@@ -39,7 +39,6 @@ handlers.on_key = function (ctx) {
       ctx.node.set('attack_timer', ATTACK_DURATION);
       ctx.node.set('attack_cooldown', ATTACK_COOLDOWN);
       attackTimer = ATTACK_DURATION;
-      // Enable sword hitbox
       var dir = ctx.node.get('direction') || 'down';
       var ox = 0, oy = SWORD_OFFSET;
       if (dir === 'up') oy = -SWORD_OFFSET;
@@ -53,7 +52,6 @@ handlers.on_key = function (ctx) {
     }
   }
 
-  // Chest interaction
   if (k === 'E') {
     var px = ctx.node.get('x');
     var py = ctx.node.get('y');
@@ -88,7 +86,6 @@ handlers.on_frame = function (ctx) {
   var hp = ctx.node.get('hp');
   if (hp <= 0) return;
 
-  // Movement
   var vx = 0, vy = 0;
   var direction = ctx.node.get('direction') || 'down';
 
@@ -102,7 +99,6 @@ handlers.on_frame = function (ctx) {
   ctx.node.set('moving', isMoving);
   ctx.node.set('direction', direction);
 
-  // Animation + flip
   var attacking = ctx.node.get('attacking');
   ctx.node.set('flip_h', direction === 'left');
   if (attacking) {
@@ -113,7 +109,6 @@ handlers.on_frame = function (ctx) {
     ctx.node.set('animation', 'idle_' + direction);
   }
 
-  // Attack timer
   if (attackTimer > 0) {
     attackTimer -= dt;
     if (attackTimer <= 0) {
@@ -124,14 +119,12 @@ handlers.on_frame = function (ctx) {
     }
   }
 
-  // Cooldowns
   var cd = ctx.node.get('attack_cooldown') || 0;
   if (cd > 0) ctx.node.set('attack_cooldown', Math.max(0, cd - dt));
 
   var inv = ctx.node.get('invincible_timer') || 0;
   if (inv > 0) {
     ctx.node.set('invincible_timer', Math.max(0, inv - dt));
-    // Flicker effect
     ctx.node.set('visible', Math.floor(inv / 80) % 2 === 0);
   } else {
     ctx.node.set('visible', true);

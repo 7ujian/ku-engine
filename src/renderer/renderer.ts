@@ -7,6 +7,7 @@ import { findCamera, type CameraState } from './camera.js';
 import { SpriteRenderer } from './sprite-renderer.js';
 import { TilemapRenderer } from './tilemap-renderer.js';
 import { LabelRenderer } from './label-renderer.js';
+import { GuiRenderer, isGuiType } from './gui-renderer.js';
 import type { PropertyMap } from '../engine/types.js';
 import { type Transform2D, IDENTITY, getLocalTransform, composeTransform } from '../engine/transform.js';
 import { pluginRegistry } from '../engine/plugin-registry.js';
@@ -42,6 +43,7 @@ export class Renderer {
   private spriteRenderer: SpriteRenderer;
   private tilemapRenderer: TilemapRenderer;
   private labelRenderer: LabelRenderer;
+  private guiRenderer: GuiRenderer;
   private lastTime = 0;
   private onKey: KeyHandler | null = null;
   private onTouch: TouchHandler | null = null;
@@ -58,6 +60,7 @@ export class Renderer {
     this.spriteRenderer = new SpriteRenderer(this.ctx, this.projectDir);
     this.tilemapRenderer = new TilemapRenderer(this.ctx);
     this.labelRenderer = new LabelRenderer(this.ctx);
+    this.guiRenderer = new GuiRenderer(this.ctx, this.projectDir);
   }
 
   setKeyHandler(handler: KeyHandler): void {
@@ -110,6 +113,14 @@ export class Renderer {
     // Mouse as pointer (desktop fallback)
     (this.window as any).on('mouseMove', (event: { x: number; y: number }) => {
       if (this.onTouch) this.onTouch('move', event.x, event.y, 0);
+    });
+
+    (this.window as any).on('mouseButtonDown', (event: { x: number; y: number; button: number }) => {
+      if (this.onTouch) this.onTouch('start', event.x, event.y, 0);
+    });
+
+    (this.window as any).on('mouseButtonUp', (event: { x: number; y: number; button: number }) => {
+      if (this.onTouch) this.onTouch('end', event.x, event.y, 0);
     });
   }
 
@@ -176,6 +187,16 @@ export class Renderer {
           loadPromises.push(this.tilemapRenderer.loadTileset(tileset, cellSize, cellSize));
         }
       }
+
+      if (node.type === 'ImageRect') {
+        const texture = (node.getProperty('texture') as string) ?? '';
+        if (texture) {
+          const abs = texture.startsWith('/') ? texture : resolve(this.projectDir, texture);
+          if (!this.guiRenderer.hasTexture(abs)) {
+            loadPromises.push(this.guiRenderer.loadTexture(abs).then(() => {}));
+          }
+        }
+      }
     });
 
     if (loadPromises.length > 0) {
@@ -189,6 +210,10 @@ export class Renderer {
     this.drawDebugOverlay(tree);
 
     ctx.restore();
+
+    // GUI pass: draw GUI nodes in screen space (no camera transform)
+    this.drawGuiPass(tree, dt);
+
     this.present();
   }
 
@@ -196,13 +221,62 @@ export class Renderer {
     const visible = node.getProperty('visible');
     if (visible === false) return;
 
+    // Skip GUI nodes in game pass — they render in the GUI pass
+    if (isGuiType(node.type) && node.parent?.type === 'Node' && node.parent?.parent === null) {
+      return;
+    }
+
     const local = getLocalTransform(node);
     const world = composeTransform(parentWorld, local);
+
+    // ScrollView: clip + scroll offset for children
+    if (node.type === 'ScrollView') {
+      this.drawNode(node, world.x, world.y, world.scaleX, world.scaleY, dt);
+      this.guiRenderer.beginScrollView(node, world.x, world.y);
+      for (const child of node.children) {
+        this.drawNodeRecursive(child, IDENTITY, dt);
+      }
+      this.guiRenderer.endScrollView();
+      return;
+    }
 
     this.drawNode(node, world.x, world.y, world.scaleX, world.scaleY, dt);
 
     for (const child of node.children) {
       this.drawNodeRecursive(child, world, dt);
+    }
+  }
+
+  /** Draw GUI nodes in screen space (after camera transform is restored) */
+  private drawGuiPass(tree: SceneTree, dt: number): void {
+    for (const child of tree.root.children) {
+      if (!isGuiType(child.type)) continue;
+      this.drawGuiRecursive(child, IDENTITY, dt);
+    }
+  }
+
+  private drawGuiRecursive(node: Node, parentWorld: Transform2D, dt: number): void {
+    const visible = node.getProperty('visible');
+    if (visible === false) return;
+
+    const local = getLocalTransform(node);
+    const world = composeTransform(parentWorld, local);
+
+    // ScrollView: clip + scroll offset for children
+    if (node.type === 'ScrollView') {
+      this.drawNode(node, world.x, world.y, world.scaleX, world.scaleY, dt);
+      this.guiRenderer.beginScrollView(node, world.x, world.y);
+      for (const child of node.children) {
+        this.drawGuiRecursive(child, IDENTITY, dt);
+      }
+      this.guiRenderer.endScrollView();
+      return;
+    }
+
+    this.drawNode(node, world.x, world.y, world.scaleX, world.scaleY, dt);
+
+    for (const child of node.children) {
+      this.drawGuiRecursive(child, world, dt);
     }
   }
 
@@ -241,6 +315,19 @@ export class Renderer {
       }
       case 'TileMap':
         this.tilemapRenderer.drawTilemap(node, wx, wy);
+        break;
+      case 'Panel':
+        this.guiRenderer.drawPanel(node, wx, wy);
+        break;
+      case 'Button':
+        this.guiRenderer.drawButton(node, wx, wy);
+        break;
+      case 'ImageRect':
+        this.guiRenderer.drawImageRect(node, wx, wy);
+        break;
+      case 'ScrollView':
+        // Background only — children drawn in drawNodeRecursive
+        this.guiRenderer.drawPanel(node, wx, wy);
         break;
       case 'RigidBody':
       case 'CollisionShape': {

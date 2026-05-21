@@ -30,6 +30,7 @@ export class JsScriptEngine {
   private logs: string[] = [];
   private onSpawn: ((node: Node) => void) | null;
   private onDestroy: ((nodeId: string) => void) | null;
+  private onEmit: ((event: string, data: Record<string, unknown>) => void) | null = null;
   private loadSource: (scriptPath: string) => Promise<string>;
 
   constructor(opts: JsScriptEngineOptions) {
@@ -74,7 +75,11 @@ export class JsScriptEngine {
       handlers,
       Math,
       console: {
-        log: (...args: unknown[]) => { this.logs.push(args.map(String).join(' ')); },
+        log: (...args: unknown[]) => {
+          const msg = args.map(String).join(' ');
+          this.logs.push(msg);
+          console.log(msg);
+        },
       },
     }) as any);
 
@@ -107,9 +112,15 @@ export class JsScriptEngine {
   }
 
   evaluateEvent(event: string, data: Record<string, unknown> = {}): void {
+    const targetNode = data.node as string | undefined;
+
     for (const [, reg] of this.registrations) {
       const handler = reg.handlers[event];
       if (typeof handler !== 'function') continue;
+
+      // For node-targeted events (collisions, area, key, click, touch),
+      // only dispatch to the node specified in data.node
+      if (targetNode && reg.node.id !== targetNode) continue;
 
       // Merge event data into persisted per-node state
       const merged = { ...reg.state, ...data };
@@ -121,7 +132,9 @@ export class JsScriptEngine {
         data: merged,
         dt: (data.dt as number) ?? (1000 / 60),
         emit: (name: string, payload?: Record<string, unknown>) => {
-          this.bus.emit(name, payload ?? {});
+          const data = payload ?? {};
+          this.bus.emit(name, data);
+          this.onEmit?.(name, data);
         },
         log: (...args: unknown[]) => {
           this.logs.push(args.map(String).join(' '));
@@ -144,8 +157,11 @@ export class JsScriptEngine {
     this.logs = [];
   }
 
+  setTree(tree: SceneTree): void { this.tree = tree; }
+
   setSpawnCallback(cb: (node: Node) => void): void { this.onSpawn = cb; }
   setDestroyCallback(cb: (nodeId: string) => void): void { this.onDestroy = cb; }
+  setEmitCallback(cb: (event: string, data: Record<string, unknown>) => void): void { this.onEmit = cb; }
 
   private createNodeApi(node: Node) {
     return {

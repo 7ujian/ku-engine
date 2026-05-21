@@ -83,6 +83,65 @@ export const createLabel = factory('Label', {
   text: '',
   font_size: 16,
   color: '#ffffff',
+  align: 'left',
+  valign: 'top',
+  max_width: 0,
+  font: 'monospace',
+});
+
+export const createPanel = factory('Panel', {
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 100,
+  color: '#1a1a2e',
+  border_color: '#ffffff',
+  border_width: 0,
+  corner_radius: 0,
+  visible: true,
+});
+
+export const createButton = factory('Button', {
+  x: 0,
+  y: 0,
+  width: 120,
+  height: 40,
+  text: '',
+  color: '#3a3a5e',
+  hover_color: '#4a4a6e',
+  pressed_color: '#2a2a4e',
+  text_color: '#ffffff',
+  font_size: 14,
+  corner_radius: 4,
+  state: 'normal',
+  clickable: true,
+  visible: true,
+});
+
+export const createImageRect = factory('ImageRect', {
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 100,
+  texture: '',
+  region_x: 0,
+  region_y: 0,
+  region_w: 0,
+  region_h: 0,
+  preserve_aspect: true,
+  visible: true,
+});
+
+export const createScrollView = factory('ScrollView', {
+  x: 0,
+  y: 0,
+  width: 400,
+  height: 300,
+  scroll_x: 0,
+  scroll_y: 0,
+  zoom: 1,
+  clip: true,
+  visible: true,
 });
 
 export const createTileMap = factory('TileMap', {
@@ -136,6 +195,10 @@ const factories: Record<string, NodeFactory> = {
   AudioPlayer: createAudioPlayer,
   AnimationPlayer: createAnimationPlayer,
   Block: createBlock,
+  Panel: createPanel,
+  Button: createButton,
+  ImageRect: createImageRect,
+  ScrollView: createScrollView,
 };
 
 export function createNodeByType(type: string, id: string, overrides?: Partial<PropertyMap>): Node {

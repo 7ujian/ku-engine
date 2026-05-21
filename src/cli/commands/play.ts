@@ -23,11 +23,7 @@ export async function playCommand(projectDir: string, opts: { interactive?: bool
   if (opts.scene) args.push('--load-scene', opts.scene);
   if (opts.watch) args.push('--watch');
 
-  const child = fork(serverPath, args, { silent: true });
-
-  child.stderr?.on('data', (data: Buffer) => {
-    process.stderr.write(data);
-  });
+  const child = fork(serverPath, args, { stdio: 'inherit' });
 
   await waitForInstance(projectDir, playName, 5000, child);
 

@@ -379,14 +379,35 @@ export function createProgram(): Command {
       await pluginEnableCommand(getProjectDir(), name);
     });
 
-  // Apply plugin CLI commands (lazy load on first command execution)
-  let pluginsLoaded = false;
-  program.hook('preAction', async () => {
-    if (pluginsLoaded) return;
-    pluginsLoaded = true;
+  // Load engine plugins eagerly — their CLI commands must be registered before parse()
+  // Project plugins are loaded lazily in preAction (they need projectDir)
+  let projectPluginsLoaded = false;
+
+  // Engine plugins: caller (bin/ku.ts) awaits this before parse()
+  (program as any).loadEnginePlugins = async () => {
     try {
       const { pluginRegistry } = await import('../engine/plugin-registry.js');
-      await pluginRegistry.loadFromDir(getProjectDir(), 'edit');
+      // Suppress load logs — CLI is transient, server will log its own
+      const origLog = console.log;
+      console.log = () => {};
+      try {
+        await pluginRegistry.loadEnginePlugins();
+      } finally {
+        console.log = origLog;
+      }
+      for (const registrar of pluginRegistry.getCliRegistrars()) {
+        registrar(program);
+      }
+    } catch { /* ignore */ }
+  };
+
+  // Project plugins: load on first command execution (need projectDir from opts)
+  program.hook('preAction', async () => {
+    if (projectPluginsLoaded) return;
+    projectPluginsLoaded = true;
+    try {
+      const { pluginRegistry } = await import('../engine/plugin-registry.js');
+      await pluginRegistry.loadProjectPlugins(getProjectDir());
       for (const registrar of pluginRegistry.getCliRegistrars()) {
         registrar(program);
       }
