@@ -30,8 +30,22 @@ const handlers = {
     const { x, y } = ctx.data;
     if (state.dragState) return;
 
+    // Sidebar area (x >= 484, y >= 56 and y < 256): scroll region list
+    if (x >= 484 && y >= 56 && y < 256) {
+      state.dragState = {
+        type: 'list_scroll',
+        startX: x,
+        startY: y,
+        scrollStartY: ctx.scene.get('/sidebar/region_list', 'scroll_y') || 0,
+      };
+      return;
+    }
+
+    // Only pan viewport for touches inside the viewport area (x < 480, y >= 32)
+    if (x >= 480) return;
+
     state.dragState = {
-      type: 'pan',
+      type: 'tentative_pan',
       startX: x,
       startY: y,
       scrollStartX: ctx.scene.get('/viewport', 'scroll_x') || 0,
@@ -42,6 +56,23 @@ const handlers = {
   on_touch_move(ctx) {
     if (!state.dragState) return;
     const { x, y } = ctx.data;
+
+    if (state.dragState.type === 'list_scroll') {
+      const dy = y - state.dragState.startY;
+      ctx.scene.set('/sidebar/region_list', 'scroll_y', state.dragState.scrollStartY - dy);
+      return;
+    }
+
+    if (state.dragState.type === 'tentative_pan') {
+      // Promote to real pan once moved more than 3px
+      const dx = x - state.dragState.startX;
+      const dy = y - state.dragState.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        state.dragState.type = 'pan';
+      } else {
+        return;
+      }
+    }
 
     if (state.dragState.type === 'pan') {
       const dx = x - state.dragState.startX;
@@ -56,6 +87,11 @@ const handlers = {
   },
 
   on_gui_click(ctx) {
+    // Cancel any pending pan — this was a click on a GUI element
+    if (state.dragState && state.dragState.type === 'tentative_pan') {
+      state.dragState = null;
+    }
+
     const nodeId = ctx.data.hit_node || ctx.data.node;
 
     switch (nodeId) {
@@ -158,6 +194,34 @@ function initEditor(ctx) {
     state.atlasPath = atlas;
     ctx.log(`Atlas: ${atlas}`);
   }
+
+  // Load pre-injected atlas regions from plugin
+  const atlasDataStr = ctx.scene.get('/', 'atlas_data') || '';
+  if (atlasDataStr) {
+    try {
+      const atlasData = JSON.parse(atlasDataStr);
+      if (atlasData.regions && Array.isArray(atlasData.regions)) {
+        for (const r of atlasData.regions) {
+          state.regions.push({
+            name: r.name,
+            x: r.x,
+            y: r.y,
+            width: r.width,
+            height: r.height,
+          });
+        }
+        // Create region overlay nodes
+        rebuildRegionNodes(ctx);
+        if (state.regions.length > 0) {
+          selectRegion(ctx, 0);
+        }
+        updateRegionList(ctx);
+        ctx.log(`Loaded ${state.regions.length} regions from atlas`);
+      }
+    } catch (e) {
+      ctx.log(`Failed to parse atlas data: ${e.message}`);
+    }
+  }
 }
 
 function doGridSlice(ctx) {
@@ -236,6 +300,7 @@ function selectRegion(ctx, index) {
       ctx.scene.set(`/viewport/regions/region_${index}`, 'border_width', 3);
     } catch { /* ignore */ }
     updatePreview(ctx);
+    updateRegionList(ctx);
   }
 }
 

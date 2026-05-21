@@ -1,9 +1,9 @@
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, basename, dirname } from 'node:path';
+import { loadImage } from '@napi-rs/canvas';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
-import { existsSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +24,7 @@ export default {
           const atlas = opts.atlas ? resolve(process.cwd(), opts.atlas) : '';
 
           // Use explicit dir, or the image's parent directory as project root
-          const projectDir = opts.dir ? resolve(cwd, opts.dir) : dirname(absImage);
+          const projectDir = opts.dir ? resolve(process.cwd(), opts.dir) : dirname(absImage);
 
           // Ensure minimal project structure
           await ensureProject(projectDir);
@@ -36,13 +36,19 @@ export default {
 
           // Inject image path into the spritesheet ImageRect node
           setNestedProp(scene, 'viewport/spritesheet/texture', absImage);
+
+          // Detect image dimensions and set on spritesheet node for 1:1 rendering
+          try {
+            const img = await loadImage(absImage);
+            setNestedProp(scene, 'viewport/spritesheet/width', img.width);
+            setNestedProp(scene, 'viewport/spritesheet/height', img.height);
+          } catch { /* use default 256x256 */ }
           if (atlas) {
             setNestedProp(scene, 'viewport/spritesheet/atlas', atlas);
 
             // Pre-load atlas regions into the root node for the editor script to read
             try {
-              const fs = require('node:fs');
-              const atlasData = JSON.parse(fs.readFileSync(atlas, 'utf-8'));
+              const atlasData = JSON.parse(readFileSync(atlas, 'utf-8'));
               if (atlasData.regions && Array.isArray(atlasData.regions)) {
                 setNestedProp(scene, 'atlas_data', JSON.stringify(atlasData));
               }
@@ -116,8 +122,7 @@ export default {
         return { result: { ok: false, error: 'path and atlas required' } };
       }
       const absPath = resolve(host.projectDir, path);
-      const fs = require('node:fs');
-      fs.writeFileSync(absPath, JSON.stringify(atlas, null, 2));
+      writeFileSync(absPath, JSON.stringify(atlas, null, 2));
       return { result: { ok: true, data: { saved: absPath } } };
     });
 
@@ -129,8 +134,7 @@ export default {
       }
       const absPath = path.startsWith('/') ? path : resolve(host.projectDir, path);
       try {
-        const fs = require('node:fs');
-        const data = JSON.parse(fs.readFileSync(absPath, 'utf-8'));
+        const data = JSON.parse(readFileSync(absPath, 'utf-8'));
         return { result: { ok: true, data } };
       } catch (err) {
         return { result: { ok: false, error: err.message } };

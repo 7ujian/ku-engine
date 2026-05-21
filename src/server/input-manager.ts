@@ -78,6 +78,13 @@ export class InputManager {
   touchEnd(x: number, y: number, pointerId: number): void {
     this.scripts.evaluateEvent('on_touch_end', { x, y, pointerId });
     this.jsScripts?.evaluateEvent('on_touch_end', { x, y, pointerId });
+
+    // Reset any pressed button back to normal/hover
+    if (this.hoveredNode && this.hoveredNode.type === 'Button') {
+      this.hoveredNode.setPropertyByPath('state', 'normal');
+    }
+    // Re-evaluate hover at release position
+    this.updateButtonHover(x, y);
   }
 
   isKeyDown(key: string): boolean {
@@ -94,7 +101,10 @@ export class InputManager {
 
     // Clear previous hover
     if (this.hoveredNode) {
-      this.hoveredNode.setPropertyByPath('state', 'normal');
+      const prevState = this.hoveredNode.getProperty('state');
+      if (prevState === 'hover' || prevState === 'pressed') {
+        this.hoveredNode.setPropertyByPath('state', 'normal');
+      }
     }
 
     this.hoveredNode = hitBtn;

@@ -27,7 +27,7 @@
           {
             "id": "filename_label",
             "type": "Label",
-            "properties": { "x": 8, "y": 7, "text": "Sprite Sheet Editor", "font_size": 14, "color": "#ffffff", "align": "left", "valign": "top" },
+            "properties": { "x": 8, "y": 9, "text": "Sprite Sheet Editor", "font_size": 13, "color": "#ffffff", "align": "left", "valign": "top" },
             "children": []
           },
           {
@@ -52,7 +52,7 @@
           {
             "id": "spritesheet",
             "type": "ImageRect",
-            "properties": { "x": 0, "y": 0, "width": 256, "height": 256, "texture": "", "region_w": 0, "region_h": 0 },
+            "properties": { "x": 0, "y": 0, "width": 256, "height": 256, "texture": "", "region_w": 0, "region_h": 0, "preserve_aspect": false },
             "children": []
           },
           {
