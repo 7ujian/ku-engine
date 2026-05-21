@@ -1,0 +1,46 @@
+{
+  "scene": "test",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": { "zoom": 1, "offset_x": 100, "offset_y": 100 }
+      },
+      {
+        "id": "bg",
+        "type": "Block",
+        "properties": { "x": 100, "y": 100, "width": 200, "height": 200, "color": "#4a8c3f" }
+      },
+      {
+        "id": "player",
+        "type": "RigidBody",
+        "properties": {
+          "x": 100, "y": 100,
+          "width": 32, "height": 32,
+          "mass": 1,
+          "velocity": { "x": 0, "y": 0 },
+          "gravity_scale": 0,
+          "collision_layer": 1,
+          "collision_mask": 0,
+          "atlas": "assets/player.atlas.json",
+          "region": "idle_down_0",
+          "animations": {
+            "idle_down": { "frames": ["idle_down_0", "idle_down_1", "idle_down_2", "idle_down_3", "idle_down_4", "idle_down_5"], "speed": 4, "loop": true }
+          },
+          "animation": "idle_down",
+          "playing": true,
+          "tags": ["player"]
+        }
+      },
+      {
+        "id": "debug_rect",
+        "type": "Block",
+        "properties": { "x": 100, "y": 100, "width": 32, "height": 32, "color": "#ff0000" }
+      }
+    ]
+  }
+}

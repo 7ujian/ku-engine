@@ -1,0 +1,66 @@
+{
+  "texture": "Cute_Fantasy_Free/Player/Player.png",
+  "regions": [
+    { "name": "idle_down_0",   "x": 0,   "y": 0,   "width": 32, "height": 32 },
+    { "name": "idle_down_1",   "x": 32,  "y": 0,   "width": 32, "height": 32 },
+    { "name": "idle_down_2",   "x": 64,  "y": 0,   "width": 32, "height": 32 },
+    { "name": "idle_down_3",   "x": 96,  "y": 0,   "width": 32, "height": 32 },
+    { "name": "idle_down_4",   "x": 128, "y": 0,   "width": 32, "height": 32 },
+    { "name": "idle_down_5",   "x": 160, "y": 0,   "width": 32, "height": 32 },
+
+    { "name": "idle_right_0",  "x": 0,   "y": 32,  "width": 32, "height": 32 },
+    { "name": "idle_right_1",  "x": 32,  "y": 32,  "width": 32, "height": 32 },
+    { "name": "idle_right_2",  "x": 64,  "y": 32,  "width": 32, "height": 32 },
+    { "name": "idle_right_3",  "x": 96,  "y": 32,  "width": 32, "height": 32 },
+    { "name": "idle_right_4",  "x": 128, "y": 32,  "width": 32, "height": 32 },
+    { "name": "idle_right_5",  "x": 160, "y": 32,  "width": 32, "height": 32 },
+
+    { "name": "idle_up_0",     "x": 0,   "y": 64,  "width": 32, "height": 32 },
+    { "name": "idle_up_1",     "x": 32,  "y": 64,  "width": 32, "height": 32 },
+    { "name": "idle_up_2",     "x": 64,  "y": 64,  "width": 32, "height": 32 },
+    { "name": "idle_up_3",     "x": 96,  "y": 64,  "width": 32, "height": 32 },
+    { "name": "idle_up_4",     "x": 128, "y": 64,  "width": 32, "height": 32 },
+    { "name": "idle_up_5",     "x": 160, "y": 64,  "width": 32, "height": 32 },
+
+    { "name": "walk_down_0",   "x": 0,   "y": 96,  "width": 32, "height": 32 },
+    { "name": "walk_down_1",   "x": 32,  "y": 96,  "width": 32, "height": 32 },
+    { "name": "walk_down_2",   "x": 64,  "y": 96,  "width": 32, "height": 32 },
+    { "name": "walk_down_3",   "x": 96,  "y": 96,  "width": 32, "height": 32 },
+    { "name": "walk_down_4",   "x": 128, "y": 96,  "width": 32, "height": 32 },
+    { "name": "walk_down_5",   "x": 160, "y": 96,  "width": 32, "height": 32 },
+
+    { "name": "walk_right_0",  "x": 0,   "y": 128, "width": 32, "height": 32 },
+    { "name": "walk_right_1",  "x": 32,  "y": 128, "width": 32, "height": 32 },
+    { "name": "walk_right_2",  "x": 64,  "y": 128, "width": 32, "height": 32 },
+    { "name": "walk_right_3",  "x": 96,  "y": 128, "width": 32, "height": 32 },
+    { "name": "walk_right_4",  "x": 128, "y": 128, "width": 32, "height": 32 },
+    { "name": "walk_right_5",  "x": 160, "y": 128, "width": 32, "height": 32 },
+
+    { "name": "walk_up_0",     "x": 0,   "y": 160, "width": 32, "height": 32 },
+    { "name": "walk_up_1",     "x": 32,  "y": 160, "width": 32, "height": 32 },
+    { "name": "walk_up_2",     "x": 64,  "y": 160, "width": 32, "height": 32 },
+    { "name": "walk_up_3",     "x": 96,  "y": 160, "width": 32, "height": 32 },
+    { "name": "walk_up_4",     "x": 128, "y": 160, "width": 32, "height": 32 },
+    { "name": "walk_up_5",     "x": 160, "y": 160, "width": 32, "height": 32 },
+
+    { "name": "attack_down_0", "x": 0,   "y": 192, "width": 32, "height": 32 },
+    { "name": "attack_down_1", "x": 32,  "y": 192, "width": 32, "height": 32 },
+    { "name": "attack_down_2", "x": 64,  "y": 192, "width": 32, "height": 32 },
+    { "name": "attack_down_3", "x": 96,  "y": 192, "width": 32, "height": 32 },
+
+    { "name": "attack_right_0","x": 0,   "y": 224, "width": 32, "height": 32 },
+    { "name": "attack_right_1","x": 32,  "y": 224, "width": 32, "height": 32 },
+    { "name": "attack_right_2","x": 64,  "y": 224, "width": 32, "height": 32 },
+    { "name": "attack_right_3","x": 96,  "y": 224, "width": 32, "height": 32 },
+
+    { "name": "attack_up_0",   "x": 0,   "y": 256, "width": 32, "height": 32 },
+    { "name": "attack_up_1",   "x": 32,  "y": 256, "width": 32, "height": 32 },
+    { "name": "attack_up_2",   "x": 64,  "y": 256, "width": 32, "height": 32 },
+    { "name": "attack_up_3",   "x": 96,  "y": 256, "width": 32, "height": 32 },
+
+    { "name": "die_0",         "x": 0,   "y": 288, "width": 32, "height": 32 },
+    { "name": "die_1",         "x": 32,  "y": 288, "width": 32, "height": 32 },
+    { "name": "die_2",         "x": 64,  "y": 288, "width": 32, "height": 32 },
+    { "name": "die_3",         "x": 96,  "y": 288, "width": 32, "height": 32 }
+  ]
+}

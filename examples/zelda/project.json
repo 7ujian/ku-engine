@@ -1,0 +1,6 @@
+{
+  "name": "zelda",
+  "entry": "main",
+  "window": { "width": 640, "height": 480 },
+  "debug_physics": false
+}

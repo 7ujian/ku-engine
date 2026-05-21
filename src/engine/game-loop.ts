@@ -5,7 +5,7 @@ import { JsScriptEngine } from './js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { Renderer } from '../renderer/renderer.js';
 import { CollisionEvents } from './collision-events.js';
-import { interpolateKeyframes, getEasing, type PropertyAnimation, type AnimTrack } from './animation.js';
+import { interpolateKeyframes, getEasing, applyAnimationTracks, type PropertyAnimation, type AnimTrack } from './animation.js';
 import type { AudioManager } from '../engine/audio.js';
 
 export class GameLoop {
@@ -349,7 +349,7 @@ export class GameLoop {
       const speed = (node.getProperty('speed') as number) ?? 1;
       const loop = (node.getProperty('loop') as boolean) ?? false;
 
-      if (!current || !targetPath) return;
+      if (!current) return;
 
       const animations = (node.getProperty('animations') as Record<string, unknown>) ?? {};
       const animDef = animations[current];
@@ -357,8 +357,17 @@ export class GameLoop {
       const anim = animDef as PropertyAnimation;
       if (!anim.tracks || !anim.duration) return;
 
-      let target: Node;
-      try { target = this.tree.get(targetPath); } catch { return; }
+      // Resolve default target (may be null if no target set)
+      let defaultTarget: Node | null = null;
+      if (targetPath) {
+        try { defaultTarget = this.tree.get(targetPath); } catch { /* null */ }
+      }
+
+      // Skip if no default target and no per-track targets exist
+      const hasPerTrackTargets = Object.values(anim.tracks).some(
+        (t) => (t as AnimTrack).target,
+      );
+      if (!defaultTarget && !hasPerTrackTargets) return;
 
       let state = this.animPlayerState.get(node.id);
       if (!state) {
@@ -386,12 +395,7 @@ export class GameLoop {
       }
 
       const animLoop = anim.loop ?? loop;
-      for (const [prop, track] of Object.entries(anim.tracks)) {
-        const t = track as AnimTrack;
-        if (!t.keyframes || t.keyframes.length === 0) continue;
-        const value = interpolateKeyframes(t.keyframes, progress, getEasing(t.easing));
-        target.setPropertyByPath(prop, value);
-      }
+      applyAnimationTracks(anim.tracks, progress, defaultTarget, this.tree);
 
       if (state.finished && !animLoop) {
         node.setProperty('playing', false);

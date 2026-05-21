@@ -1,0 +1,873 @@
+{
+  "scene": "main",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": {
+          "zoom": 1,
+          "offset_x": 400,
+          "offset_y": 500
+        }
+      },
+      {
+        "id": "bg_grass",
+        "type": "Block",
+        "properties": {
+          "x": 400,
+          "y": 320,
+          "width": 800,
+          "height": 640,
+          "color": "#4a8c3f"
+        }
+      },
+      {
+        "id": "water_body",
+        "type": "Block",
+        "properties": {
+          "x": 72,
+          "y": 200,
+          "width": 144,
+          "height": 320,
+          "color": "#2a6cb6"
+        }
+      },
+      {
+        "id": "water_shine",
+        "type": "Block",
+        "properties": {
+          "x": 56,
+          "y": 180,
+          "width": 112,
+          "height": 16,
+          "color": "#3d8ce0"
+        }
+      },
+      {
+        "id": "beach_strip",
+        "type": "Block",
+        "properties": {
+          "x": 164,
+          "y": 260,
+          "width": 24,
+          "height": 160,
+          "color": "#e8d5a3"
+        }
+      },
+      {
+        "id": "path_h",
+        "type": "Block",
+        "properties": {
+          "x": 400,
+          "y": 460,
+          "width": 500,
+          "height": 28,
+          "color": "#c4a46c"
+        }
+      },
+      {
+        "id": "path_v",
+        "type": "Block",
+        "properties": {
+          "x": 300,
+          "y": 350,
+          "width": 28,
+          "height": 220,
+          "color": "#c4a46c"
+        }
+      },
+      {
+        "id": "farmland",
+        "type": "Block",
+        "properties": {
+          "x": 680,
+          "y": 200,
+          "width": 96,
+          "height": 96,
+          "color": "#8B6914"
+        }
+      },
+      {
+        "id": "wall_top",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 800,
+          "height": 16,
+          "x": 400,
+          "y": 8,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_bottom",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 800,
+          "height": 16,
+          "x": 400,
+          "y": 632,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_left",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 16,
+          "height": 640,
+          "x": 8,
+          "y": 320,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_right",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 16,
+          "height": 640,
+          "x": 792,
+          "y": 320,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_water_top",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 144,
+          "height": 16,
+          "x": 72,
+          "y": 44,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_water_left",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 16,
+          "height": 320,
+          "x": 8,
+          "y": 200,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_water_right",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 16,
+          "height": 320,
+          "x": 140,
+          "y": 200,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "wall_water_bottom",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 144,
+          "height": 16,
+          "x": 72,
+          "y": 356,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "tree_0",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
+          "x": 300,
+          "y": 150
+        }
+      },
+      {
+        "id": "wall_tree_0",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 24,
+          "height": 20,
+          "x": 300,
+          "y": 164,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "tree_1",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
+          "x": 600,
+          "y": 160
+        }
+      },
+      {
+        "id": "wall_tree_1",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 24,
+          "height": 20,
+          "x": 600,
+          "y": 174,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "tree_2",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree_Small.png",
+          "x": 450,
+          "y": 100
+        }
+      },
+      {
+        "id": "wall_tree_2",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 20,
+          "height": 16,
+          "x": 450,
+          "y": 108,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "tree_3",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
+          "x": 700,
+          "y": 350
+        }
+      },
+      {
+        "id": "wall_tree_3",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 24,
+          "height": 20,
+          "x": 700,
+          "y": 364,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "tree_4",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
+          "x": 220,
+          "y": 520
+        }
+      },
+      {
+        "id": "wall_tree_4",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 24,
+          "height": 20,
+          "x": 220,
+          "y": 534,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "house",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/House_1_Wood_Base_Blue.png",
+          "x": 480,
+          "y": 260
+        }
+      },
+      {
+        "id": "wall_house",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 80,
+          "height": 96,
+          "x": 480,
+          "y": 268,
+          "collision_layer": 8,
+          "collision_mask": 3
+        }
+      },
+      {
+        "id": "fence_0",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Fences.png",
+          "x": 680,
+          "y": 310
+        }
+      },
+      {
+        "id": "bridge",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Bridge_Wood.png",
+          "x": 140,
+          "y": 360
+        }
+      },
+      {
+        "id": "chest",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Chest.png",
+          "x": 370,
+          "y": 540,
+          "hframes": 2,
+          "frame": 0,
+          "tags": [
+            "chest"
+          ]
+        }
+      },
+      {
+        "id": "chicken_0",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Animals/Chicken/Chicken.png",
+          "x": 580,
+          "y": 420
+        }
+      },
+      {
+        "id": "pig_0",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Animals/Pig/Pig.png",
+          "x": 660,
+          "y": 250
+        }
+      },
+      {
+        "id": "house_entrance",
+        "type": "Area",
+        "properties": {
+          "x": 480,
+          "y": 316,
+          "width": 32,
+          "height": 16,
+          "collision_layer": 16,
+          "collision_mask": 1,
+          "tags": [
+            "house_door"
+          ]
+        },
+        "scripts": [
+          {
+            "event": "on_area_enter",
+            "actions": [
+              {
+                "change_scene": "house"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "player",
+        "type": "RigidBody",
+        "properties": {
+          "x": 400,
+          "y": 500,
+          "width": 20,
+          "height": 24,
+          "mass": 1,
+          "velocity": {
+            "x": 0,
+            "y": 0
+          },
+          "gravity_scale": 0,
+          "collision_layer": 1,
+          "collision_mask": 10,
+          "atlas": "assets/player.atlas.json",
+          "region": "idle_down_0",
+          "animations": {
+            "idle_down": {
+              "frames": [
+                "idle_down_0",
+                "idle_down_1",
+                "idle_down_2",
+                "idle_down_3",
+                "idle_down_4",
+                "idle_down_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_right": {
+              "frames": [
+                "idle_right_0",
+                "idle_right_1",
+                "idle_right_2",
+                "idle_right_3",
+                "idle_right_4",
+                "idle_right_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_left": {
+              "frames": [
+                "idle_right_0",
+                "idle_right_1",
+                "idle_right_2",
+                "idle_right_3",
+                "idle_right_4",
+                "idle_right_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_up": {
+              "frames": [
+                "idle_up_0",
+                "idle_up_1",
+                "idle_up_2",
+                "idle_up_3",
+                "idle_up_4",
+                "idle_up_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "walk_down": {
+              "frames": [
+                "walk_down_0",
+                "walk_down_1",
+                "walk_down_2",
+                "walk_down_3",
+                "walk_down_4",
+                "walk_down_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_right": {
+              "frames": [
+                "walk_right_0",
+                "walk_right_1",
+                "walk_right_2",
+                "walk_right_3",
+                "walk_right_4",
+                "walk_right_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_left": {
+              "frames": [
+                "walk_right_0",
+                "walk_right_1",
+                "walk_right_2",
+                "walk_right_3",
+                "walk_right_4",
+                "walk_right_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_up": {
+              "frames": [
+                "walk_up_0",
+                "walk_up_1",
+                "walk_up_2",
+                "walk_up_3",
+                "walk_up_4",
+                "walk_up_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "attack_down": {
+              "frames": [
+                "attack_down_0",
+                "attack_down_1",
+                "attack_down_2",
+                "attack_down_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "attack_right": {
+              "frames": [
+                "attack_right_0",
+                "attack_right_1",
+                "attack_right_2",
+                "attack_right_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "attack_left": {
+              "frames": [
+                "attack_right_0",
+                "attack_right_1",
+                "attack_right_2",
+                "attack_right_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "attack_up": {
+              "frames": [
+                "attack_up_0",
+                "attack_up_1",
+                "attack_up_2",
+                "attack_up_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "die": {
+              "frames": [
+                "die_0",
+                "die_1",
+                "die_2",
+                "die_3"
+              ],
+              "speed": 10,
+              "loop": false
+            }
+          },
+          "animation": "idle_down",
+          "playing": true,
+          "direction": "down",
+          "moving": false,
+          "attacking": false,
+          "attack_timer": 0,
+          "attack_cooldown": 0,
+          "hp": 5,
+          "max_hp": 5,
+          "invincible_timer": 0,
+          "score": 0,
+          "tags": [
+            "player"
+          ],
+          "flip_h": false
+        },
+        "children": [
+          {
+            "id": "sword_hitbox",
+            "type": "CollisionShape",
+            "properties": {
+              "shape": "rect",
+              "width": 24,
+              "height": 24,
+              "x": 0,
+              "y": 22,
+              "collision_layer": 4,
+              "collision_mask": 0,
+              "tags": [
+                "sword"
+              ]
+            }
+          }
+        ],
+        "js_script": "scripts/player.js"
+      },
+      {
+        "id": "slime_0",
+        "type": "RigidBody",
+        "properties": {
+          "x": 600,
+          "y": 300,
+          "width": 28,
+          "height": 24,
+          "mass": 1,
+          "velocity": {
+            "x": 0,
+            "y": 0
+          },
+          "gravity_scale": 0,
+          "linear_damping": 0.6,
+          "collision_layer": 2,
+          "collision_mask": 11,
+          "atlas": "assets/slime.atlas.json",
+          "region": "idle_0",
+          "animations": {
+            "idle": {
+              "frames": [
+                "idle_0",
+                "idle_1",
+                "idle_2",
+                "idle_3",
+                "idle_4",
+                "idle_5"
+              ],
+              "speed": 6,
+              "loop": true,
+              "ping_pong": true
+            },
+            "move": {
+              "frames": [
+                "move_0",
+                "move_1",
+                "move_2",
+                "move_3",
+                "move_4",
+                "move_5"
+              ],
+              "speed": 8,
+              "loop": true,
+              "ping_pong": true
+            },
+            "death": {
+              "frames": [
+                "death_0",
+                "death_1",
+                "death_2",
+                "death_3",
+                "death_4",
+                "death_5"
+              ],
+              "speed": 10,
+              "loop": false
+            }
+          },
+          "animation": "idle",
+          "playing": true,
+          "hp": 2,
+          "max_hp": 2,
+          "alive": true,
+          "death_timer": 0,
+          "patrol_dir": 0,
+          "patrol_timer": 0,
+          "tags": [
+            "enemy",
+            "slime"
+          ]
+        },
+        "js_script": "scripts/enemy.js"
+      },
+      {
+        "id": "slime_1",
+        "type": "RigidBody",
+        "properties": {
+          "x": 250,
+          "y": 420,
+          "width": 28,
+          "height": 24,
+          "mass": 1,
+          "velocity": {
+            "x": 0,
+            "y": 0
+          },
+          "gravity_scale": 0,
+          "linear_damping": 0.6,
+          "collision_layer": 2,
+          "collision_mask": 11,
+          "atlas": "assets/slime.atlas.json",
+          "region": "idle_0",
+          "animations": {
+            "idle": {
+              "frames": [
+                "idle_0",
+                "idle_1",
+                "idle_2",
+                "idle_3",
+                "idle_4",
+                "idle_5"
+              ],
+              "speed": 6,
+              "loop": true,
+              "ping_pong": true
+            },
+            "move": {
+              "frames": [
+                "move_0",
+                "move_1",
+                "move_2",
+                "move_3",
+                "move_4",
+                "move_5"
+              ],
+              "speed": 8,
+              "loop": true,
+              "ping_pong": true
+            },
+            "death": {
+              "frames": [
+                "death_0",
+                "death_1",
+                "death_2",
+                "death_3",
+                "death_4",
+                "death_5"
+              ],
+              "speed": 10,
+              "loop": false
+            }
+          },
+          "animation": "idle",
+          "playing": true,
+          "hp": 2,
+          "max_hp": 2,
+          "alive": true,
+          "death_timer": 0,
+          "patrol_dir": 1,
+          "patrol_timer": 1000,
+          "tags": [
+            "enemy",
+            "slime"
+          ]
+        },
+        "js_script": "scripts/enemy.js"
+      },
+      {
+        "id": "heart_1",
+        "type": "Label",
+        "properties": {
+          "x": 30,
+          "y": 16,
+          "text": "\u2764",
+          "font_size": 24,
+          "color": "#ff3333"
+        }
+      },
+      {
+        "id": "heart_2",
+        "type": "Label",
+        "properties": {
+          "x": 54,
+          "y": 16,
+          "text": "\u2764",
+          "font_size": 24,
+          "color": "#ff3333"
+        }
+      },
+      {
+        "id": "heart_3",
+        "type": "Label",
+        "properties": {
+          "x": 78,
+          "y": 16,
+          "text": "\u2764",
+          "font_size": 24,
+          "color": "#ff3333"
+        }
+      },
+      {
+        "id": "heart_4",
+        "type": "Label",
+        "properties": {
+          "x": 102,
+          "y": 16,
+          "text": "\u2764",
+          "font_size": 24,
+          "color": "#ff3333"
+        }
+      },
+      {
+        "id": "heart_5",
+        "type": "Label",
+        "properties": {
+          "x": 126,
+          "y": 16,
+          "text": "\u2764",
+          "font_size": 24,
+          "color": "#ff3333"
+        }
+      },
+      {
+        "id": "hud_score",
+        "type": "Label",
+        "properties": {
+          "x": 560,
+          "y": 16,
+          "text": "Score: 0",
+          "font_size": 18,
+          "color": "#ffffff"
+        }
+      },
+      {
+        "id": "gameover_panel",
+        "type": "Node2D",
+        "properties": {
+          "x": 400,
+          "y": 320,
+          "visible": false
+        },
+        "children": [
+          {
+            "id": "gameover_bg",
+            "type": "Block",
+            "properties": {
+              "x": 0,
+              "y": 0,
+              "width": 300,
+              "height": 120,
+              "color": "#000000"
+            }
+          },
+          {
+            "id": "gameover_text",
+            "type": "Label",
+            "properties": {
+              "x": -80,
+              "y": -20,
+              "text": "GAME OVER",
+              "font_size": 32,
+              "color": "#ff0000"
+            }
+          },
+          {
+            "id": "gameover_hint",
+            "type": "Label",
+            "properties": {
+              "x": -90,
+              "y": 20,
+              "text": "Press R to restart",
+              "font_size": 16,
+              "color": "#aaaaaa"
+            }
+          }
+        ]
+      },
+      {
+        "id": "game_controller",
+        "type": "Node",
+        "properties": {},
+        "js_script": "scripts/game.js"
+      }
+    ]
+  }
+}

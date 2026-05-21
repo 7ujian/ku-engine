@@ -142,7 +142,7 @@ export class Renderer {
     ctx.save();
     ctx.translate(this.width / 2, this.height / 2);
     ctx.scale(cam.zoom, cam.zoom);
-    ctx.translate(-cam.x - this.width / 2, -cam.y - this.height / 2);
+    ctx.translate(-cam.x, -cam.y);
 
     // Pre-load textures for visible sprites/tilemaps/atlas nodes
     const loadPromises: Promise<void>[] = [];
@@ -253,6 +253,13 @@ export class Renderer {
           } else {
             this.spriteRenderer.drawSprite(node, wx, wy, dt);
           }
+        } else {
+          // Draw a yellow placeholder for RigidBody without atlas
+          const w = (node.getProperty('width') as number) ?? 32;
+          const h = (node.getProperty('height') as number) ?? 32;
+          const color = (node.getProperty('color') as string) ?? '#ffff00';
+          ctx.fillStyle = color;
+          ctx.fillRect(wx - w / 2, wy - h / 2, w, h);
         }
         break;
       }

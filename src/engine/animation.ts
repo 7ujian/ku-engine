@@ -91,6 +91,7 @@ export interface Keyframe {
 export interface AnimTrack {
   keyframes: Keyframe[];
   easing?: string;
+  target?: string;
 }
 
 export interface PropertyAnimation {
@@ -136,5 +137,33 @@ export function interpolateKeyframes(keyframes: Keyframe[], progress: number, ea
   const segLen = b.t - a.t;
   const segT = segLen > 0 ? (t - a.t) / segLen : 0;
   return a.value + (b.value - a.value) * segT;
+}
+
+// --- Multi-node track application ---
+
+export interface TrackTargetResolver {
+  get(path: string): unknown;
+}
+
+export function applyAnimationTracks(
+  tracks: Record<string, unknown>,
+  progress: number,
+  defaultTarget: unknown | null,
+  resolver: TrackTargetResolver,
+): void {
+  for (const [prop, track] of Object.entries(tracks)) {
+    const t = track as AnimTrack;
+    if (!t.keyframes || t.keyframes.length === 0) continue;
+    const value = interpolateKeyframes(t.keyframes, progress, getEasing(t.easing));
+
+    let target = defaultTarget;
+    if (t.target) {
+      try { target = resolver.get(t.target); } catch { continue; }
+    }
+    if (!target) continue;
+
+    (target as { setPropertyByPath(prop: string, value: unknown): void })
+      .setPropertyByPath(prop, value);
+  }
 }
 
