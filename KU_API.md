@@ -207,6 +207,44 @@ Each named animation has a `duration` (seconds), optional `loop` override, and `
 
 Each track key (`"y"`, `"rotation"`, `"scale_x"`, `"frame"`, etc.) is a property path on the target node. The `t` values are normalized progress (0 to 1). Between keyframes, values are linearly interpolated after applying the easing function.
 
+Each track can optionally specify a `target` property to override the AnimationPlayer's default target for that track. This allows a single AnimationPlayer to drive properties on multiple nodes simultaneously. When `target` is omitted, the track applies to the AnimationPlayer's `target` node.
+
+```json
+{
+  "pop_in": {
+    "duration": 0.4,
+    "loop": false,
+    "tracks": {
+      "scale_x": {
+        "target": "panel",
+        "keyframes": [
+          { "t": 0, "value": 0 },
+          { "t": 0.6, "value": 1.2 },
+          { "t": 1, "value": 1 }
+        ],
+        "easing": "ease_out"
+      },
+      "scale_y": {
+        "keyframes": [
+          { "t": 0, "value": 0 },
+          { "t": 0.6, "value": 1.2 },
+          { "t": 1, "value": 1 }
+        ],
+        "easing": "ease_out"
+      },
+      "rotation": {
+        "target": "panel/icon",
+        "keyframes": [
+          { "t": 0, "value": 0 },
+          { "t": 1, "value": 6.28 }
+        ],
+        "easing": "linear"
+      }
+    }
+  }
+}
+```
+
 #### Easing Functions
 
 | Name | Curve |
