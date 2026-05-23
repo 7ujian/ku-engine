@@ -15,6 +15,7 @@ export class SpriteRenderer {
   private atlasCache = new Map<string, AtlasDef>();
   private animTimers = new Map<string, { elapsed: number; frame: number }>();
   private atlasAnimState = new Map<string, AnimState>();
+  private atlasLastAnim = new Map<string, string>();
 
   constructor(ctx: Ctx, projectDir = '.') {
     this.ctx = ctx;
@@ -188,9 +189,11 @@ export class SpriteRenderer {
 
     const playing = node.getProperty('playing') === true;
     let state = this.atlasAnimState.get(node.id);
-    if (!state) {
+    const lastAnim = this.atlasLastAnim.get(node.id);
+    if (!state || lastAnim !== animName) {
       state = createAnimState();
       this.atlasAnimState.set(node.id, state);
+      this.atlasLastAnim.set(node.id, animName);
     }
 
     if (playing) {

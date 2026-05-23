@@ -117,11 +117,70 @@
         "id": "decor_table",
         "type": "Sprite",
         "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Outdoor_Decor_Free.png",
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "iron_ingot",
           "x": 260,
-          "y": 100,
-          "hframes": 7,
-          "frame": 0
+          "y": 100
+        }
+      },
+      {
+        "id": "decor_house_potted_0",
+        "type": "Sprite",
+        "properties": {
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "tulip_red_potted_bud",
+          "x": 80,
+          "y": 200
+        }
+      },
+      {
+        "id": "decor_house_potted_1",
+        "type": "Sprite",
+        "properties": {
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "tulip_yellow_potted_bud",
+          "x": 320,
+          "y": 200
+        }
+      },
+      {
+        "id": "decor_house_potted_2",
+        "type": "Sprite",
+        "properties": {
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "bellflowers_red_potted",
+          "x": 80,
+          "y": 120
+        }
+      },
+      {
+        "id": "decor_house_potted_3",
+        "type": "Sprite",
+        "properties": {
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "bellflowers_yellow_potted",
+          "x": 320,
+          "y": 120
+        }
+      },
+      {
+        "id": "decor_house_potted_4",
+        "type": "Sprite",
+        "properties": {
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "flower_red_potted_star",
+          "x": 140,
+          "y": 240
+        }
+      },
+      {
+        "id": "decor_house_potted_5",
+        "type": "Sprite",
+        "properties": {
+          "atlas": "assets/outdoor_decor.atlas.json",
+          "region": "flower_orange_potted_star",
+          "x": 260,
+          "y": 240
         }
       },
       {

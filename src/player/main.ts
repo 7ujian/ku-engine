@@ -33,7 +33,15 @@ async function main(): Promise<void> {
 
   const input = new InputManager(scripts, jsScripts);
 
-  const renderer = new Renderer(config.window?.width ?? 640, config.window?.height ?? 480, projectDir, config.debug_physics ?? false);
+  const renderer = new Renderer(
+    config.window?.width ?? 800,
+    config.window?.height ?? 600,
+    projectDir,
+    config.debug_physics ?? false,
+    config.window?.scale ?? 1,
+    config.window?.scale_mode ?? 'system',
+    config.window?.resizable ?? true,
+  );
   renderer.setKeyHandler((key, down) => {
     if (down) input.keyDown(key);
     else input.keyUp(key);

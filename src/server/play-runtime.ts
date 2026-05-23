@@ -120,11 +120,15 @@ export class PlayRuntime {
     });
 
     const cfg = projectConfig as Record<string, unknown>;
+    const win = (cfg.window ?? {}) as Record<string, unknown>;
     const renderer = new Renderer(
-      (cfg.window as any)?.width ?? 640,
-      (cfg.window as any)?.height ?? 480,
+      (win.width as number) ?? 800,
+      (win.height as number) ?? 600,
       dir,
       (cfg.debug_physics as boolean) ?? false,
+      (win.scale as number) ?? 1,
+      (win.scale_mode as 'fixed' | 'system') ?? 'system',
+      (win.resizable as boolean) ?? true,
     );
     renderer.setKeyHandler((key, down) => {
       if (down) input.keyDown(key);

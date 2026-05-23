@@ -16,13 +16,13 @@
       {
         "id": "background",
         "type": "Panel",
-        "properties": { "x": 0, "y": 0, "width": 640, "height": 480, "color": "#2d2d3d" },
+        "properties": { "x": 0, "y": 0, "width": 800, "height": 600, "color": "#2d2d3d" },
         "children": []
       },
       {
         "id": "toolbar",
         "type": "Panel",
-        "properties": { "x": 0, "y": 0, "width": 640, "height": 32, "color": "#1a1a2e", "border_color": "#3a3a5e", "border_width": 1 },
+        "properties": { "x": 0, "y": 0, "width": 800, "height": 32, "color": "#1a1a2e", "border_color": "#3a3a5e", "border_width": 1 },
         "children": [
           {
             "id": "filename_label",
@@ -33,13 +33,13 @@
           {
             "id": "coords_label",
             "type": "Label",
-            "properties": { "x": 400, "y": 9, "text": "0, 0", "font_size": 12, "color": "#888888", "align": "right", "valign": "top" },
+            "properties": { "x": 520, "y": 9, "text": "0, 0", "font_size": 12, "color": "#888888", "align": "right", "valign": "top" },
             "children": []
           },
           {
             "id": "zoom_label",
             "type": "Label",
-            "properties": { "x": 580, "y": 9, "text": "100%", "font_size": 12, "color": "#888888", "align": "left", "valign": "top" },
+            "properties": { "x": 720, "y": 9, "text": "100%", "font_size": 12, "color": "#888888", "align": "left", "valign": "top" },
             "children": []
           }
         ]
@@ -47,7 +47,7 @@
       {
         "id": "viewport",
         "type": "ScrollView",
-        "properties": { "x": 0, "y": 32, "width": 480, "height": 448, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+        "properties": { "x": 0, "y": 32, "width": 600, "height": 568, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
         "children": [
           {
             "id": "spritesheet",
@@ -66,47 +66,132 @@
       {
         "id": "sidebar",
         "type": "Panel",
-        "properties": { "x": 480, "y": 32, "width": 160, "height": 448, "color": "#1a1a2e", "border_color": "#3a3a5e", "border_width": 1 },
+        "properties": { "x": 600, "y": 32, "width": 200, "height": 568, "color": "#1a1a2e", "border_color": "#3a3a5e", "border_width": 1 },
         "children": [
           {
             "id": "sidebar_title",
             "type": "Label",
-            "properties": { "x": 80, "y": 4, "text": "Regions", "font_size": 14, "color": "#ffffff", "align": "center", "valign": "top" },
+            "properties": { "x": 100, "y": 4, "text": "Regions", "font_size": 14, "color": "#ffffff", "align": "center", "valign": "top" },
             "children": []
           },
           {
             "id": "region_list",
             "type": "ScrollView",
-            "properties": { "x": 4, "y": 24, "width": 152, "height": 200, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#222233" },
+            "properties": { "x": 4, "y": 22, "width": 192, "height": 180, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#222233" },
             "children": []
+          },
+          {
+            "id": "detail_panel",
+            "type": "Panel",
+            "properties": { "x": 4, "y": 208, "width": 192, "height": 176, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+            "children": [
+              {
+                "id": "detail_title",
+                "type": "Label",
+                "properties": { "x": 96, "y": 4, "text": "Frame", "font_size": 12, "color": "#ffffff", "align": "center", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_name_label",
+                "type": "Label",
+                "properties": { "x": 6, "y": 22, "text": "Name", "font_size": 10, "color": "#888888", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_name_btn",
+                "type": "Button",
+                "properties": { "x": 6, "y": 36, "width": 180, "height": 22, "text": "", "color": "#2a2a3e", "hover_color": "#3a3a5e", "pressed_color": "#4a4a6e", "text_color": "#ffffff", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "detail_x_label",
+                "type": "Label",
+                "properties": { "x": 6, "y": 64, "text": "X", "font_size": 10, "color": "#888888", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_x_val",
+                "type": "Label",
+                "properties": { "x": 54, "y": 64, "text": "0", "font_size": 10, "color": "#ffffff", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_y_label",
+                "type": "Label",
+                "properties": { "x": 6, "y": 80, "text": "Y", "font_size": 10, "color": "#888888", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_y_val",
+                "type": "Label",
+                "properties": { "x": 54, "y": 80, "text": "0", "font_size": 10, "color": "#ffffff", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_w_label",
+                "type": "Label",
+                "properties": { "x": 100, "y": 64, "text": "W", "font_size": 10, "color": "#888888", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_w_val",
+                "type": "Label",
+                "properties": { "x": 146, "y": 64, "text": "32", "font_size": 10, "color": "#ffffff", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_h_label",
+                "type": "Label",
+                "properties": { "x": 100, "y": 80, "text": "H", "font_size": 10, "color": "#888888", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_h_val",
+                "type": "Label",
+                "properties": { "x": 146, "y": 80, "text": "32", "font_size": 10, "color": "#ffffff", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "detail_edit_hint",
+                "type": "Label",
+                "properties": { "x": 6, "y": 100, "text": "Arrows: move  Shift+Arrows: resize", "font_size": 8, "color": "#666666", "align": "left", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "delete_btn",
+                "type": "Button",
+                "properties": { "x": 6, "y": 146, "width": 180, "height": 24, "text": "Delete Frame", "color": "#5a2a2a", "hover_color": "#6a3a3a", "pressed_color": "#4a1a1a", "text_color": "#ff8888", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              }
+            ]
           },
           {
             "id": "buttons",
             "type": "Node2D",
-            "properties": { "x": 4, "y": 230 },
+            "properties": { "x": 6, "y": 390 },
             "children": [
               {
                 "id": "grid_btn",
                 "type": "Button",
-                "properties": { "x": 0, "y": 0, "width": 152, "height": 30, "text": "Grid Slice", "color": "#3a5a3e", "hover_color": "#4a6a4e", "pressed_color": "#2a4a2e", "clickable": true },
+                "properties": { "x": 0, "y": 0, "width": 188, "height": 30, "text": "Grid Slice", "color": "#3a5a3e", "hover_color": "#4a6a4e", "pressed_color": "#2a4a2e", "clickable": true },
                 "children": []
               },
               {
                 "id": "add_btn",
                 "type": "Button",
-                "properties": { "x": 0, "y": 36, "width": 152, "height": 30, "text": "Add Region", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "clickable": true },
+                "properties": { "x": 0, "y": 36, "width": 188, "height": 30, "text": "Add Frame", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "clickable": true },
                 "children": []
               },
               {
                 "id": "preview_btn",
                 "type": "Button",
-                "properties": { "x": 0, "y": 72, "width": 152, "height": 30, "text": "Preview", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "clickable": true },
+                "properties": { "x": 0, "y": 72, "width": 188, "height": 30, "text": "Preview", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "clickable": true },
                 "children": []
               },
               {
                 "id": "save_btn",
                 "type": "Button",
-                "properties": { "x": 0, "y": 108, "width": 152, "height": 30, "text": "Save Atlas", "color": "#5a3a3e", "hover_color": "#6a4a4e", "pressed_color": "#4a2a2e", "clickable": true },
+                "properties": { "x": 0, "y": 108, "width": 188, "height": 30, "text": "Save Atlas", "color": "#5a3a3e", "hover_color": "#6a4a4e", "pressed_color": "#4a2a2e", "clickable": true },
                 "children": []
               }
             ]
@@ -116,18 +201,18 @@
       {
         "id": "preview_panel",
         "type": "Panel",
-        "properties": { "x": 484, "y": 420, "width": 152, "height": 56, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+        "properties": { "x": 604, "y": 536, "width": 192, "height": 60, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
         "children": [
           {
             "id": "preview_image",
             "type": "ImageRect",
-            "properties": { "x": 4, "y": 4, "width": 48, "height": 48, "texture": "", "region_w": 0, "region_h": 0 },
+            "properties": { "x": 6, "y": 6, "width": 48, "height": 48, "texture": "", "region_w": 0, "region_h": 0 },
             "children": []
           },
           {
             "id": "preview_label",
             "type": "Label",
-            "properties": { "x": 56, "y": 4, "text": "", "font_size": 10, "color": "#aaaaaa", "align": "left", "valign": "top" },
+            "properties": { "x": 60, "y": 6, "text": "", "font_size": 10, "color": "#aaaaaa", "align": "left", "valign": "top" },
             "children": []
           }
         ]

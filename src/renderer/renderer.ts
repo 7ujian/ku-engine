@@ -1,6 +1,7 @@
 import sdl from '@kmamal/sdl';
 import { createCanvas, loadImage, type Canvas, type Image } from '@napi-rs/canvas';
 import { resolve } from 'node:path';
+import { execSync } from 'node:child_process';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
 import { findCamera, type CameraState } from './camera.js';
@@ -33,6 +34,40 @@ function normalizeKeyName(key: string): string {
   return map[key] ?? key.toUpperCase();
 }
 
+/** Detect the system display scale factor from Linux desktop environment.
+ *  SDL reports physical pixels on Wayland/macOS/Windows but not X11,
+ *  so we fall back to env vars and X resources when SDL's ratio is 1. */
+function detectSystemScale(): number {
+  const kuScale = Number(process.env.KU_SCALE);
+  if (kuScale > 0) return kuScale;
+
+  const gdkScale = Number(process.env.GDK_SCALE);
+  const gdkDpiScale = Number(process.env.GDK_DPI_SCALE);
+
+  if (gdkScale > 0) {
+    const fractional = gdkDpiScale > 0 ? gdkDpiScale : 1;
+    return gdkScale * fractional;
+  }
+
+  const qtScale = Number(process.env.QT_SCALE_FACTOR);
+  if (qtScale > 0) return qtScale;
+
+  try {
+    const xrdb = execSync('xrdb -query 2>/dev/null', { encoding: 'utf8', timeout: 3000 });
+    const match = xrdb.match(/^Xft\.dpi:\s*(\d+(?:\.\d+)?)/m);
+    if (match) {
+      const dpi = parseFloat(match[1]);
+      if (dpi > 0) return Math.round((dpi / 96) * 100) / 100;
+    }
+  } catch {
+    // xrdb not available or timed out
+  }
+
+  return 1;
+}
+
+export type ScaleMode = 'fixed' | 'system';
+
 export class Renderer {
   private window: ReturnType<typeof sdl.video.createWindow> | null = null;
   private canvas: Canvas;
@@ -40,6 +75,15 @@ export class Renderer {
   private running = false;
   private width: number;
   private height: number;
+  private pixelWidth: number;
+  private pixelHeight: number;
+  // pixelRatio: internal canvas multiplier for HDPI (system mode).
+  // In fixed mode this is 1 — the window itself is scaled instead.
+  private pixelRatio: number;
+  // windowScale: multiplies the SDL window size. >1 in fixed mode, 1 in system mode.
+  private windowScale: number;
+  private configScale: number;
+  private scaleMode: ScaleMode;
   private spriteRenderer: SpriteRenderer;
   private tilemapRenderer: TilemapRenderer;
   private labelRenderer: LabelRenderer;
@@ -49,13 +93,38 @@ export class Renderer {
   private onTouch: TouchHandler | null = null;
   private projectDir: string;
   private debugPhysics: boolean;
+  private resizable: boolean;
 
-  constructor(width = 640, height = 480, projectDir = '.', debugPhysics = false) {
+  constructor(
+    width = 800,
+    height = 600,
+    projectDir = '.',
+    debugPhysics = false,
+    configScale = 1,
+    scaleMode: ScaleMode = 'system',
+    resizable = true,
+  ) {
     this.width = width;
     this.height = height;
+    this.resizable = resizable;
+    this.pixelWidth = width;
+    this.pixelHeight = height;
+    this.pixelRatio = 1;
+    this.windowScale = 1;
+    this.configScale = configScale;
+    this.scaleMode = scaleMode;
     this.projectDir = resolve(projectDir);
     this.debugPhysics = debugPhysics;
     this.canvas = createCanvas(width, height);
+    this.ctx = this.canvas.getContext('2d');
+    this.spriteRenderer = new SpriteRenderer(this.ctx, this.projectDir);
+    this.tilemapRenderer = new TilemapRenderer(this.ctx);
+    this.labelRenderer = new LabelRenderer(this.ctx);
+    this.guiRenderer = new GuiRenderer(this.ctx, this.projectDir);
+  }
+
+  private initCanvas(w: number, h: number): void {
+    this.canvas = createCanvas(w, h);
     this.ctx = this.canvas.getContext('2d');
     this.spriteRenderer = new SpriteRenderer(this.ctx, this.projectDir);
     this.tilemapRenderer = new TilemapRenderer(this.ctx);
@@ -72,14 +141,51 @@ export class Renderer {
   }
 
   async open(title = 'ku'): Promise<void> {
+    // Create window at logical size first so we can query SDL's HDPI behaviour.
     this.window = sdl.video.createWindow({
       title,
       width: this.width,
       height: this.height,
       vsync: false,
+      resizable: this.resizable,
     });
     this.running = true;
     this.lastTime = Date.now();
+
+    const sdlRatio = this.window.pixelWidth / this.width;
+
+    if (this.scaleMode === 'fixed') {
+      // Fixed mode: window enlarged by configScale, canvas stays at logical size.
+      // Uses nearest-neighbor upscaling in present() for crisp pixel art.
+      this.windowScale = this.configScale;
+      this.pixelRatio = 1;
+    } else if (sdlRatio > 1) {
+      // Wayland / macOS: compositor handles HDPI natively.
+      // Window stays at logical size; canvas enlarged for supersampling.
+      this.windowScale = 1;
+      this.pixelRatio = sdlRatio;
+    } else {
+      // X11 (no compositor HDPI): detect system scale from env / X resources
+      // and enlarge both window and canvas.
+      const systemScale = detectSystemScale();
+      this.windowScale = systemScale;
+      this.pixelRatio = systemScale;
+    }
+
+    // Resize window if we're using a windowScale > 1 (fixed mode or X11 system scale)
+    const winW = Math.round(this.width * this.windowScale);
+    const winH = Math.round(this.height * this.windowScale);
+    if (winW !== this.width || winH !== this.height) {
+      this.window.setSize(winW, winH);
+    }
+
+    this.pixelWidth = Math.round(this.width * this.pixelRatio);
+    this.pixelHeight = Math.round(this.height * this.pixelRatio);
+    if (this.pixelRatio !== 1) {
+      this.initCanvas(this.pixelWidth, this.pixelHeight);
+    } else if (this.canvas.width !== this.width || this.canvas.height !== this.height) {
+      this.initCanvas(this.width, this.height);
+    }
 
     this.window.on('close', () => {
       this.running = false;
@@ -110,17 +216,18 @@ export class Renderer {
       if (this.onTouch) this.onTouch('end', event.x * this.width, event.y * this.height, event.fingerId);
     });
 
-    // Mouse as pointer (desktop fallback)
+    // Mouse as pointer (desktop fallback).
+    // Window may be scaled (fixed mode), so divide by windowScale to get logical coords.
     (this.window as any).on('mouseMove', (event: { x: number; y: number }) => {
-      if (this.onTouch) this.onTouch('move', event.x, event.y, 0);
+      if (this.onTouch) this.onTouch('move', event.x / this.windowScale, event.y / this.windowScale, 0);
     });
 
     (this.window as any).on('mouseButtonDown', (event: { x: number; y: number; button: number }) => {
-      if (this.onTouch) this.onTouch('start', event.x, event.y, 0);
+      if (this.onTouch) this.onTouch('start', event.x / this.windowScale, event.y / this.windowScale, 0);
     });
 
     (this.window as any).on('mouseButtonUp', (event: { x: number; y: number; button: number }) => {
-      if (this.onTouch) this.onTouch('end', event.x, event.y, 0);
+      if (this.onTouch) this.onTouch('end', event.x / this.windowScale, event.y / this.windowScale, 0);
     });
   }
 
@@ -144,6 +251,13 @@ export class Renderer {
     this.lastTime = now;
 
     const ctx = this.ctx;
+
+    // HDPI: scale canvas drawing so logical coords map to physical pixels
+    if (this.pixelRatio !== 1) {
+      ctx.save();
+      ctx.scale(this.pixelRatio, this.pixelRatio);
+    }
+
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, this.width, this.height);
 
@@ -209,10 +323,14 @@ export class Renderer {
     // Debug physics overlay (on top of all sprites)
     this.drawDebugOverlay(tree);
 
-    ctx.restore();
+    ctx.restore(); // camera transform
 
     // GUI pass: draw GUI nodes in screen space (no camera transform)
     this.drawGuiPass(tree, dt);
+
+    if (this.pixelRatio !== 1) {
+      ctx.restore(); // HDPI scale
+    }
 
     this.present();
   }
@@ -397,12 +515,66 @@ export class Renderer {
   private present(): void {
     if (!this.window || this.window.destroyed) return;
 
-    const imageData = this.ctx.getImageData(0, 0, this.width, this.height);
+    const bufW = this.pixelWidth;
+    const bufH = this.pixelHeight;
+    const imageData = this.ctx.getImageData(0, 0, bufW, bufH);
     const buffer = Buffer.from(imageData.data);
 
-    this.window.render(this.width, this.height, this.width * 4, 'rgba32', buffer);
+    const winW = Math.round(this.width * this.windowScale);
+    // Use nearest-neighbor when upscaling (pixel-art style: buffer smaller than window).
+    // When buffer is same size or larger (HDPI downscale), use default linear.
+    if (bufW < winW) {
+      this.window.render(bufW, bufH, bufW * 4, 'rgba32', buffer, { scaling: 'nearest' });
+    } else {
+      this.window.render(bufW, bufH, bufW * 4, 'rgba32', buffer);
+    }
   }
 
   getWidth(): number { return this.width; }
   getHeight(): number { return this.height; }
+
+  /** Set a fixed rendering scale. Switches scale mode to "fixed". */
+  setScale(scale: number): void {
+    this.scaleMode = 'fixed';
+    this.configScale = scale;
+    if (this.window && !this.window.destroyed) {
+      this.windowScale = scale;
+      this.pixelRatio = 1;
+      this.pixelWidth = this.width;
+      this.pixelHeight = this.height;
+      this.initCanvas(this.width, this.height);
+    }
+  }
+
+  /** Set the scale mode ("fixed" or "system").
+   *  Updates canvas immediately; window resize requires reopen. */
+  setScaleMode(mode: ScaleMode): void {
+    this.scaleMode = mode;
+    if (!this.window || this.window.destroyed) return;
+
+    if (mode === 'fixed') {
+      this.windowScale = this.configScale;
+      this.pixelRatio = 1;
+    } else {
+      const sdlRatio = this.window.pixelWidth / this.width;
+      if (sdlRatio > 1) {
+        this.windowScale = 1;
+        this.pixelRatio = sdlRatio;
+      } else {
+        const systemScale = detectSystemScale();
+        this.windowScale = systemScale;
+        this.pixelRatio = systemScale;
+      }
+    }
+    this.pixelWidth = Math.round(this.width * this.pixelRatio);
+    this.pixelHeight = Math.round(this.height * this.pixelRatio);
+    if (this.pixelRatio !== 1) {
+      this.initCanvas(this.pixelWidth, this.pixelHeight);
+    } else {
+      this.initCanvas(this.width, this.height);
+    }
+  }
+
+  getScale(): number { return this.scaleMode === 'fixed' ? this.windowScale : this.pixelRatio; }
+  getScaleMode(): ScaleMode { return this.scaleMode; }
 }

@@ -10,16 +10,27 @@ const state = {
   previewTimer: 0,
   previewSpeed: 8,
   dragState: null,
+  touchMoved: false,        // true if touch moved past drag threshold
+  pendingHit: null,         // hit_node from on_gui_click, deferred to on_touch_end
   gridCols: 4,
   gridRows: 4,
   gridPrefix: 'frame_',
   initialized: false,
+  editingField: null,        // 'name' | null
+  editBuffer: '',
 };
 
 const REGION_COLORS = [
   '#ff6b6b', '#51cf66', '#339af0', '#fcc419',
   '#cc5de8', '#ff922b', '#20c997', '#748ffc',
 ];
+
+// Layout constants (match scene template)
+const VIEWPORT_W = 600;
+const SIDEBAR_X = 600;
+const SIDEBAR_W = 200;
+const REGION_LIST_W = 188;
+const REGION_LIST_ITEM_H = 22;
 
 function regionColor(index) {
   return REGION_COLORS[index % REGION_COLORS.length];
@@ -28,10 +39,19 @@ function regionColor(index) {
 const handlers = {
   on_touch_start(ctx) {
     const { x, y } = ctx.data;
-    if (state.dragState) return;
 
-    // Sidebar area (x >= 484, y >= 56 and y < 256): scroll region list
-    if (x >= 484 && y >= 56 && y < 256) {
+    state.dragState = null;
+    state.touchMoved = false;
+    state.pendingHit = null;
+
+    // If editing, commit on click outside
+    if (state.editingField) {
+      commitEdit(ctx);
+      return;
+    }
+
+    // Sidebar region list scroll area (x >= SIDEBAR_X, y in list area)
+    if (x >= SIDEBAR_X && y >= 54 && y < 234) {
       state.dragState = {
         type: 'list_scroll',
         startX: x,
@@ -41,8 +61,8 @@ const handlers = {
       return;
     }
 
-    // Only pan viewport for touches inside the viewport area (x < 480, y >= 32)
-    if (x >= 480) return;
+    // Only pan viewport for touches inside the viewport area
+    if (x >= VIEWPORT_W) return;
 
     state.dragState = {
       type: 'tentative_pan',
@@ -53,22 +73,36 @@ const handlers = {
     };
   },
 
+  // on_gui_click fires during touchStart (not after touchEnd).
+  // For touch events: defer to on_touch_end so we can distinguish tap vs drag.
+  // For mouse events: dragState is null, so handle immediately.
+  on_gui_click(ctx) {
+    if (state.dragState) {
+      // Touch-initiated: save hit for on_touch_end to process
+      state.pendingHit = ctx.data.hit_node || null;
+      return;
+    }
+    // Mouse-initiated click: handle immediately
+    handleClick(ctx, ctx.data.hit_node || null);
+  },
+
   on_touch_move(ctx) {
     if (!state.dragState) return;
     const { x, y } = ctx.data;
 
     if (state.dragState.type === 'list_scroll') {
       const dy = y - state.dragState.startY;
+      if (Math.abs(dy) > 3) state.touchMoved = true;
       ctx.scene.set('/sidebar/region_list', 'scroll_y', state.dragState.scrollStartY - dy);
       return;
     }
 
     if (state.dragState.type === 'tentative_pan') {
-      // Promote to real pan once moved more than 3px
       const dx = x - state.dragState.startX;
       const dy = y - state.dragState.startY;
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
         state.dragState.type = 'pan';
+        state.touchMoved = true;
       } else {
         return;
       }
@@ -83,44 +117,32 @@ const handlers = {
   },
 
   on_touch_end(ctx) {
+    // Tap (no drag): process the deferred click
+    if (!state.touchMoved && state.pendingHit) {
+      handleClick(ctx, state.pendingHit);
+    }
+
+    // Button release state cleanup
+    if (state.pendingHit && state.pendingHit.startsWith('item_')) {
+      try {
+        ctx.scene.set(`/sidebar/region_list/${state.pendingHit}`, 'state', 'normal');
+      } catch { /* ignore */ }
+    }
+
     state.dragState = null;
-  },
-
-  on_gui_click(ctx) {
-    // Cancel any pending pan — this was a click on a GUI element
-    if (state.dragState && state.dragState.type === 'tentative_pan') {
-      state.dragState = null;
-    }
-
-    const nodeId = ctx.data.hit_node || ctx.data.node;
-
-    switch (nodeId) {
-      case 'grid_btn':
-        doGridSlice(ctx);
-        break;
-      case 'add_btn':
-        addRegion(ctx);
-        break;
-      case 'preview_btn':
-        togglePreview(ctx);
-        break;
-      case 'save_btn':
-        saveAtlas(ctx);
-        break;
-      default:
-        if (nodeId && nodeId.startsWith('region_')) {
-          const idx = parseInt(nodeId.replace('region_', ''), 10);
-          selectRegion(ctx, idx);
-        } else if (nodeId && nodeId.startsWith('item_')) {
-          const idx = parseInt(nodeId.replace('item_', ''), 10);
-          selectRegion(ctx, idx);
-        }
-        break;
-    }
+    state.touchMoved = false;
+    state.pendingHit = null;
   },
 
   on_key(ctx) {
     const key = ctx.data.key;
+
+    // Handle text editing mode
+    if (state.editingField === 'name') {
+      handleEditKey(ctx, key);
+      return;
+    }
+
     const zoom = ctx.scene.get('/viewport', 'zoom') || 1;
     const scrollX = ctx.scene.get('/viewport', 'scroll_x') || 0;
     const scrollY = ctx.scene.get('/viewport', 'scroll_y') || 0;
@@ -136,20 +158,32 @@ const handlers = {
         updateZoomLabel(ctx);
         break;
       case 'UP':
-        ctx.scene.set('/viewport', 'scroll_y', scrollY - 20);
-        break;
       case 'DOWN':
-        ctx.scene.set('/viewport', 'scroll_y', scrollY + 20);
-        break;
       case 'LEFT':
-        ctx.scene.set('/viewport', 'scroll_x', scrollX - 20);
-        break;
       case 'RIGHT':
-        ctx.scene.set('/viewport', 'scroll_x', scrollX + 20);
+        if (state.selectedRegion >= 0 && state.selectedRegion < state.regions.length) {
+          nudgeRegion(ctx, key);
+        } else {
+          // Pan viewport
+          if (key === 'UP') ctx.scene.set('/viewport', 'scroll_y', scrollY - 20);
+          else if (key === 'DOWN') ctx.scene.set('/viewport', 'scroll_y', scrollY + 20);
+          else if (key === 'LEFT') ctx.scene.set('/viewport', 'scroll_x', scrollX - 20);
+          else if (key === 'RIGHT') ctx.scene.set('/viewport', 'scroll_x', scrollX + 20);
+        }
         break;
       case 'DELETE':
         if (state.selectedRegion >= 0 && state.selectedRegion < state.regions.length) {
           removeRegion(ctx, state.selectedRegion);
+        }
+        break;
+      case 'ENTER':
+        if (state.selectedRegion >= 0) {
+          startEditName(ctx);
+        }
+        break;
+      case 'ESCAPE':
+        if (state.editingField) {
+          cancelEdit(ctx);
         }
         break;
       case 'SPACE':
@@ -159,7 +193,6 @@ const handlers = {
   },
 
   on_frame(ctx) {
-    // First-frame initialization
     if (!state.initialized) {
       state.initialized = true;
       initEditor(ctx);
@@ -181,6 +214,152 @@ const handlers = {
   },
 };
 
+// --- Name editing ---
+
+function startEditName(ctx) {
+  const r = state.regions[state.selectedRegion];
+  state.editingField = 'name';
+  state.editBuffer = r.name;
+  ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'text', r.name + '|');
+  ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'color', '#4a4a6e');
+}
+
+function commitEdit(ctx) {
+  if (state.editingField === 'name') {
+    state.regions[state.selectedRegion].name = state.editBuffer;
+    updateDetailPanel(ctx);
+    updateRegionList(ctx);
+    updateRegionNode(ctx, state.selectedRegion);
+  }
+  state.editingField = null;
+  state.editBuffer = '';
+  ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'color', '#2a2a3e');
+}
+
+function cancelEdit(ctx) {
+  state.editingField = null;
+  state.editBuffer = '';
+  updateDetailPanel(ctx);
+  ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'color', '#2a2a3e');
+}
+
+function handleEditKey(ctx, key) {
+  if (key === 'ENTER') {
+    commitEdit(ctx);
+  } else if (key === 'ESCAPE') {
+    cancelEdit(ctx);
+  } else if (key === 'BACKSPACE') {
+    if (state.editBuffer.length > 0) {
+      state.editBuffer = state.editBuffer.slice(0, -1);
+      ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'text', state.editBuffer + '|');
+    }
+  } else if (key.length === 1) {
+    // Printable character
+    state.editBuffer += key;
+    ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'text', state.editBuffer + '|');
+  }
+}
+
+// --- Click dispatch ---
+
+function handleClick(ctx, hitNode) {
+  if (!hitNode) return;
+
+  switch (hitNode) {
+    case 'grid_btn':
+      doGridSlice(ctx);
+      break;
+    case 'add_btn':
+      addRegion(ctx);
+      break;
+    case 'preview_btn':
+      togglePreview(ctx);
+      break;
+    case 'save_btn':
+      saveAtlas(ctx);
+      break;
+    case 'delete_btn':
+      if (state.selectedRegion >= 0 && state.selectedRegion < state.regions.length) {
+        removeRegion(ctx, state.selectedRegion);
+      }
+      break;
+    case 'detail_name_btn':
+      if (state.selectedRegion >= 0 && state.selectedRegion < state.regions.length) {
+        startEditName(ctx);
+      }
+      break;
+    default:
+      if (hitNode.startsWith('region_')) {
+        const idx = parseInt(hitNode.split('_')[1], 10);
+        if (!isNaN(idx) && idx >= 0 && idx < state.regions.length) {
+          selectRegion(ctx, idx);
+        }
+      } else if (hitNode.startsWith('item_')) {
+        const idx = parseInt(hitNode.split('_')[1], 10);
+        if (!isNaN(idx) && idx >= 0 && idx < state.regions.length) {
+          selectRegion(ctx, idx);
+        }
+      }
+      break;
+  }
+}
+
+// --- Region nudging ---
+
+function nudgeRegion(ctx, key) {
+  const r = state.regions[state.selectedRegion];
+  const step = 1;
+
+  switch (key) {
+    case 'UP':    r.y -= step; break;
+    case 'DOWN':  r.y += step; break;
+    case 'LEFT':  r.x -= step; break;
+    case 'RIGHT': r.x += step; break;
+  }
+
+  r.x = Math.max(0, r.x);
+  r.y = Math.max(0, r.y);
+
+  updateRegionNode(ctx, state.selectedRegion);
+  updateDetailPanel(ctx);
+  if (state.previewPlaying) updatePreview(ctx);
+}
+
+// --- Detail panel ---
+
+function updateDetailPanel(ctx) {
+  if (state.selectedRegion < 0 || state.selectedRegion >= state.regions.length) {
+    ctx.scene.set('/sidebar/detail_panel/detail_name_btn',   'text', '');
+    ctx.scene.set('/sidebar/detail_panel/detail_x_val',      'text', '-');
+    ctx.scene.set('/sidebar/detail_panel/detail_y_val',      'text', '-');
+    ctx.scene.set('/sidebar/detail_panel/detail_w_val',      'text', '-');
+    ctx.scene.set('/sidebar/detail_panel/detail_h_val',      'text', '-');
+    ctx.scene.set('/sidebar/detail_panel/detail_title',      'text', 'Frame');
+    return;
+  }
+
+  const r = state.regions[state.selectedRegion];
+  const sel = state.selectedRegion;
+  ctx.scene.set('/sidebar/detail_panel/detail_name_btn', 'text', state.editingField === 'name' ? state.editBuffer + '|' : r.name);
+  ctx.scene.set('/sidebar/detail_panel/detail_x_val',    'text', String(r.x));
+  ctx.scene.set('/sidebar/detail_panel/detail_y_val',    'text', String(r.y));
+  ctx.scene.set('/sidebar/detail_panel/detail_w_val',    'text', String(r.width));
+  ctx.scene.set('/sidebar/detail_panel/detail_h_val',    'text', String(r.height));
+  ctx.scene.set('/sidebar/detail_panel/detail_title',    'text', `Frame ${sel}`);
+}
+
+function updateRegionNode(ctx, index) {
+  const r = state.regions[index];
+  try {
+    ctx.scene.set(`/viewport/regions/region_${index}`, 'x', r.x);
+    ctx.scene.set(`/viewport/regions/region_${index}`, 'y', r.y);
+    ctx.scene.set(`/viewport/regions/region_${index}`, 'width', r.width);
+    ctx.scene.set(`/viewport/regions/region_${index}`, 'height', r.height);
+  } catch { /* ignore */ }
+}
+
+// --- Init ---
+
 function initEditor(ctx) {
   const texture = ctx.scene.get('/viewport/spritesheet', 'texture') || '';
   if (!texture) return;
@@ -188,14 +367,12 @@ function initEditor(ctx) {
   state.texturePath = texture;
   ctx.log(`Editor loaded: ${texture}`);
 
-  // Try loading existing atlas if set
   const atlas = ctx.scene.get('/viewport/spritesheet', 'atlas') || '';
   if (atlas) {
     state.atlasPath = atlas;
     ctx.log(`Atlas: ${atlas}`);
   }
 
-  // Load pre-injected atlas regions from plugin
   const atlasDataStr = ctx.scene.get('/', 'atlas_data') || '';
   if (atlasDataStr) {
     try {
@@ -210,7 +387,6 @@ function initEditor(ctx) {
             height: r.height,
           });
         }
-        // Create region overlay nodes
         rebuildRegionNodes(ctx);
         if (state.regions.length > 0) {
           selectRegion(ctx, 0);
@@ -223,6 +399,8 @@ function initEditor(ctx) {
     }
   }
 }
+
+// --- Grid slice ---
 
 function doGridSlice(ctx) {
   const imgW = ctx.scene.get('/viewport/spritesheet', 'width') || 256;
@@ -253,9 +431,11 @@ function doGridSlice(ctx) {
   ctx.log(`Grid slice: ${cols}x${rows} = ${state.regions.length} regions`);
 }
 
+// --- Region CRUD ---
+
 function addRegion(ctx) {
   const region = {
-    name: `region_${state.regions.length}`,
+    name: `frame_${state.regions.length}`,
     x: 0,
     y: 0,
     width: 32,
@@ -284,6 +464,8 @@ function removeRegion(ctx, index) {
 }
 
 function selectRegion(ctx, index) {
+  if (state.editingField) commitEdit(ctx);
+
   if (state.selectedRegion >= 0 && state.selectedRegion < state.regions.length) {
     try {
       const prevColor = regionColor(state.selectedRegion);
@@ -302,6 +484,7 @@ function selectRegion(ctx, index) {
     updatePreview(ctx);
     updateRegionList(ctx);
   }
+  updateDetailPanel(ctx);
 }
 
 function createRegionNode(ctx, index, region) {
@@ -340,6 +523,8 @@ function rebuildRegionNodes(ctx) {
   }
 }
 
+// --- Region list ---
+
 function updateRegionList(ctx) {
   for (let i = 0; i < 200; i++) {
     try {
@@ -352,10 +537,10 @@ function updateRegionList(ctx) {
     const isSelected = i === state.selectedRegion;
     ctx.scene.spawn('Button', `item_${i}`, {
       x: 0,
-      y: i * 24,
-      width: 148,
-      height: 22,
-      text: region.name,
+      y: i * REGION_LIST_ITEM_H,
+      width: REGION_LIST_W - 4,
+      height: 20,
+      text: `${i}: ${region.name}`,
       color: isSelected ? '#4a4a6e' : '#2a2a3e',
       hover_color: '#3a3a5e',
       pressed_color: '#5a5a7e',
@@ -368,14 +553,16 @@ function updateRegionList(ctx) {
   }
 }
 
+// --- Preview ---
+
 function togglePreview(ctx) {
   state.previewPlaying = !state.previewPlaying;
   state.previewTimer = 0;
   state.previewFrame = 0;
-  ctx.scene.set('/preview_btn', 'text', state.previewPlaying ? 'Stop' : 'Preview');
+  ctx.scene.set('/sidebar/buttons/preview_btn', 'text', state.previewPlaying ? 'Stop' : 'Preview');
   if (!state.previewPlaying) {
-    ctx.scene.set('/preview_image', 'region_w', 0);
-    ctx.scene.set('/preview_image', 'region_h', 0);
+    ctx.scene.set('/preview_panel/preview_image', 'region_w', 0);
+    ctx.scene.set('/preview_panel/preview_image', 'region_h', 0);
   }
 }
 
@@ -384,18 +571,22 @@ function updatePreview(ctx) {
   const region = state.regions[state.previewFrame];
   const texture = ctx.scene.get('/viewport/spritesheet', 'texture') || '';
 
-  ctx.scene.set('/preview_image', 'texture', texture);
-  ctx.scene.set('/preview_image', 'region_x', region.x);
-  ctx.scene.set('/preview_image', 'region_y', region.y);
-  ctx.scene.set('/preview_image', 'region_w', region.width);
-  ctx.scene.set('/preview_image', 'region_h', region.height);
-  ctx.scene.set('/preview_label', 'text', `${region.name} (${state.previewFrame + 1}/${state.regions.length})`);
+  ctx.scene.set('/preview_panel/preview_image', 'texture', texture);
+  ctx.scene.set('/preview_panel/preview_image', 'region_x', region.x);
+  ctx.scene.set('/preview_panel/preview_image', 'region_y', region.y);
+  ctx.scene.set('/preview_panel/preview_image', 'region_w', region.width);
+  ctx.scene.set('/preview_panel/preview_image', 'region_h', region.height);
+  ctx.scene.set('/preview_panel/preview_label', 'text', `${region.name} (${state.previewFrame + 1}/${state.regions.length})`);
 }
+
+// --- Zoom ---
 
 function updateZoomLabel(ctx) {
   const zoom = ctx.scene.get('/viewport', 'zoom') || 1;
-  ctx.scene.set('/zoom_label', 'text', `${Math.round(zoom * 100)}%`);
+  ctx.scene.set('/toolbar/zoom_label', 'text', `${Math.round(zoom * 100)}%`);
 }
+
+// --- Save ---
 
 function saveAtlas(ctx) {
   if (state.regions.length === 0) {

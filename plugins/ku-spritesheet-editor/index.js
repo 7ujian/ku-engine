@@ -150,7 +150,7 @@ async function ensureProject(dir) {
     await writeFile(projectJson, JSON.stringify({
       name: 'spritesheet-editor',
       entry: '__spritesheet_editor_tmp',
-      window: { width: 640, height: 480 },
+      window: { width: 800, height: 600, scale_mode: 'system', resizable: true },
     }, null, 2));
   }
 }

@@ -1,0 +1,72 @@
+{
+  "texture": "Cute_Fantasy_Free/Outdoor decoration/Outdoor_Decor_Free.png",
+  "regions": [
+    { "name": "leaves_1",                   "x": 0,   "y": 0,   "width": 16, "height": 16 },
+    { "name": "leaves_2",                   "x": 16,  "y": 0,   "width": 16, "height": 16 },
+    { "name": "leaves_3",                   "x": 32,  "y": 0,   "width": 16, "height": 16 },
+    { "name": "sign_carrot_post",           "x": 48,  "y": 0,   "width": 16, "height": 16 },
+    { "name": "sign_carrot_ground",         "x": 64,  "y": 0,   "width": 16, "height": 16 },
+    { "name": "sign_wheat_post",            "x": 80,  "y": 0,   "width": 16, "height": 16 },
+    { "name": "sign_wheat_ground",          "x": 96,  "y": 0,   "width": 16, "height": 16 },
+
+    { "name": "flowers_white_1",            "x": 0,   "y": 16,  "width": 16, "height": 16 },
+    { "name": "flowers_white_2",            "x": 16,  "y": 16,  "width": 16, "height": 16 },
+    { "name": "flowers_white_3",            "x": 32,  "y": 16,  "width": 16, "height": 16 },
+    { "name": "sprout_tiny",                "x": 48,  "y": 16,  "width": 16, "height": 16 },
+    { "name": "sprout_small",               "x": 64,  "y": 16,  "width": 16, "height": 16 },
+    { "name": "shrub_small",                "x": 80,  "y": 16,  "width": 16, "height": 16 },
+    { "name": "shrub_large",                "x": 96,  "y": 16,  "width": 16, "height": 16 },
+
+    { "name": "tree_stump",                 "x": 0,   "y": 32,  "width": 16, "height": 16 },
+    { "name": "pebble",                     "x": 16,  "y": 32,  "width": 16, "height": 16 },
+    { "name": "rock_small",                 "x": 32,  "y": 32,  "width": 16, "height": 16 },
+    { "name": "carrot_sprout_1",            "x": 48,  "y": 32,  "width": 16, "height": 16 },
+    { "name": "carrot_sprout_2",            "x": 64,  "y": 32,  "width": 16, "height": 16 },
+    { "name": "wheat_sprout_1",             "x": 80,  "y": 32,  "width": 16, "height": 16 },
+    { "name": "wheat_sprout_2",             "x": 96,  "y": 32,  "width": 16, "height": 16 },
+
+    { "name": "iron_ore_node_large",        "x": 0,   "y": 48,  "width": 16, "height": 16 },
+    { "name": "iron_ore_node_medium",       "x": 16,  "y": 48,  "width": 16, "height": 16 },
+    { "name": "iron_ore_node_small",        "x": 32,  "y": 48,  "width": 16, "height": 16 },
+    { "name": "iron_crystals",              "x": 48,  "y": 48,  "width": 16, "height": 16 },
+    { "name": "carrot_item",                "x": 64,  "y": 48,  "width": 16, "height": 16 },
+    { "name": "wheat_item",                 "x": 96,  "y": 48,  "width": 16, "height": 16 },
+
+    { "name": "iron_ore_stones",            "x": 0,   "y": 64,  "width": 16, "height": 16 },
+    { "name": "iron_ore_chunks",            "x": 16,  "y": 64,  "width": 16, "height": 16 },
+    { "name": "iron_ingot",                 "x": 32,  "y": 64,  "width": 16, "height": 16 },
+    { "name": "street_lamp",                "x": 64,  "y": 64,  "width": 16, "height": 48 },
+
+    { "name": "gold_ore_node_large",        "x": 0,   "y": 80,  "width": 16, "height": 16 },
+    { "name": "gold_ore_node_medium",       "x": 16,  "y": 80,  "width": 16, "height": 16 },
+    { "name": "gold_ore_node_small",        "x": 32,  "y": 80,  "width": 16, "height": 16 },
+    { "name": "gold_crystals",              "x": 48,  "y": 80,  "width": 16, "height": 16 },
+
+    { "name": "gold_ore_stones",            "x": 0,   "y": 96,  "width": 16, "height": 16 },
+    { "name": "gold_ore_chunks",            "x": 16,  "y": 96,  "width": 16, "height": 16 },
+    { "name": "gold_ingot",                 "x": 32,  "y": 96,  "width": 16, "height": 16 },
+
+    { "name": "wood_log",                   "x": 0,   "y": 112, "width": 32, "height": 16 },
+    { "name": "mushroom_red",               "x": 32,  "y": 112, "width": 16, "height": 16 },
+
+    { "name": "tulip_red_bud",              "x": 0,   "y": 128, "width": 16, "height": 16 },
+    { "name": "tulip_yellow_bud",           "x": 16,  "y": 128, "width": 16, "height": 16 },
+    { "name": "tulip_red_potted_bud",       "x": 32,  "y": 128, "width": 16, "height": 16 },
+    { "name": "tulip_yellow_potted_bud",    "x": 48,  "y": 128, "width": 16, "height": 16 },
+
+    { "name": "tulip_red_heart",            "x": 0,   "y": 144, "width": 16, "height": 16 },
+    { "name": "tulip_yellow_heart",         "x": 16,  "y": 144, "width": 16, "height": 16 },
+    { "name": "tulip_red_potted_heart",     "x": 32,  "y": 144, "width": 16, "height": 16 },
+    { "name": "tulip_yellow_potted_heart",  "x": 48,  "y": 144, "width": 16, "height": 16 },
+
+    { "name": "flower_red_star",            "x": 0,   "y": 160, "width": 16, "height": 16 },
+    { "name": "flower_orange_star",         "x": 16,  "y": 160, "width": 16, "height": 16 },
+    { "name": "flower_red_potted_star",     "x": 32,  "y": 160, "width": 16, "height": 16 },
+    { "name": "flower_orange_potted_star",  "x": 48,  "y": 160, "width": 16, "height": 16 },
+
+    { "name": "bellflowers_red",            "x": 0,   "y": 176, "width": 16, "height": 16 },
+    { "name": "bellflowers_yellow",         "x": 16,  "y": 176, "width": 16, "height": 16 },
+    { "name": "bellflowers_red_potted",     "x": 32,  "y": 176, "width": 16, "height": 16 },
+    { "name": "bellflowers_yellow_potted",  "x": 48,  "y": 176, "width": 16, "height": 16 }
+  ]
+}

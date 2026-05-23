@@ -15,8 +15,13 @@ export async function initCommand(projectName: string, targetDir?: string): Prom
   const project = {
     name: projectName,
     entry: 'scenes/main.json',
-    width: 640,
-    height: 480,
+    window: {
+      width: 800,
+      height: 600,
+      scale: 1,
+      scale_mode: 'system',
+      resizable: true,
+    },
   };
   await writeFile(resolve(dir, 'project.json'), JSON.stringify(project, null, 2) + '\n', 'utf-8');
 
