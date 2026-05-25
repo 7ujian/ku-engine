@@ -24,6 +24,10 @@ const state = {
   initialized: false,
   hoverCol: -1,
   hoverRow: -1,
+  terrainPalette: null,
+  undoStack: [],
+  redoStack: [],
+  maxUndo: 50,
 };
 
 // ─── Data Model ───────────────────────────────────────────────────────────────
@@ -36,6 +40,7 @@ function createLayer(name, columns, rows) {
     data: new Array(columns * rows).fill(0),
     visible: true,
     autotile: false,
+    terrain_map: {},
   };
 }
 
@@ -51,6 +56,107 @@ function setTile(layer, col, row, value) {
 
 function clearLayer(layer) {
   layer.data.fill(0);
+}
+
+// ─── Undo / Redo ──────────────────────────────────────────────────────────────
+
+function saveUndoSnapshot() {
+  const snapshot = state.layers.map(function(layer) {
+    return {
+      name: layer.name,
+      columns: layer.columns,
+      rows: layer.rows,
+      data: layer.data.slice(),
+      visible: layer.visible,
+      autotile: layer.autotile,
+      terrain_map: JSON.parse(JSON.stringify(layer.terrain_map || {})),
+    };
+  });
+  state.undoStack.push(snapshot);
+  if (state.undoStack.length > state.maxUndo) {
+    state.undoStack.shift();
+  }
+  state.redoStack = [];
+}
+
+function undo(ctx) {
+  if (state.undoStack.length === 0) {
+    ctx.log('Nothing to undo');
+    return;
+  }
+
+  // Save current state to redo stack
+  const currentSnapshot = state.layers.map(function(layer) {
+    return {
+      name: layer.name,
+      columns: layer.columns,
+      rows: layer.rows,
+      data: layer.data.slice(),
+      visible: layer.visible,
+      autotile: layer.autotile,
+      terrain_map: JSON.parse(JSON.stringify(layer.terrain_map || {})),
+    };
+  });
+  state.redoStack.push(currentSnapshot);
+
+  // Restore from undo stack
+  const snapshot = state.undoStack.pop();
+  state.layers = snapshot.map(function(layerData) {
+    const layer = createLayer(layerData.name, layerData.columns, layerData.rows);
+    layer.data = layerData.data.slice();
+    layer.visible = layerData.visible;
+    layer.autotile = layerData.autotile;
+    layer.terrain_map = layerData.terrain_map;
+    return layer;
+  });
+
+  if (state.activeLayerIndex >= state.layers.length) {
+    state.activeLayerIndex = state.layers.length - 1;
+  }
+
+  rebuildCanvas(ctx);
+  updateLayerList(ctx);
+  ctx.log('Undo');
+}
+
+function redo(ctx) {
+  if (state.redoStack.length === 0) {
+    ctx.log('Nothing to redo');
+    return;
+  }
+
+  // Save current state to undo stack
+  const currentSnapshot = state.layers.map(function(layer) {
+    return {
+      name: layer.name,
+      columns: layer.columns,
+      rows: layer.rows,
+      data: layer.data.slice(),
+      visible: layer.visible,
+      autotile: layer.autotile,
+      terrain_map: JSON.parse(JSON.stringify(layer.terrain_map || {})),
+    };
+  });
+  state.undoStack.push(currentSnapshot);
+
+  // Restore from redo stack
+  const snapshot = state.redoStack.pop();
+  state.layers = snapshot.map(function(layerData) {
+    const layer = createLayer(layerData.name, layerData.columns, layerData.rows);
+    layer.data = layerData.data.slice();
+    layer.visible = layerData.visible;
+    layer.autotile = layerData.autotile;
+    layer.terrain_map = layerData.terrain_map;
+    return layer;
+  });
+
+  if (state.activeLayerIndex >= state.layers.length) {
+    state.activeLayerIndex = state.layers.length - 1;
+  }
+
+  rebuildCanvas(ctx);
+  updateLayerList(ctx);
+  ctx.log('Redo');
 }
 
 function floodFill(layer, startCol, startRow, replacement) {
@@ -96,6 +202,51 @@ function terrainColor(id) {
   return TERRAIN_COLORS[(id - 1) % TERRAIN_COLORS.length];
 }
 
+// ─── Autotile Bitmask ────────────────────────────────────────────────────────
+
+const BITMASK_TO_SUFFIX = [
+  'top_left', 'center_left', 'center_right', 'center',
+  'bottom_mid', 'bottom_left', 'bottom_right', 'bottom_mid',
+  'top_mid', 'top_left', 'top_right', 'top_mid',
+  'center', 'center_left', 'center_right', 'center',
+];
+
+function resolveAutotileCell(layer, col, row) {
+  if (!layer.terrain_map || typeof layer.terrain_map !== 'object') return null;
+
+  const val = getTile(layer, col, row);
+  if (val === 0) return null;
+
+  const def = layer.terrain_map[String(val)];
+  if (!def) return null;
+
+  const compat = new Set([val]);
+  if (Array.isArray(def.compatible)) {
+    for (const c of def.compatible) compat.add(c);
+  }
+
+  const isSame = function(neighborId) { return compat.has(neighborId); };
+
+  const up = row > 0 && isSame(getTile(layer, col, row - 1)) ? 1 : 0;
+  const down = row < layer.rows - 1 && isSame(getTile(layer, col, row + 1)) ? 1 : 0;
+  const left = col > 0 && isSame(getTile(layer, col - 1, row)) ? 1 : 0;
+  const right = col < layer.columns - 1 && isSame(getTile(layer, col + 1, row)) ? 1 : 0;
+
+  const mask = right + left * 2 + up * 4 + down * 8;
+  const suffix = BITMASK_TO_SUFFIX[mask];
+
+  return {
+    color: terrainColor(val),
+    borders: {
+      top: !up,
+      bottom: !down,
+      left: !left,
+      right: !right,
+    },
+    suffix: suffix,
+  };
+}
+
 // ─── Initialization ───────────────────────────────────────────────────────────
 
 function initEditor(ctx) {
@@ -114,6 +265,11 @@ function initEditor(ctx) {
   const sceneDataStr = ctx.scene.get('/', 'editor_scene_data');
   if (sceneDataStr && typeof sceneDataStr === 'string') {
     loadFromScene(ctx, sceneDataStr);
+  }
+
+  // Load terrain palette from first layer if it has terrain_map
+  if (state.layers.length > 0 && state.layers[0].terrain_map && Object.keys(state.layers[0].terrain_map).length > 0) {
+    loadTerrainFromLayer(ctx, state.layers[0]);
   }
 
   // Set viewport zoom
@@ -170,6 +326,7 @@ function loadFromScene(ctx, sceneDataStr) {
 
       // Load terrain map for autotile reference
       if (props.terrain_map && typeof props.terrain_map === 'object') {
+        state.layers[0].terrain_map = props.terrain_map;
         ctx.log('Loaded terrain_map with ' + Object.keys(props.terrain_map).length + ' entries');
       }
 
@@ -238,12 +395,29 @@ function rebuildCanvas(ctx) {
       for (let c = 0; c < layer.columns; c++) {
         const val = layer.data[r * layer.columns + c];
         if (val === 0) continue;
+
+        let tileColor = terrainColor(val);
+        let borderColor = '#000000';
+        let borderWidth = 0;
+
+        if (layer.autotile) {
+          const auto = resolveAutotileCell(layer, c, r);
+          if (auto) {
+            tileColor = auto.color;
+            // Draw borders on sides facing different terrain
+            if (auto.borders.top || auto.borders.bottom || auto.borders.left || auto.borders.right) {
+              borderColor = '#000000';
+              borderWidth = 1;
+            }
+          }
+        }
+
         ctx.scene.spawn('Panel', 'tile_' + tileIdx, {
           x: c * cs, y: r * cs,
           width: cs, height: cs,
-          color: terrainColor(val),
-          border_color: '#000000',
-          border_width: 0,
+          color: tileColor,
+          border_color: borderColor,
+          border_width: borderWidth,
         }, '/tilemap_canvas');
         tileIdx++;
       }
@@ -271,6 +445,62 @@ function rebuildCanvas(ctx) {
 
 // ─── Viewport Coordinate Conversion ───────────────────────────────────────────
 
+function rebuildRectPreview(ctx, startCol, startRow, endCol, endRow) {
+  // Remove old preview nodes
+  for (let i = 0; i < 500; i++) {
+    try { ctx.scene.destroy('/tilemap_canvas/preview_' + i); } catch (e) { /* skip */ }
+  }
+
+  const cs = state.cellSize;
+  const minC = Math.min(startCol, endCol);
+  const maxC = Math.max(startCol, endCol);
+  const minR = Math.min(startRow, endRow);
+  const maxR = Math.max(startRow, endRow);
+
+  let idx = 0;
+  for (let r = minR; r <= maxR && idx < 500; r++) {
+    for (let c = minC; c <= maxC && idx < 500; c++) {
+      if (c < 0 || c >= state.columns || r < 0 || r >= state.rows) continue;
+      ctx.scene.spawn('Panel', 'preview_' + idx, {
+        x: c * cs, y: r * cs,
+        width: cs, height: cs,
+        color: 'rgba(255, 255, 0, 0.2)',
+        border_color: '#ffff00',
+        border_width: 1,
+      }, '/tilemap_canvas');
+      idx++;
+    }
+  }
+}
+
+function updateHoverCursor(ctx) {
+  // Remove old cursor
+  try { ctx.scene.destroy('/tilemap_canvas/cursor'); } catch (e) { /* skip */ }
+
+  if (state.hoverCol < 0 || state.hoverRow < 0 ||
+      state.hoverCol >= state.columns || state.hoverRow >= state.rows) {
+    return;
+  }
+
+  const cs = state.cellSize;
+  let borderColor;
+  if (state.brushType === 'eraser') {
+    borderColor = '#ff4444';
+  } else {
+    borderColor = '#ffff00';
+  }
+
+  ctx.scene.spawn('Panel', 'cursor', {
+    x: state.hoverCol * cs,
+    y: state.hoverRow * cs,
+    width: cs,
+    height: cs,
+    color: 'rgba(0, 0, 0, 0)',
+    border_color: borderColor,
+    border_width: 2,
+  }, '/tilemap_canvas');
+}
+
 function screenToGrid(ctx, screenX, screenY) {
   const vpZoom = ctx.scene.get('/viewport', 'zoom') || 2;
   const vpScrollX = ctx.scene.get('/viewport', 'scroll_x') || 0;
@@ -293,20 +523,24 @@ function handleViewportClick(ctx, screenX, screenY) {
 
   switch (state.brushType) {
     case 'tile':
+      saveUndoSnapshot();
       setTile(layer, col, row, state.selectedTerrainId || 1);
       state.painting = true;
       break;
     case 'eraser':
+      saveUndoSnapshot();
       setTile(layer, col, row, 0);
       state.painting = true;
       break;
     case 'fill':
+      saveUndoSnapshot();
       floodFill(layer, col, row, state.selectedTerrainId || 1);
       break;
     case 'rect':
       if (!state.rectStart) {
         state.rectStart = { col, row };
       } else {
+        saveUndoSnapshot();
         rectFill(layer, state.rectStart.col, state.rectStart.row, col, row, state.selectedTerrainId || 1);
         state.rectStart = null;
       }
@@ -378,8 +612,17 @@ function handleClick(ctx, hitNode) {
       clearActiveLayer(ctx);
       break;
     default:
+      // Check for terrain palette button
+      if (hitNode.startsWith('terrain_')) {
+        const id = parseInt(hitNode.slice('terrain_'.length), 10);
+        if (!isNaN(id) && id > 0) {
+          state.selectedTerrainId = id;
+          rebuildTerrainPalette(ctx);
+          updateSelectedTileLabel(ctx);
+        }
+      }
       // Check for layer selection button
-      if (hitNode.startsWith('layer_btn_')) {
+      else if (hitNode.startsWith('layer_btn_')) {
         const idx = parseInt(hitNode.slice('layer_btn_'.length), 10);
         if (!isNaN(idx)) selectLayer(ctx, idx);
       }
@@ -480,6 +723,7 @@ function toggleLayerVisibility(ctx) {
 function clearActiveLayer(ctx) {
   const layer = state.layers[state.activeLayerIndex];
   if (!layer) return;
+  saveUndoSnapshot();
   clearLayer(layer);
   rebuildCanvas(ctx);
   ctx.log('Cleared layer: ' + layer.name);
@@ -531,10 +775,12 @@ function saveTilemap(ctx) {
       data: layer.data.join(','),
       visible: layer.visible,
       autotile: layer.autotile,
+      terrain_map: layer.terrain_map || {},
     };
   });
 
   const payload = {
+    version: 1,
     columns: state.columns,
     rows: state.rows,
     cell_size: state.cellSize,
@@ -563,10 +809,182 @@ function exportTilemapJSON(ctx) {
   ctx.log('Exported layer: ' + layer.name);
 }
 
+function loadFromTilemapJSON(ctx, data) {
+  try {
+    if (data.version === 1 && Array.isArray(data.layers)) {
+      // Version 1 multi-layer format
+      state.columns = data.columns || state.columns;
+      state.rows = data.rows || state.rows;
+      state.cellSize = data.cell_size || state.cellSize;
+
+      state.layers = data.layers.map(function(layerData, idx) {
+        const cols = layerData.columns || state.columns;
+        const rows = layerData.rows || state.rows;
+        const layer = createLayer(layerData.name || ('Layer ' + idx), cols, rows);
+        layer.visible = layerData.visible !== false;
+        layer.autotile = !!layerData.autotile;
+        layer.terrain_map = layerData.terrain_map || {};
+
+        // Parse comma-separated data string back to number array
+        if (layerData.data && typeof layerData.data === 'string') {
+          const tileData = layerData.data.split(',').map(Number);
+          for (let i = 0; i < tileData.length && i < cols * rows; i++) {
+            layer.data[i] = tileData[i] || 0;
+          }
+        } else if (Array.isArray(layerData.data)) {
+          for (let i = 0; i < layerData.data.length && i < cols * rows; i++) {
+            layer.data[i] = layerData.data[i] || 0;
+          }
+        }
+
+        return layer;
+      });
+
+      state.activeLayerIndex = 0;
+    } else {
+      // Legacy single-layer TileMap format
+      const cols = data.columns || state.columns;
+      const rows = data.rows || state.rows;
+      state.columns = cols;
+      state.rows = rows;
+      if (data.cell_size) state.cellSize = data.cell_size;
+
+      state.layers = [createLayer('Layer 0', cols, rows)];
+
+      // Parse data — may be string or array
+      if (data.data && typeof data.data === 'string') {
+        const tileData = data.data.split(',').map(Number);
+        for (let i = 0; i < tileData.length && i < cols * rows; i++) {
+          state.layers[0].data[i] = tileData[i] || 0;
+        }
+      } else if (Array.isArray(data.data)) {
+        for (let i = 0; i < data.data.length && i < cols * rows; i++) {
+          state.layers[0].data[i] = data.data[i] || 0;
+        }
+      }
+
+      // Preserve terrain_map from legacy format
+      if (data.terrain_map && typeof data.terrain_map === 'object') {
+        state.layers[0].terrain_map = data.terrain_map;
+      }
+
+      state.activeLayerIndex = 0;
+    }
+
+    updateGridSizeLabel(ctx);
+    updateLayerList(ctx);
+    rebuildCanvas(ctx);
+    ctx.log('Loaded tilemap JSON: ' + state.columns + 'x' + state.rows + ', ' + state.layers.length + ' layers');
+  } catch (err) {
+    ctx.log('Error loading tilemap JSON: ' + (err.message || err));
+  }
+}
+
 // ─── Tileset Atlas Loading (placeholder) ──────────────────────────────────────
 
 function loadTilesetAtlas(ctx) {
-  ctx.log('Tileset atlas loading not yet implemented (Task 4)');
+  ctx.emit('request_tileset_load', { path: state.atlasPath || '' });
+  ctx.log('Tileset atlas loading requested — use add-terrain to add terrain types');
+}
+
+function loadTerrainFromLayer(ctx, layer) {
+  if (!layer.terrain_map || typeof layer.terrain_map !== 'object') return;
+  const entries = Object.entries(layer.terrain_map);
+  if (entries.length === 0) return;
+
+  state.terrainPalette = [];
+  for (const [idStr, def] of entries) {
+    const id = parseInt(idStr, 10);
+    if (isNaN(id) || id === 0) continue;
+    state.terrainPalette.push({
+      id: id,
+      atlas: def.atlas || '',
+      mode: def.mode === 'fill' ? 'fill' : '3x3',
+      prefix: def.prefix || '',
+    });
+  }
+
+  if (state.terrainPalette.length > 0) {
+    state.selectedTerrainId = state.terrainPalette[0].id;
+    rebuildTerrainPalette(ctx);
+    updateSelectedTileLabel(ctx);
+  }
+}
+
+function rebuildTerrainPalette(ctx) {
+  // Remove old terrain buttons
+  for (let i = 0; i < 256; i++) {
+    try { ctx.scene.destroy('/sidebar/tileset_panel/terrain_' + i); } catch (e) { /* skip */ }
+  }
+
+  if (!state.terrainPalette || state.terrainPalette.length === 0) {
+    ctx.scene.set('/sidebar/tileset_panel/tileset_info', 'text', 'No terrain loaded');
+    return;
+  }
+
+  const cols = 6;
+  const itemSize = 24;
+  const pad = 2;
+
+  for (let i = 0; i < state.terrainPalette.length; i++) {
+    const t = state.terrainPalette[i];
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const isActive = (t.id === state.selectedTerrainId);
+
+    ctx.scene.spawn('Button', 'terrain_' + t.id, {
+      x: c * (itemSize + pad),
+      y: r * (itemSize + pad),
+      width: itemSize,
+      height: itemSize,
+      text: String(t.id),
+      color: isActive ? '#4a6a4e' : '#2a2a4e',
+      hover_color: isActive ? '#5a7a5e' : '#3a3a5e',
+      pressed_color: isActive ? '#3a5a3e' : '#1a1a3e',
+      text_color: isActive ? '#ffff00' : '#cccccc',
+      font_size: 9,
+      corner_radius: 2,
+      clickable: true,
+    }, '/sidebar/tileset_panel');
+  }
+
+  ctx.scene.set('/sidebar/tileset_panel/tileset_info', 'text',
+    state.terrainPalette.length + ' terrain types');
+}
+
+function addTerrainToLayer(ctx, terrainId, atlasPath, mode, prefix) {
+  const layer = state.layers[state.activeLayerIndex];
+  if (!layer) return;
+
+  if (!layer.terrain_map) layer.terrain_map = {};
+  layer.terrain_map[terrainId] = {
+    atlas: atlasPath,
+    mode: mode || '3x3',
+    prefix: prefix || '',
+  };
+
+  if (mode === '3x3') {
+    layer.autotile = true;
+    state.autotileEnabled = true;
+    ctx.scene.set('/autotile_toggle', 'text', 'Autotile: On');
+    ctx.scene.set('/autotile_toggle', 'color', '#4a6a4e');
+  }
+
+  if (!state.terrainPalette) state.terrainPalette = [];
+  // Remove existing entry for same id
+  state.terrainPalette = state.terrainPalette.filter(function(t) { return t.id !== terrainId; });
+  state.terrainPalette.push({
+    id: terrainId,
+    atlas: atlasPath,
+    mode: mode || '3x3',
+    prefix: prefix || '',
+  });
+
+  state.selectedTerrainId = terrainId;
+  rebuildTerrainPalette(ctx);
+  updateSelectedTileLabel(ctx);
+  updateLayerList(ctx);
+  ctx.log('Added terrain ' + terrainId + ' (' + mode + ') to ' + layer.name);
 }
 
 // ─── UI Label Updates ─────────────────────────────────────────────────────────
@@ -645,12 +1063,20 @@ const handlers = {
     const y = ctx.data.y;
     if (x === undefined || y === undefined) return;
 
-    // Update hover position
-    const { col, row } = screenToGrid(ctx, x, y);
-    if (col !== state.hoverCol || row !== state.hoverRow) {
-      state.hoverCol = col;
-      state.hoverRow = row;
-      updateCoordsLabel(ctx);
+    // Update hover position when in viewport
+    if (x < 768) {
+      const { col, row } = screenToGrid(ctx, x, y);
+      if (col !== state.hoverCol || row !== state.hoverRow) {
+        state.hoverCol = col;
+        state.hoverRow = row;
+        updateCoordsLabel(ctx);
+      }
+    }
+
+    // Rect brush preview
+    if (state.painting && state.brushType === 'rect' && state.rectStart && x < 768) {
+      const { col, row } = screenToGrid(ctx, x, y);
+      rebuildRectPreview(ctx, state.rectStart.col, state.rectStart.row, col, row);
     }
 
     if (!state.dragState) return;
@@ -682,7 +1108,7 @@ const handlers = {
 
     // Drag-paint
     if (state.dragState.isPaint && y >= 32 && x < 768) {
-      paintAt(ctx, col, row);
+      paintAt(ctx, state.hoverCol, state.hoverRow);
       rebuildCanvas(ctx);
     }
   },
@@ -707,8 +1133,13 @@ const handlers = {
       const { col, row } = screenToGrid(ctx, x, y);
       const layer = state.layers[state.activeLayerIndex];
       if (layer && col >= 0 && col < state.columns && row >= 0 && row < state.rows) {
+        saveUndoSnapshot();
         rectFill(layer, state.rectStart.col, state.rectStart.row, col, row, state.selectedTerrainId || 1);
         state.rectStart = null;
+        // Remove preview nodes
+        for (let i = 0; i < 500; i++) {
+          try { ctx.scene.destroy('/tilemap_canvas/preview_' + i); } catch (e) { /* skip */ }
+        }
         rebuildCanvas(ctx);
       }
     }
@@ -775,6 +1206,12 @@ const handlers = {
       case '4':
         setBrush(ctx, 'eraser');
         break;
+      case 'Z':
+        undo(ctx);
+        break;
+      case 'Y':
+        redo(ctx);
+        break;
     }
   },
 
@@ -783,6 +1220,9 @@ const handlers = {
     if (!state.initialized) {
       initEditor(ctx);
     }
+
+    // Update hover cursor
+    updateHoverCursor(ctx);
 
     // Update hover coords from touch position if available
     if (state.hoverCol >= 0 && state.hoverRow >= 0) {

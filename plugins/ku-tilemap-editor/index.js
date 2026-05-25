@@ -109,6 +109,48 @@ export default {
             console.error(JSON.stringify({ ok: false, error: err.message }));
           }
         });
+
+      tilemap
+        .command('add-terrain')
+        .description('Add a terrain type to the tilemap editor')
+        .requiredOption('--id <n>', 'Terrain ID (1-255)')
+        .requiredOption('--atlas <path>', 'Path to atlas JSON file')
+        .option('--mode <mode>', 'Autotile mode: 3x3 or fill', '3x3')
+        .option('--prefix <prefix>', 'Region name prefix (auto-detect if omitted)')
+        .action(async (opts) => {
+          const id = parseInt(opts.id, 10);
+          if (isNaN(id) || id < 1 || id > 255) {
+            console.error(JSON.stringify({ ok: false, error: 'id must be 1-255' }));
+            return;
+          }
+          console.log(JSON.stringify({
+            ok: true,
+            data: { id, atlas: opts.atlas, mode: opts.mode === 'fill' ? 'fill' : '3x3', prefix: opts.prefix || '' },
+          }));
+        });
+
+      tilemap
+        .command('load <file>')
+        .description('Load a tilemap JSON file and show info')
+        .action(async (file) => {
+          const absFile = resolve(process.cwd(), file);
+          try {
+            const data = JSON.parse(await readFile(absFile, 'utf-8'));
+            console.log(JSON.stringify({
+              ok: true,
+              data: {
+                path: absFile,
+                cell_size: data.cell_size,
+                columns: data.columns,
+                rows: data.rows,
+                layers: data.layers ? data.layers.length : 1,
+                version: data.version || 'legacy',
+              },
+            }));
+          } catch (err) {
+            console.error(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
     });
 
     // Message handler for tilemap save
