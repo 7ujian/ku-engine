@@ -1,0 +1,242 @@
+{
+  "scene": "tilemap-editor",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "scripts": [],
+    "js_script": "scripts/tilemap-editor.js",
+    "children": [
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": { "zoom": 1, "offset_x": 0, "offset_y": 0, "smoothing": 0 },
+        "children": []
+      },
+      {
+        "id": "background",
+        "type": "Panel",
+        "properties": { "x": 0, "y": 0, "width": 1024, "height": 768, "color": "#1a1a2e" },
+        "children": []
+      },
+      {
+        "id": "toolbar",
+        "type": "Panel",
+        "properties": { "x": 0, "y": 0, "width": 768, "height": 32, "color": "#16162a", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "title_label",
+            "type": "Label",
+            "properties": { "x": 8, "y": 9, "text": "Tilemap Editor", "font_size": 13, "color": "#ffffff", "align": "left", "valign": "top" },
+            "children": []
+          },
+          {
+            "id": "coords_label",
+            "type": "Label",
+            "properties": { "x": 300, "y": 9, "text": "0, 0", "font_size": 12, "color": "#888888", "align": "left", "valign": "top" },
+            "children": []
+          },
+          {
+            "id": "zoom_label",
+            "type": "Label",
+            "properties": { "x": 700, "y": 9, "text": "100%", "font_size": 12, "color": "#888888", "align": "left", "valign": "top" },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "viewport",
+        "type": "ScrollView",
+        "properties": { "x": 0, "y": 32, "width": 768, "height": 736, "scroll_x": 0, "scroll_y": 0, "zoom": 2, "clip": true, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "tilemap_canvas",
+            "type": "Node2D",
+            "properties": { "x": 0, "y": 0 },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "sidebar",
+        "type": "Panel",
+        "properties": { "x": 768, "y": 0, "width": 256, "height": 768, "color": "#16162a", "border_color": "#3a3a5e", "border_width": 1 },
+        "children": [
+          {
+            "id": "sidebar_title",
+            "type": "Label",
+            "properties": { "x": 128, "y": 6, "text": "Tilemap Editor", "font_size": 13, "color": "#ffffff", "align": "center", "valign": "top" },
+            "children": []
+          },
+          {
+            "id": "tileset_panel",
+            "type": "Panel",
+            "properties": { "x": 4, "y": 24, "width": 248, "height": 200, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+            "children": [
+              {
+                "id": "tileset_title",
+                "type": "Label",
+                "properties": { "x": 124, "y": 4, "text": "Tileset", "font_size": 12, "color": "#ffffff", "align": "center", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "tileset_view",
+                "type": "ScrollView",
+                "properties": { "x": 4, "y": 22, "width": 240, "height": 140, "scroll_x": 0, "scroll_y": 0, "zoom": 2, "clip": true, "color": "#1a1a2e" },
+                "children": [
+                  {
+                    "id": "tileset_image",
+                    "type": "ImageRect",
+                    "properties": { "x": 0, "y": 0, "width": 128, "height": 128, "texture": "", "region_w": 0, "region_h": 0, "preserve_aspect": false },
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "id": "tileset_load_btn",
+                "type": "Button",
+                "properties": { "x": 4, "y": 168, "width": 116, "height": 24, "text": "Load Atlas", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "tileset_info",
+                "type": "Label",
+                "properties": { "x": 128, "y": 174, "text": "No atlas", "font_size": 10, "color": "#666666", "align": "left", "valign": "top" },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "brush_panel",
+            "type": "Panel",
+            "properties": { "x": 4, "y": 230, "width": 248, "height": 100, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+            "children": [
+              {
+                "id": "brush_title",
+                "type": "Label",
+                "properties": { "x": 124, "y": 4, "text": "Brush", "font_size": 12, "color": "#ffffff", "align": "center", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "brush_tile_btn",
+                "type": "Button",
+                "properties": { "x": 4, "y": 22, "width": 56, "height": 28, "text": "Tile", "color": "#4a6a4e", "hover_color": "#5a7a5e", "pressed_color": "#3a5a3e", "text_color": "#ffffff", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "brush_rect_btn",
+                "type": "Button",
+                "properties": { "x": 64, "y": 22, "width": 56, "height": 28, "text": "Rect", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "brush_fill_btn",
+                "type": "Button",
+                "properties": { "x": 124, "y": 22, "width": 56, "height": 28, "text": "Fill", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "brush_eraser_btn",
+                "type": "Button",
+                "properties": { "x": 184, "y": 22, "width": 56, "height": 28, "text": "Eraser", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "autotile_toggle",
+                "type": "Button",
+                "properties": { "x": 4, "y": 56, "width": 116, "height": 28, "text": "Autotile: Off", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "selected_tile_label",
+                "type": "Label",
+                "properties": { "x": 128, "y": 62, "text": "Tile: none", "font_size": 10, "color": "#aaaaaa", "align": "left", "valign": "top" },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "layer_panel",
+            "type": "Panel",
+            "properties": { "x": 4, "y": 336, "width": 248, "height": 240, "color": "#222233", "border_color": "#3a3a5e", "border_width": 1 },
+            "children": [
+              {
+                "id": "layer_title",
+                "type": "Label",
+                "properties": { "x": 124, "y": 4, "text": "Layers", "font_size": 12, "color": "#ffffff", "align": "center", "valign": "top" },
+                "children": []
+              },
+              {
+                "id": "layer_list",
+                "type": "ScrollView",
+                "properties": { "x": 4, "y": 22, "width": 240, "height": 160, "scroll_x": 0, "scroll_y": 0, "zoom": 1, "clip": true, "color": "#1a1a2e" },
+                "children": []
+              },
+              {
+                "id": "layer_add_btn",
+                "type": "Button",
+                "properties": { "x": 4, "y": 188, "width": 116, "height": 24, "text": "Add Layer", "color": "#3a5a3e", "hover_color": "#4a6a4e", "pressed_color": "#2a4a2e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "layer_rm_btn",
+                "type": "Button",
+                "properties": { "x": 128, "y": 188, "width": 116, "height": 24, "text": "Remove Layer", "color": "#5a2a2a", "hover_color": "#6a3a3a", "pressed_color": "#4a1a1a", "text_color": "#ff8888", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "layer_up_btn",
+                "type": "Button",
+                "properties": { "x": 4, "y": 214, "width": 56, "height": 22, "text": "Up", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 10, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "layer_down_btn",
+                "type": "Button",
+                "properties": { "x": 64, "y": 214, "width": 56, "height": 22, "text": "Down", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 10, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "layer_toggle_btn",
+                "type": "Button",
+                "properties": { "x": 128, "y": 214, "width": 116, "height": 22, "text": "Toggle Visible", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 10, "corner_radius": 3, "clickable": true },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "actions_panel",
+            "type": "Node2D",
+            "properties": { "x": 4, "y": 582 },
+            "children": [
+              {
+                "id": "save_btn",
+                "type": "Button",
+                "properties": { "x": 0, "y": 0, "width": 248, "height": 30, "text": "Save Tilemap", "color": "#5a3a3e", "hover_color": "#6a4a4e", "pressed_color": "#4a2a2e", "text_color": "#ffffff", "font_size": 12, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "export_btn",
+                "type": "Button",
+                "properties": { "x": 0, "y": 36, "width": 120, "height": 28, "text": "Export JSON", "color": "#3a3a5e", "hover_color": "#4a4a6e", "pressed_color": "#2a2a4e", "text_color": "#cccccc", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "clear_btn",
+                "type": "Button",
+                "properties": { "x": 128, "y": 36, "width": 120, "height": 28, "text": "Clear Layer", "color": "#5a2a2a", "hover_color": "#6a3a3a", "pressed_color": "#4a1a1a", "text_color": "#ff8888", "font_size": 11, "corner_radius": 3, "clickable": true },
+                "children": []
+              },
+              {
+                "id": "grid_size_label",
+                "type": "Label",
+                "properties": { "x": 0, "y": 72, "text": "20x15 @16px", "font_size": 10, "color": "#666666", "align": "left", "valign": "top" },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
