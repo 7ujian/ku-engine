@@ -1,0 +1,43 @@
+{
+  "cell_size": 16,
+  "tiles": [
+    {
+      "name": "water",
+      "atlas": "Cute_Fantasy_Free/Tiles/Water_Tile.atlas.json",
+      "mode": "3x3",
+      "prefix": "water",
+      "surround": 3
+    },
+    {
+      "name": "beach",
+      "atlas": "Cute_Fantasy_Free/Tiles/Beach_Tile.atlas.json",
+      "mode": "3x3",
+      "prefix": "beach",
+      "surround": 1,
+      "compatible": [3]
+    },
+    {
+      "name": "grass",
+      "atlas": "Cute_Fantasy_Free/Tiles/Grass_Middle.atlas.json",
+      "mode": "fill",
+      "prefix": "grass_fill"
+    },
+    {
+      "name": "path",
+      "atlas": "Cute_Fantasy_Free/Tiles/Path_Tile.atlas.json",
+      "mode": "3x3",
+      "prefix": "path",
+      "surround": 3
+    },
+    {
+      "name": "cliff",
+      "atlas": "Cute_Fantasy_Free/Tiles/Cliff_Tile.atlas.json",
+      "mode": "3x3",
+      "prefix": "cliff",
+      "surround": 3
+    }
+  ],
+  "transitions": {
+    "1_5": { "atlas": "Cute_Fantasy_Free/Tiles/Cliff_Tile.atlas.json", "prefix": "cliff", "mode": "3x3" }
+  }
+}

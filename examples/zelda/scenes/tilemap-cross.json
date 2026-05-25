@@ -1,0 +1,33 @@
+{
+  "scene": "tilemap-cross",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": { "x": 0, "y": 0 },
+    "children": [
+      {
+        "id": "terrain",
+        "type": "TileMap",
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "tileset": "assets/outdoor.tileset.json",
+          "columns": 10,
+          "rows": 10,
+          "data": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,2,2,2,2,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
+        },
+        "children": []
+      },
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": {
+          "offset_x": 80,
+          "offset_y": 80,
+          "zoom": 3
+        },
+        "children": []
+      }
+    ]
+  }
+}

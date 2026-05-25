@@ -63,3 +63,25 @@ export interface ScriptError {
   reason: string;
   timestamp: number;
 }
+
+export interface TilesetTileDef {
+  name: string;
+  atlas: string;
+  region?: string;
+  mode?: 'static' | '3x3' | 'fill';
+  prefix?: string;
+  surround?: number;
+  compatible?: number[];
+}
+
+export interface TilesetTransitionDef {
+  atlas: string;
+  prefix: string;
+  mode: '3x3' | 'fill';
+}
+
+export interface TilesetDef {
+  cell_size: number;
+  tiles: TilesetTileDef[];
+  transitions?: Record<string, TilesetTransitionDef>;
+}

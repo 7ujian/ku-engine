@@ -61,6 +61,32 @@ export async function discoverAssets(projectDir: string): Promise<DiscoveredAsse
     }
   }
 
+  // Discover atlases referenced by .tileset.json files
+  for (const tilesetPath of assets.tilesets) {
+    if (!tilesetPath.endsWith('.tileset.json')) continue;
+    try {
+      const content = await readFile(tilesetPath, 'utf-8');
+      const data = JSON.parse(content);
+      if (Array.isArray(data.tiles)) {
+        for (const tile of data.tiles) {
+          if (tile && typeof tile.atlas === 'string') {
+            add(assets.atlases, tile.atlas);
+          }
+        }
+      }
+      if (data.transitions && typeof data.transitions === 'object') {
+        for (const trans of Object.values(data.transitions)) {
+          const t = trans as Record<string, unknown>;
+          if (t && typeof t.atlas === 'string') {
+            add(assets.atlases, t.atlas);
+          }
+        }
+      }
+    } catch {
+      // skip unreadable tileset files
+    }
+  }
+
   return assets;
 }
 
