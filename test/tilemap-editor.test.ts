@@ -225,3 +225,125 @@ describe('TilemapData model', () => {
     });
   });
 });
+
+describe('autotile resolution', () => {
+  const BITMASK_TO_SUFFIX = [
+    'top_left', 'center_left', 'center_right', 'center',
+    'bottom_mid', 'bottom_left', 'bottom_right', 'bottom_mid',
+    'top_mid', 'top_left', 'top_right', 'top_mid',
+    'center', 'center_left', 'center_right', 'center',
+  ];
+
+  function resolveAutotileCellTest(layer: EditorLayer, col: number, row: number) {
+    const terrainId = getTile(layer, col, row);
+    if (terrainId === 0) return null;
+    const def = layer.terrain_map[String(terrainId)];
+    if (!def) return { color: '#ffffff', borders: { top: true, bottom: true, left: true, right: true }, suffix: '' };
+    if (def.mode === 'fill') {
+      return { color: '#ffffff', borders: { top: false, bottom: false, left: false, right: false }, suffix: '' };
+    }
+    const up = row > 0 && getTile(layer, col, row - 1) === terrainId ? 1 : 0;
+    const down = row < layer.rows - 1 && getTile(layer, col, row + 1) === terrainId ? 1 : 0;
+    const left = col > 0 && getTile(layer, col - 1, row) === terrainId ? 1 : 0;
+    const right = col < layer.columns - 1 && getTile(layer, col + 1, row) === terrainId ? 1 : 0;
+    const mask = right + left * 2 + up * 4 + down * 8;
+    return {
+      color: '#ffffff',
+      borders: { top: !up, bottom: !down, left: !left, right: !right },
+      suffix: BITMASK_TO_SUFFIX[mask],
+    };
+  }
+
+  it('resolves isolated cell with border on all sides', () => {
+    const layer = createLayer('test', 5, 5);
+    setTile(layer, 2, 2, 1);
+    layer.autotile = true;
+    layer.terrain_map = { '1': { atlas: 'water.json', mode: '3x3', prefix: 'water' } };
+    const result = resolveAutotileCellTest(layer, 2, 2);
+    expect(result!.borders.top).toBe(true);
+    expect(result!.borders.bottom).toBe(true);
+    expect(result!.borders.left).toBe(true);
+    expect(result!.borders.right).toBe(true);
+    expect(result!.suffix).toBe('top_left');
+  });
+
+  it('resolves fully surrounded cell with no borders', () => {
+    const layer = createLayer('test', 3, 3);
+    for (let i = 0; i < 9; i++) layer.data[i] = 1;
+    layer.autotile = true;
+    layer.terrain_map = { '1': { atlas: 'water.json', mode: '3x3', prefix: 'water' } };
+    const result = resolveAutotileCellTest(layer, 1, 1);
+    expect(result!.borders.top).toBe(false);
+    expect(result!.borders.bottom).toBe(false);
+    expect(result!.borders.left).toBe(false);
+    expect(result!.borders.right).toBe(false);
+    expect(result!.suffix).toBe('center');
+  });
+
+  it('skips resolution for fill mode', () => {
+    const layer = createLayer('test', 3, 3);
+    setTile(layer, 1, 1, 1);
+    layer.autotile = true;
+    layer.terrain_map = { '1': { atlas: 'grass.json', mode: 'fill', prefix: 'grass_fill' } };
+    const result = resolveAutotileCellTest(layer, 1, 1);
+    expect(result).not.toBeNull();
+    expect(result!.suffix).toBe('');
+  });
+});
+
+describe('multi-layer export/import roundtrip', () => {
+  it('roundtrips multi-layer tilemap data', () => {
+    const layers = [
+      createLayer('ground', 4, 3),
+      createLayer('trees', 4, 3),
+    ];
+    setTile(layers[0], 0, 0, 1);
+    setTile(layers[0], 1, 0, 1);
+    setTile(layers[1], 2, 1, 3);
+    layers[1].autotile = true;
+    layers[1].terrain_map = { '3': { atlas: 'tree.json', mode: 'fill' } };
+
+    const exported = exportTilemap(layers, 16);
+    const imported = importTilemap(exported);
+
+    expect(imported).toHaveLength(2);
+    expect(imported[0].name).toBe('ground');
+    expect(getTile(imported[0], 0, 0)).toBe(1);
+    expect(imported[1].name).toBe('trees');
+    expect(getTile(imported[1], 2, 1)).toBe(3);
+    expect(imported[1].autotile).toBe(true);
+    expect(imported[1].terrain_map['3']).toEqual({ atlas: 'tree.json', mode: 'fill' });
+  });
+});
+
+describe('full editor workflow', () => {
+  it('paints with tile brush, then erases', () => {
+    const layer = createLayer('test', 5, 5);
+    setTile(layer, 2, 2, 3);
+    expect(getTile(layer, 2, 2)).toBe(3);
+    setTile(layer, 2, 2, 0);
+    expect(getTile(layer, 2, 2)).toBe(0);
+  });
+
+  it('fills region, then flood fills', () => {
+    const layer = createLayer('test', 6, 6);
+    for (let c = 1; c <= 4; c++) { setTile(layer, c, 1, 1); setTile(layer, c, 4, 1); }
+    for (let r = 1; r <= 4; r++) { setTile(layer, 1, r, 1); setTile(layer, 4, r, 1); }
+    floodFill(layer, 2, 2, 2);
+    expect(getTile(layer, 2, 2)).toBe(2);
+    expect(getTile(layer, 3, 3)).toBe(2);
+    expect(getTile(layer, 1, 1)).toBe(1);
+    expect(getTile(layer, 0, 0)).toBe(0);
+  });
+
+  it('rect fill and clear', () => {
+    const layer = createLayer('test', 8, 8);
+    rectFill(layer, 2, 2, 4, 4, 7);
+    expect(getTile(layer, 2, 2)).toBe(7);
+    expect(getTile(layer, 4, 4)).toBe(7);
+    expect(getTile(layer, 1, 2)).toBe(0);
+    expect(getTile(layer, 5, 2)).toBe(0);
+    clearLayer(layer);
+    expect(layer.data.every(v => v === 0)).toBe(true);
+  });
+});
