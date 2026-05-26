@@ -18,9 +18,12 @@ export async function initCommand(projectName: string, targetDir?: string): Prom
     window: {
       width: 800,
       height: 600,
-      scale: 1,
-      scale_mode: 'system',
       resizable: true,
+      hidpi: true,
+      stretch_mode: 'disabled',
+      stretch_aspect: 'keep',
+      scale_mode: 'fractional',
+      scale: 1,
     },
   };
   await writeFile(resolve(dir, 'project.json'), JSON.stringify(project, null, 2) + '\n', 'utf-8');

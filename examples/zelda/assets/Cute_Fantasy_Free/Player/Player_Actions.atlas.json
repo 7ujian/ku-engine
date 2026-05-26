@@ -1,0 +1,32 @@
+{
+  "texture": "Player_Actions.png",
+  "regions": [
+    { "name": "hoe_side_0", "x": 0, "y": 0, "width": 32, "height": 32 },
+    { "name": "hoe_side_1", "x": 32, "y": 0, "width": 32, "height": 32 },
+    { "name": "hoe_down_0", "x": 0, "y": 32, "width": 32, "height": 32 },
+    { "name": "hoe_down_1", "x": 32, "y": 32, "width": 32, "height": 32 },
+    { "name": "hoe_up_0", "x": 0, "y": 64, "width": 32, "height": 32 },
+    { "name": "hoe_up_1", "x": 32, "y": 64, "width": 32, "height": 32 },
+
+    { "name": "axe_side_0", "x": 0, "y": 96, "width": 32, "height": 32 },
+    { "name": "axe_side_1", "x": 32, "y": 96, "width": 32, "height": 32 },
+    { "name": "axe_down_0", "x": 0, "y": 128, "width": 32, "height": 32 },
+    { "name": "axe_down_1", "x": 32, "y": 128, "width": 32, "height": 32 },
+    { "name": "axe_up_0", "x": 0, "y": 160, "width": 32, "height": 32 },
+    { "name": "axe_up_1", "x": 32, "y": 160, "width": 32, "height": 32 },
+
+    { "name": "shovel_side_0", "x": 0, "y": 192, "width": 32, "height": 32 },
+    { "name": "shovel_side_1", "x": 32, "y": 192, "width": 32, "height": 32 },
+    { "name": "shovel_down_0", "x": 0, "y": 224, "width": 32, "height": 32 },
+    { "name": "shovel_down_1", "x": 32, "y": 224, "width": 32, "height": 32 },
+    { "name": "shovel_up_0", "x": 0, "y": 256, "width": 32, "height": 32 },
+    { "name": "shovel_up_1", "x": 32, "y": 256, "width": 32, "height": 32 },
+
+    { "name": "water_down_0", "x": 0, "y": 288, "width": 32, "height": 32 },
+    { "name": "water_down_1", "x": 32, "y": 288, "width": 32, "height": 32 },
+    { "name": "water_up_0", "x": 0, "y": 320, "width": 32, "height": 32 },
+    { "name": "water_up_1", "x": 32, "y": 320, "width": 32, "height": 32 },
+    { "name": "water_side_0", "x": 0, "y": 352, "width": 32, "height": 32 },
+    { "name": "water_side_1", "x": 32, "y": 352, "width": 32, "height": 32 }
+  ]
+}

@@ -8,7 +8,7 @@ import { ScriptEngine } from '../engine/script-engine.js';
 import { JsScriptEngine } from '../engine/js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { GameLoop } from '../engine/game-loop.js';
-import { Renderer } from '../renderer/renderer.js';
+import { Renderer, migrateWindowConfig, type WindowConfig } from '../renderer/renderer.js';
 import { InputManager } from './input-manager.js';
 import { hitTest } from '../engine/hit-test.js';
 import { findCamera } from '../renderer/camera.js';
@@ -115,20 +115,17 @@ export class PlayRuntime {
 
     // Wire hit testing for GUI click events
     input.setHitTestFn((screenX: number, screenY: number) => {
-      const cam = findCamera(tree);
+      const cam = findCamera(tree, { node: null, cam: { x: 0, y: 0, zoom: 1 } });
       return hitTest(tree, screenX, screenY, renderer.getWidth(), renderer.getHeight(), cam);
     });
 
     const cfg = projectConfig as Record<string, unknown>;
     const win = (cfg.window ?? {}) as Record<string, unknown>;
+    const windowConfig = migrateWindowConfig(win);
     const renderer = new Renderer(
-      (win.width as number) ?? 800,
-      (win.height as number) ?? 600,
+      windowConfig,
       dir,
       (cfg.debug_physics as boolean) ?? false,
-      (win.scale as number) ?? 1,
-      (win.scale_mode as 'fixed' | 'system') ?? 'system',
-      (win.resizable as boolean) ?? true,
     );
     renderer.setKeyHandler((key, down) => {
       if (down) input.keyDown(key);

@@ -501,7 +501,7 @@ export class Renderer {
 				if (tileset.endsWith('.tileset.json')) {
 					loadPromises.push(
 						this.tilemapRenderer.loadTilesetDef(tileset).then(def => {
-							if (def) return this.tilemapRenderer.loadTilesetAtlases(def);
+							if (def) return this.tilemapRenderer.loadTilesetTextures(def);
 						}),
 					);
 				} else if (tileset) {

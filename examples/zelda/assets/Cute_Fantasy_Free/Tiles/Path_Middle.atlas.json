@@ -1,0 +1,6 @@
+{
+  "texture": "Path_Middle.png",
+  "regions": [
+    { "name": "path_fill", "x": 0, "y": 0, "width": 16, "height": 16 }
+  ]
+}

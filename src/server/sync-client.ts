@@ -32,6 +32,7 @@ export class SyncClient {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${this.editorPort}`);
       this.ws = ws;
+      let snapshotDone = false;
 
       const timeout = setTimeout(() => {
         ws.close();
@@ -48,7 +49,14 @@ export class SyncClient {
         ws.send(msg);
       });
 
+      // Single message handler: routes snapshot response once, then deltas thereafter
       ws.on('message', (data: Buffer) => {
+        if (snapshotDone) {
+          // Hot-reload delta path
+          if (this.hotReload) this.handleMessage(data);
+          return;
+        }
+
         const resp = JSON.parse(data.toString());
         clearTimeout(timeout);
 
@@ -64,13 +72,9 @@ export class SyncClient {
             payload: { action: 'sync.subscribe' },
           });
           ws.send(subMsg);
-
-          // Now listen for incoming sync deltas
-          ws.on('message', (deltaData: Buffer) => {
-            this.handleMessage(deltaData);
-          });
         }
 
+        snapshotDone = true;
         resolve();
       });
 

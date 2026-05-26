@@ -11,7 +11,7 @@ export function isGuiType(type: string): boolean {
 }
 
 export class GuiRenderer {
-  private ctx: Ctx;
+  ctx: Ctx;
   private projectDir: string;
   private textureCache = new Map<string, Image>();
 

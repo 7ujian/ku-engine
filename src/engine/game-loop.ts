@@ -64,6 +64,9 @@ export class GameLoop {
     });
 
     // Wire JS spawn/destroy callbacks so spawned nodes get full engine registration
+    // Wire node lifecycle callbacks for state cleanup
+    scripts.setNodeDestroyedCallback((nodeId: string) => this.cleanupNodeState(nodeId));
+
     if (jsScripts) {
       jsScripts.setSpawnCallback((node: Node) => {
         scripts.registerNode(node);
@@ -74,6 +77,7 @@ export class GameLoop {
         scripts.unregisterNodeById(nodeId);
         jsScripts?.unregisterNodeById(nodeId);
         physics.removeBody(nodeId);
+        this.cleanupNodeState(nodeId);
       });
       jsScripts.setEmitCallback((event, data) => {
         if (event === 'change_scene' && data.scene) {
@@ -257,6 +261,9 @@ export class GameLoop {
     if (change) {
       this.pendingScene = change;
     }
+
+    // Clear per-tick diagnostics to prevent unbounded growth
+    this.scripts.clearErrors();
   }
 
   async replaceTree(newTree: SceneTree): Promise<void> {
@@ -281,6 +288,12 @@ export class GameLoop {
         scripts.registerNode(node);
         jsScripts.registerNode(node);
         physics.syncNode(node);
+      });
+      this.jsScripts.setDestroyCallback((nodeId: string) => {
+        scripts.unregisterNodeById(nodeId);
+        jsScripts.unregisterNodeById(nodeId);
+        physics.removeBody(nodeId);
+        this.cleanupNodeState(nodeId);
       });
       this.jsScripts.setEmitCallback((event, data) => {
         if (event === 'change_scene' && data.scene) {
@@ -310,6 +323,7 @@ export class GameLoop {
       this.physics.destroy();
       this.collisionEvents.reset();
       this.timers.clear();
+      this.animPlayerState.clear();
       this.tree = newTree;
       this.physics = new PhysicsWorld(newTree);
       this.physics.syncFromTree();
@@ -329,6 +343,12 @@ export class GameLoop {
           jsScripts.registerNode(node);
           physics.syncNode(node);
         });
+        this.jsScripts.setDestroyCallback((nodeId: string) => {
+          scripts.unregisterNodeById(nodeId);
+          jsScripts.unregisterNodeById(nodeId);
+          physics.removeBody(nodeId);
+          this.cleanupNodeState(nodeId);
+        });
         this.jsScripts.setEmitCallback((event, data) => {
           if (event === 'change_scene' && data.scene) {
             this.pendingScene = { name: data.scene as string };
@@ -343,6 +363,12 @@ export class GameLoop {
     } catch {
       // scene load failed, keep current scene
     }
+  }
+
+  private cleanupNodeState(nodeId: string): void {
+    this.timers.delete(nodeId);
+    this.animPlayerState.delete(nodeId);
+    this.renderer?.clearAnimState(nodeId);
   }
 
   private tickTimers(dt: number): void {

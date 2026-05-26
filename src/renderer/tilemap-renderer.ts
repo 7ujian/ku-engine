@@ -9,8 +9,9 @@ import type { TilesetDef } from '../engine/types.js';
 import {
 	type TerrainDef,
 	type ResolvedCell,
+	type LegacyResolvedCell,
+	type ResolvedGrid,
 	parseTerrainMap,
-	detectPrefix,
 	resolveAutotile,
 	resolveTilesetGrid,
 } from '../engine/autotile.js';
@@ -22,8 +23,9 @@ export class TilemapRenderer {
 	private projectDir = '.';
 	private tilesetCache = new Map<string, { img: Image; tileWidth: number; tileHeight: number }>();
 	private tileAtlasCache = new Map<string, { atlas: AtlasDef; img: Image }>();
+	private textureCache = new Map<string, Image>();
 	private tilesetDefCache = new Map<string, TilesetDef>();
-	private autotileCache = new Map<string, (ResolvedCell | null)[]>();
+	private autotileCache = new Map<string, ResolvedGrid | (LegacyResolvedCell | null)[]>();
 	private autotileDataHash = new Map<string, string>();
 
 	constructor(ctx: Ctx) {
@@ -74,55 +76,44 @@ export class TilemapRenderer {
 		const ctx = this.ctx;
 		ctx.imageSmoothingEnabled = false;
 
+		const drawCell = (cell: ResolvedCell, row: number, col: number) => {
+			const img = this.textureCache.get(cell.texturePath);
+			if (!img) return;
+			ctx.drawImage(img, cell.x, cell.y, cell.w, cell.h, x + col * cellSize, y + row * cellSize, cellSize, cellSize);
+		};
+
+		// Layer 1 (base): fill, static, and 3x3 center tiles
+		const base = grid.base;
 		for (let row = 0; row < rows; row++) {
 			for (let col = 0; col < columns; col++) {
-				const cell = grid[row * columns + col];
-				if (!cell) continue;
+				const idx = row * columns + col;
+				if (base[idx]) drawCell(base[idx]!, row, col);
+			}
+		}
 
-				const cached = this.tileAtlasCache.get(cell.atlasPath);
-				if (!cached) continue;
-
-				const region = regionByName(cached.atlas, cell.regionName);
-				if (!region) continue;
-
-				const dx = x + col * cellSize;
-				const dy = y + row * cellSize;
-				ctx.drawImage(cached.img, region.x, region.y, region.width, region.height, dx, dy, cellSize, cellSize);
+		// Layer 2 (overlay): ABCD transition tiles on non-3x3 cells
+		const overlays = grid.overlays;
+		for (let row = 0; row < rows; row++) {
+			for (let col = 0; col < columns; col++) {
+				const idx = row * columns + col;
+				if (overlays[idx]) drawCell(overlays[idx]!, row, col);
 			}
 		}
 	}
 
-	private getOrResolveTilesetGrid(node: Node, absPath: string, tilesetDef: TilesetDef): (ResolvedCell | null)[] | null {
+	private getOrResolveTilesetGrid(node: Node, absPath: string, tilesetDef: TilesetDef): ResolvedGrid | null {
 		const data = (node.getProperty('data') as string) ?? '';
 		const columns = (node.getProperty('columns') as number) ?? 0;
 		const rows = (node.getProperty('rows') as number) ?? 0;
 
 		const hash = `${data}|${columns}|${rows}|${absPath}`;
 		const cached = this.autotileCache.get(node.id);
-		if (cached && this.autotileDataHash.get(node.id) === hash) return cached;
-
-		// Detect prefixes from loaded atlases
-		const prefixes = new Map<number, string>();
-		for (let i = 0; i < tilesetDef.tiles.length; i++) {
-			const tile = tilesetDef.tiles[i];
-			if (tile.prefix) {
-				prefixes.set(i + 1, tile.prefix);
-			} else if (tile.mode === '3x3' || tile.mode === 'fill') {
-				const atlasCached = this.tileAtlasCache.get(tile.atlas);
-				if (atlasCached) {
-					const names = atlasCached.atlas.regions.map(r => r.name);
-					const prefix = detectPrefix(names);
-					if (prefix) {
-						prefixes.set(i + 1, prefix);
-					} else if (tile.mode === 'fill' && names.length === 1) {
-						prefixes.set(i + 1, names[0]);
-					}
-				}
-			}
+		if (cached && this.autotileDataHash.get(node.id) === hash) {
+			return 'base' in cached ? cached : null;
 		}
 
 		const terrainData = data.split(',').map(s => parseInt(s.trim(), 10));
-		const grid = resolveTilesetGrid(terrainData, columns, rows, tilesetDef, prefixes);
+		const grid = resolveTilesetGrid(terrainData, columns, rows, tilesetDef);
 		this.autotileCache.set(node.id, grid);
 		this.autotileDataHash.set(node.id, hash);
 		return grid;
@@ -197,7 +188,7 @@ export class TilemapRenderer {
 		}
 	}
 
-	private getOrResolveGrid(node: Node): (ResolvedCell | null)[] | null {
+	private getOrResolveGrid(node: Node): (LegacyResolvedCell | null)[] | null {
 		const data = (node.getProperty('data') as string) ?? '';
 		const columns = (node.getProperty('columns') as number) ?? 0;
 		const rows = (node.getProperty('rows') as number) ?? 0;
@@ -205,26 +196,34 @@ export class TilemapRenderer {
 
 		const hash = `${data}|${columns}|${rows}|${JSON.stringify(terrainMapRaw)}`;
 		const cached = this.autotileCache.get(node.id);
-		if (cached && this.autotileDataHash.get(node.id) === hash) return cached;
+		if (cached && this.autotileDataHash.get(node.id) === hash) {
+			if (Array.isArray(cached)) return cached;
+			return null;
+		}
 
 		const terrainMap = parseTerrainMap(terrainMapRaw);
 		if (terrainMap.size === 0) return null;
 
-		// Detect prefixes from loaded atlases
+		// Detect prefixes from loaded atlases (legacy path)
 		const prefixes = new Map<number, string>();
 		for (const [id, def] of terrainMap) {
 			if (def.prefix) {
 				prefixes.set(id, def.prefix);
 			} else {
 				const absPath = resolve(this.projectDir, def.atlas);
-			const cached = this.tileAtlasCache.get(absPath);
+				const cached = this.tileAtlasCache.get(absPath);
 				if (cached) {
 					const names = cached.atlas.regions.map(r => r.name);
-					const prefix = detectPrefix(names);
-					if (prefix) {
-						prefixes.set(id, prefix);
-					} else if (def.mode === 'fill' && names.length === 1) {
-						prefixes.set(id, names[0]);
+					// Simple prefix detection for legacy path
+					const suffixes = ['top_left', 'center', 'bottom_right'];
+					for (const name of names) {
+						for (const suffix of suffixes) {
+							if (name.endsWith('_' + suffix)) {
+								prefixes.set(id, name.slice(0, name.length - suffix.length - 1));
+								break;
+							}
+						}
+						if (prefixes.has(id)) break;
 					}
 				}
 			}
@@ -268,22 +267,23 @@ export class TilemapRenderer {
 		}
 	}
 
-	async loadTilesetAtlases(tilesetDef: TilesetDef): Promise<void> {
-		const atlasPaths = new Set<string>();
+	async loadTilesetTextures(tilesetDef: TilesetDef): Promise<void> {
+		const texturePaths = new Set<string>();
 		for (const tile of tilesetDef.tiles) {
-			atlasPaths.add(tile.atlas);
+			const path = tile.texture ?? tile.atlas;
+			if (path) texturePaths.add(path);
 		}
 		if (tilesetDef.transitions) {
 			for (const trans of Object.values(tilesetDef.transitions)) {
-				atlasPaths.add(trans.atlas);
+				const path = trans.texture ?? trans.atlas;
+				if (path) texturePaths.add(path);
 			}
 		}
-		for (const atlasPath of atlasPaths) {
-			if (this.tileAtlasCache.has(atlasPath)) continue;
+		for (const path of texturePaths) {
+			if (this.textureCache.has(path)) continue;
 			try {
-				const atlas = await loadAtlas(atlasPath);
-				const img = await loadImage(atlas.texture);
-				this.tileAtlasCache.set(atlasPath, { atlas, img });
+				const img = await loadImage(path);
+				this.textureCache.set(path, img);
 			} catch {
 				// skip
 			}

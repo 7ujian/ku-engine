@@ -4,7 +4,7 @@ import { Node } from '../engine/node.js';
 type Ctx = ReturnType<Canvas['getContext']>;
 
 export class LabelRenderer {
-  private ctx: Ctx;
+  ctx: Ctx;
 
   constructor(ctx: Ctx) {
     this.ctx = ctx;

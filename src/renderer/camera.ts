@@ -7,16 +7,30 @@ export interface CameraState {
   zoom: number;
 }
 
-export function findCamera(tree: SceneTree): CameraState {
-  const cam: CameraState = { x: 0, y: 0, zoom: 1 };
+export function findCamera(tree: SceneTree, cached: { node: Node | null; cam: CameraState }): CameraState {
+  if (cached.node && cached.node.type === 'Camera2D' && cached.node.parent !== null) {
+    cached.cam.x = (cached.node.getProperty('offset_x') as number) ?? 0;
+    cached.cam.y = (cached.node.getProperty('offset_y') as number) ?? 0;
+    cached.cam.zoom = (cached.node.getProperty('zoom') as number) ?? 1;
+    return cached.cam;
+  }
+
   tree.traverse((node) => {
     if (node.type === 'Camera2D') {
-      cam.x = (node.getProperty('offset_x') as number) ?? 0;
-      cam.y = (node.getProperty('offset_y') as number) ?? 0;
-      cam.zoom = (node.getProperty('zoom') as number) ?? 1;
+      cached.node = node;
     }
   });
-  return cam;
+
+  if (cached.node) {
+    cached.cam.x = (cached.node.getProperty('offset_x') as number) ?? 0;
+    cached.cam.y = (cached.node.getProperty('offset_y') as number) ?? 0;
+    cached.cam.zoom = (cached.node.getProperty('zoom') as number) ?? 1;
+  } else {
+    cached.cam.x = 0;
+    cached.cam.y = 0;
+    cached.cam.zoom = 1;
+  }
+  return cached.cam;
 }
 
 export function findCameraTarget(tree: SceneTree): Node | null {

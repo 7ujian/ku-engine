@@ -1,0 +1,21 @@
+{
+  "texture": "Cliff_Tile.png",
+  "regions": [
+    { "name": "cliff_top_left", "x": 0, "y": 0, "width": 16, "height": 16 },
+    { "name": "cliff_top_mid", "x": 16, "y": 0, "width": 16, "height": 16 },
+    { "name": "cliff_top_right", "x": 32, "y": 0, "width": 16, "height": 16 },
+    { "name": "cliff_center_left", "x": 0, "y": 16, "width": 16, "height": 16 },
+    { "name": "cliff_center", "x": 16, "y": 16, "width": 16, "height": 16 },
+    { "name": "cliff_center_right", "x": 32, "y": 16, "width": 16, "height": 16 },
+    { "name": "cliff_bottom_left", "x": 0, "y": 32, "width": 16, "height": 16 },
+    { "name": "cliff_bottom_mid", "x": 16, "y": 32, "width": 16, "height": 16 },
+    { "name": "cliff_bottom_right", "x": 32, "y": 32, "width": 16, "height": 16 },
+    { "name": "cliff_mound_top_left", "x": 0, "y": 48, "width": 16, "height": 16 },
+    { "name": "cliff_mound_top_right", "x": 16, "y": 48, "width": 16, "height": 16 },
+    { "name": "cliff_mound_bottom_left", "x": 0, "y": 64, "width": 16, "height": 16 },
+    { "name": "cliff_mound_bottom_right", "x": 16, "y": 64, "width": 16, "height": 16 },
+    { "name": "cliff_debris_small", "x": 0, "y": 80, "width": 16, "height": 16 },
+    { "name": "cliff_debris_medium", "x": 16, "y": 80, "width": 16, "height": 16 },
+    { "name": "cliff_debris_large", "x": 32, "y": 80, "width": 16, "height": 16 }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "texture": "Grass_Middle.png",
+  "regions": [
+    { "name": "grass_fill", "x": 0, "y": 0, "width": 16, "height": 16 }
+  ]
+}

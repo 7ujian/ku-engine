@@ -13,6 +13,9 @@ export class PhysicsWorld {
   private bodyMap = new Map<string, Matter.Body>();
   private parentCache = new Map<string, string | null>();
   private tree: SceneTree;
+  private detector: Matter.Detector | null = null;
+  private cachedCollisions: Array<{ nodeA: string; nodeB: string }> | null = null;
+  private cachedAreaOverlaps: Array<{ nodeA: string; nodeB: string }> | null = null;
 
   constructor(tree: SceneTree) {
     this.tree = tree;
@@ -35,6 +38,9 @@ export class PhysicsWorld {
   }
 
   step(dt: number): void {
+    this.cachedCollisions = null;
+    this.cachedAreaOverlaps = null;
+
     // Apply per-body gravity before Engine.update so positions reflect it
     const gScale = this.engine.gravity.scale;
     for (const body of this.bodyMap.values()) {
@@ -131,36 +137,47 @@ export class PhysicsWorld {
   }
 
   getCollisions(): Array<{ nodeA: string; nodeB: string }> {
-    const bodies = Matter.Composite.allBodies(this.engine.world);
-    const detector = Matter.Detector.create({ bodies });
-    const collisions: Array<{ nodeA: string; nodeB: string }> = [];
-    const events = Matter.Detector.collisions(detector);
-    for (const pair of events) {
-      if (pair.bodyA.isSensor && pair.bodyB.isSensor) continue;
-      const idA = pair.bodyA.label;
-      const idB = pair.bodyB.label;
-      if (idA && idB) {
-        collisions.push({ nodeA: idA, nodeB: idB });
-      }
-    }
-    return collisions;
+    if (!this.cachedCollisions) this.detectAll();
+    return this.cachedCollisions!;
   }
 
   getAreaOverlaps(): Array<{ nodeA: string; nodeB: string }> {
+    if (!this.cachedAreaOverlaps) this.detectAll();
+    return this.cachedAreaOverlaps!;
+  }
+
+  /** Run collision detection once, cache results for both getCollisions and getAreaOverlaps */
+  private detectAll(): void {
     const bodies = Matter.Composite.allBodies(this.engine.world);
-    const detector = Matter.Detector.create({ bodies });
+    if (!this.detector) {
+      this.detector = Matter.Detector.create({ bodies });
+    } else {
+      Matter.Detector.setBodies(this.detector, bodies);
+    }
+    const events = Matter.Detector.collisions(this.detector);
+    const collisions: Array<{ nodeA: string; nodeB: string }> = [];
     const overlaps: Array<{ nodeA: string; nodeB: string }> = [];
-    const events = Matter.Detector.collisions(detector);
     for (const pair of events) {
-      // Only include pairs where at least one body is a sensor (Area)
-      if (!pair.bodyA.isSensor && !pair.bodyB.isSensor) continue;
       const idA = pair.bodyA.label;
       const idB = pair.bodyB.label;
-      if (idA && idB) {
+      if (!idA || !idB) continue;
+      if (pair.bodyA.isSensor && pair.bodyB.isSensor) {
+        overlaps.push({ nodeA: idA, nodeB: idB });
+      } else if (!pair.bodyA.isSensor && !pair.bodyB.isSensor) {
+        collisions.push({ nodeA: idA, nodeB: idB });
+      } else {
+        // One sensor, one non-sensor → area overlap
         overlaps.push({ nodeA: idA, nodeB: idB });
       }
     }
-    return overlaps;
+    this.cachedCollisions = collisions;
+    this.cachedAreaOverlaps = overlaps;
+  }
+
+  /** Invalidate cached collision results (call after physics step) */
+  invalidateCollisionCache(): void {
+    this.cachedCollisions = null;
+    this.cachedAreaOverlaps = null;
   }
 
   private syncBody(node: Node): void {
@@ -315,5 +332,8 @@ export class PhysicsWorld {
     Matter.Engine.clear(this.engine);
     this.bodyMap.clear();
     this.parentCache.clear();
+    this.detector = null;
+    this.cachedCollisions = null;
+    this.cachedAreaOverlaps = null;
   }
 }

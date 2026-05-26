@@ -6,7 +6,7 @@ import { ScriptEngine } from '../engine/script-engine.js';
 import { JsScriptEngine } from '../engine/js-script-engine.js';
 import { PhysicsWorld } from '../engine/physics.js';
 import { GameLoop } from '../engine/game-loop.js';
-import { Renderer } from '../renderer/renderer.js';
+import { Renderer, migrateWindowConfig } from '../renderer/renderer.js';
 import { InputManager } from '../server/input-manager.js';
 import { loadScene, sceneFilePath } from '../persistence/scene-io.js';
 import { loadWav } from '../persistence/audio-loader.js';
@@ -34,13 +34,9 @@ async function main(): Promise<void> {
   const input = new InputManager(scripts, jsScripts);
 
   const renderer = new Renderer(
-    config.window?.width ?? 800,
-    config.window?.height ?? 600,
+    migrateWindowConfig((config.window ?? {}) as Record<string, unknown>),
     projectDir,
     config.debug_physics ?? false,
-    config.window?.scale ?? 1,
-    config.window?.scale_mode ?? 'system',
-    config.window?.resizable ?? true,
   );
   renderer.setKeyHandler((key, down) => {
     if (down) input.keyDown(key);

@@ -108,7 +108,6 @@ export class AudioManager {
         if (sound.loop) {
           sound.offset = 0;
         } else {
-          this.active.delete(sound.buffer.toString()); // will be cleaned up next iteration
           continue;
         }
       }

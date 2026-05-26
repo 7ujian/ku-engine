@@ -9,7 +9,7 @@ import { type AnimState, advanceFrame, createAnimState, resolveAnimation } from 
 type Ctx = ReturnType<Canvas['getContext']>;
 
 export class SpriteRenderer {
-  private ctx: Ctx;
+  ctx: Ctx;
   private projectDir: string;
   private textureCache = new Map<string, Image>();
   private atlasCache = new Map<string, AtlasDef>();
@@ -54,6 +54,7 @@ export class SpriteRenderer {
 
     const ctx = this.ctx;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
 
     if (hframes > 1) {
       const frameWidth = img.width / hframes;
@@ -132,6 +133,7 @@ export class SpriteRenderer {
 
     const ctx = this.ctx;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     if (flipH || flipV) {
       ctx.translate(x, y);
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
@@ -160,6 +162,7 @@ export class SpriteRenderer {
     const flipV = node.getProperty('flip_v') === true;
     const ctx = this.ctx;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
 
     if (flipH || flipV) {
       ctx.translate(x, y);
@@ -211,6 +214,7 @@ export class SpriteRenderer {
     const flipV = node.getProperty('flip_v') === true;
     const ctx = this.ctx;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
 
     if (flipH || flipV) {
       ctx.translate(x, y);

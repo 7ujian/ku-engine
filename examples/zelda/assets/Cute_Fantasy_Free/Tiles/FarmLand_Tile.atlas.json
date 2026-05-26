@@ -1,0 +1,6 @@
+{
+  "texture": "FarmLand_Tile.png",
+  "regions": [
+    { "name": "farmland_fill", "x": 0, "y": 0, "width": 48, "height": 48 }
+  ]
+}

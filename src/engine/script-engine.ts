@@ -10,6 +10,9 @@ import type { ActionContext } from './plugin.js';
 
 import type { AudioManager } from './audio.js';
 
+const MAX_LOGS = 1000;
+const MAX_ERRORS = 1000;
+
 export class ScriptEngine {
   private bus = new EventBus();
   private registrations = new Map<Node, ScriptRule[]>();
@@ -21,6 +24,7 @@ export class ScriptEngine {
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
   private pendingSceneChange: { name: string } | null = null;
   private actionContext: ActionContext;
+  private onNodeDestroyed: ((nodeId: string) => void) | null = null;
 
   constructor(tree: SceneTree) {
     this.tree = tree;
@@ -35,6 +39,7 @@ export class ScriptEngine {
 
   setAudio(audio: AudioManager | null): void { this.audio = audio; }
   setSceneLoader(loader: (name: string) => Promise<SceneTree>): void { this.sceneLoader = loader; }
+  setNodeDestroyedCallback(cb: ((nodeId: string) => void) | null): void { this.onNodeDestroyed = cb; }
 
   getPendingSceneChange(): { name: string } | null {
     const change = this.pendingSceneChange;
@@ -111,6 +116,7 @@ export class ScriptEngine {
   }
 
   private recordError(nodeId: string, event: string, actionType: string, reason: string): void {
+    if (this.errors.length >= MAX_ERRORS) this.errors.shift();
     this.errors.push({ node: nodeId, event, action_type: actionType, reason, timestamp: Date.now() });
   }
 
@@ -137,7 +143,12 @@ export class ScriptEngine {
     } else if (action.destroy) {
       const raw = evaluateExpression(action.destroy, node.properties, context, this.tree) as string;
       const path = raw === 'self' ? this.getNodePath(node) : raw;
-      try { this.tree.remove(path); } catch {
+      try {
+        const target = this.tree.get(path);
+        const targetId = target.id;
+        this.tree.remove(path);
+        this.onNodeDestroyed?.(targetId);
+      } catch {
         this.recordError(node.id, event, 'destroy', `node not found: ${path}`);
       }
     } else if (action.emit) {
@@ -164,6 +175,7 @@ export class ScriptEngine {
       }
     } else if (action.log) {
       const msg = evaluateExpression(action.log, node.properties, context, this.tree) as string;
+      if (this.logs.length >= MAX_LOGS) this.logs.shift();
       this.logs.push(msg);
       console.log(msg);
     } else if (action.spawn) {

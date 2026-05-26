@@ -1,0 +1,18 @@
+{
+  "texture": "Beach_Tile.png",
+  "regions": [
+    { "name": "beach_top_left", "x": 0, "y": 0, "width": 16, "height": 16 },
+    { "name": "beach_top_mid", "x": 16, "y": 0, "width": 16, "height": 16 },
+    { "name": "beach_top_right", "x": 32, "y": 0, "width": 16, "height": 16 },
+    { "name": "beach_center_left", "x": 0, "y": 16, "width": 16, "height": 16 },
+    { "name": "beach_center", "x": 16, "y": 16, "width": 16, "height": 16 },
+    { "name": "beach_center_right", "x": 32, "y": 16, "width": 16, "height": 16 },
+    { "name": "beach_bottom_left", "x": 0, "y": 32, "width": 16, "height": 16 },
+    { "name": "beach_bottom_mid", "x": 16, "y": 32, "width": 16, "height": 16 },
+    { "name": "beach_bottom_right", "x": 32, "y": 32, "width": 16, "height": 16 },
+    { "name": "beach_pond_top_left", "x": 48, "y": 0, "width": 16, "height": 16 },
+    { "name": "beach_pond_top_right", "x": 64, "y": 0, "width": 16, "height": 16 },
+    { "name": "beach_pond_bottom_left", "x": 48, "y": 16, "width": 16, "height": 16 },
+    { "name": "beach_pond_bottom_right", "x": 64, "y": 16, "width": 16, "height": 16 }
+  ]
+}

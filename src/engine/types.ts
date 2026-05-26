@@ -66,18 +66,31 @@ export interface ScriptError {
 
 export interface TilesetTileDef {
   name: string;
-  atlas: string;
+  atlas?: string;
   region?: string;
-  mode?: 'static' | '3x3' | 'fill';
   prefix?: string;
+  texture?: string;
+  regions?: TilesetRegion[];
+  mode?: 'static' | '3x3' | 'fill';
   surround?: number;
   compatible?: number[];
+  masks?: Record<number, string>;
 }
 
 export interface TilesetTransitionDef {
-  atlas: string;
-  prefix: string;
+  atlas?: string;
+  prefix?: string;
+  texture?: string;
+  regions?: TilesetRegion[];
   mode: '3x3' | 'fill';
+}
+
+export interface TilesetRegion {
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface TilesetDef {

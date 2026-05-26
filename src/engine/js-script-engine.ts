@@ -4,6 +4,8 @@ import { SceneTree } from './scene-tree.js';
 import { EventBus } from './event-bus.js';
 import { createNodeByType } from './node-types.js';
 
+const MAX_LOGS = 1000;
+
 export interface JsScriptEngineOptions {
   tree: SceneTree;
   projectDir: string;
@@ -77,7 +79,7 @@ export class JsScriptEngine {
       console: {
         log: (...args: unknown[]) => {
           const msg = args.map(String).join(' ');
-          this.logs.push(msg);
+          this.pushLog(msg);
           console.log(msg);
         },
       },
@@ -86,7 +88,7 @@ export class JsScriptEngine {
     try {
       compiled.runInContext(sandbox);
     } catch (err) {
-      this.logs.push(`JS error in ${absPath}: ${(err as Error).message}`);
+      this.pushLog(`JS error in ${absPath}: ${(err as Error).message}`);
     }
 
     // Script may have used `const handlers = {...}` which shadows the sandbox
@@ -137,14 +139,14 @@ export class JsScriptEngine {
           this.onEmit?.(name, data);
         },
         log: (...args: unknown[]) => {
-          this.logs.push(args.map(String).join(' '));
+          this.pushLog(args.map(String).join(' '));
         },
       };
 
       try {
         handler(ctx);
       } catch (err) {
-        this.logs.push(`JS handler error (${event}): ${(err as Error).message}`);
+        this.pushLog(`JS handler error (${event}): ${(err as Error).message}`);
       }
     }
   }
@@ -162,6 +164,11 @@ export class JsScriptEngine {
   setSpawnCallback(cb: (node: Node) => void): void { this.onSpawn = cb; }
   setDestroyCallback(cb: (nodeId: string) => void): void { this.onDestroy = cb; }
   setEmitCallback(cb: (event: string, data: Record<string, unknown>) => void): void { this.onEmit = cb; }
+
+  private pushLog(msg: string): void {
+    if (this.logs.length >= MAX_LOGS) this.logs.shift();
+    this.logs.push(msg);
+  }
 
   private createNodeApi(node: Node) {
     return {

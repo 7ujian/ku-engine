@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { parseTerrainMap, detectPrefix, resolveAutotile, resolveTilesetGrid, BITMASK_TO_SUFFIX } from '../src/engine/autotile.js';
-import type { TilesetDef } from '../src/engine/types.js';
+import { parseTerrainMap, resolveAutotile, resolveTilesetGrid, computeAbcd, ABCD_TO_SUFFIX, BITMASK_TO_SUFFIX } from '../src/engine/autotile.js';
+import type { TilesetDef, TilesetRegion } from '../src/engine/types.js';
 
-describe('BITMASK_TO_SUFFIX', () => {
+describe('BITMASK_TO_SUFFIX (legacy)', () => {
   it('has 16 entries', () => {
     expect(BITMASK_TO_SUFFIX).toHaveLength(16);
   });
@@ -13,6 +13,94 @@ describe('BITMASK_TO_SUFFIX', () => {
 
   it('maps isolated (0) to top_left', () => {
     expect(BITMASK_TO_SUFFIX[0]).toBe('top_left');
+  });
+});
+
+describe('ABCD_TO_SUFFIX', () => {
+  it('has 16 entries', () => {
+    expect(ABCD_TO_SUFFIX).toHaveLength(16);
+  });
+
+  it('maps 0000 (0) to empty string (skip)', () => {
+    expect(ABCD_TO_SUFFIX[0]).toBe('');
+  });
+
+  it('maps 1111 (15) to center', () => {
+    expect(ABCD_TO_SUFFIX[15]).toBe('center');
+  });
+
+  it('maps corner codes', () => {
+    expect(ABCD_TO_SUFFIX[1]).toBe('top_left');
+    expect(ABCD_TO_SUFFIX[2]).toBe('top_right');
+    expect(ABCD_TO_SUFFIX[4]).toBe('bottom_left');
+    expect(ABCD_TO_SUFFIX[8]).toBe('bottom_right');
+  });
+
+  it('maps edge codes', () => {
+    expect(ABCD_TO_SUFFIX[3]).toBe('top_mid');
+    expect(ABCD_TO_SUFFIX[5]).toBe('center_left');
+    expect(ABCD_TO_SUFFIX[10]).toBe('center_right');
+    expect(ABCD_TO_SUFFIX[12]).toBe('bottom_mid');
+  });
+
+  it('maps pond codes', () => {
+    expect(ABCD_TO_SUFFIX[7]).toBe('pond_bottom_right');
+    expect(ABCD_TO_SUFFIX[11]).toBe('pond_bottom_left');
+    expect(ABCD_TO_SUFFIX[13]).toBe('pond_top_right');
+    expect(ABCD_TO_SUFFIX[14]).toBe('pond_top_left');
+  });
+
+  it('maps diagonal codes to center fallback', () => {
+    expect(ABCD_TO_SUFFIX[6]).toBe('center');
+    expect(ABCD_TO_SUFFIX[9]).toBe('center');
+  });
+});
+
+describe('computeAbcd', () => {
+  it('returns 0 for empty grid', () => {
+    const grid = new Uint8Array([0, 0, 0, 0]);
+    expect(computeAbcd(grid, 2, 2, 0, 0)).toBe(0);
+  });
+
+  it('returns 15 for center of solid block', () => {
+    const grid = new Uint8Array([1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(computeAbcd(grid, 3, 3, 1, 1)).toBe(15);
+  });
+
+  it('computes cross pattern correctly', () => {
+    const grid = new Uint8Array([
+      0, 0, 0, 0, 0,
+      0, 0, 1, 0, 0,
+      0, 1, 1, 1, 0,
+      0, 0, 1, 0, 0,
+      0, 0, 0, 0, 0,
+    ]);
+
+    const expected = [
+      0,  1,  3,  2,  0,
+      1,  7, 15, 11,  2,
+      5, 15, 15, 15, 10,
+      4, 13, 15, 14,  8,
+      0,  4, 12,  8,  0,
+    ];
+
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const result = computeAbcd(grid, 5, 5, r, c);
+        expect(result).toBe(expected[r * 5 + c]);
+      }
+    }
+  });
+
+  it('handles edge cells with out-of-bounds as 0', () => {
+    const grid = new Uint8Array([1]);
+    expect(computeAbcd(grid, 1, 1, 0, 0)).toBe(15);
+  });
+
+  it('computes single cell in larger grid', () => {
+    const grid = new Uint8Array([0, 0, 0, 0, 1, 0, 0, 0, 0]);
+    expect(computeAbcd(grid, 3, 3, 1, 1)).toBe(15);
+    expect(computeAbcd(grid, 3, 3, 0, 1)).toBe(3);
   });
 });
 
@@ -47,179 +135,206 @@ describe('parseTerrainMap', () => {
   });
 });
 
-describe('detectPrefix', () => {
-  it('detects water prefix', () => {
-    expect(detectPrefix(['water_top_left', 'water_center', 'water_bottom_right'])).toBe('water');
-  });
+// Helper: build region data for tests
+function makeRegion(name: string, x: number, y: number): TilesetRegion {
+  return { name, x, y, w: 16, h: 16 };
+}
 
-  it('detects cliff prefix', () => {
-    expect(detectPrefix(['cliff_top_left', 'cliff_center'])).toBe('cliff');
-  });
+const BEACH_REGIONS: TilesetRegion[] = [
+  makeRegion('beach_top_left', 0, 0),
+  makeRegion('beach_top_mid', 16, 0),
+  makeRegion('beach_top_right', 32, 0),
+  makeRegion('beach_center_left', 0, 16),
+  makeRegion('beach_center', 16, 16),
+  makeRegion('beach_center_right', 32, 16),
+  makeRegion('beach_bottom_left', 0, 32),
+  makeRegion('beach_bottom_mid', 16, 32),
+  makeRegion('beach_bottom_right', 32, 32),
+  makeRegion('beach_pond_top_left', 48, 0),
+  makeRegion('beach_pond_top_right', 64, 0),
+  makeRegion('beach_pond_bottom_left', 48, 16),
+  makeRegion('beach_pond_bottom_right', 64, 16),
+];
 
-  it('returns null for no match', () => {
-    expect(detectPrefix(['grass_fill'])).toBeNull();
-    expect(detectPrefix([])).toBeNull();
-  });
+const BEACH_MASKS: Record<number, string> = {
+  1: 'beach_top_left', 2: 'beach_top_right', 3: 'beach_top_mid',
+  4: 'beach_bottom_left', 5: 'beach_center_left', 8: 'beach_bottom_right',
+  10: 'beach_center_right', 12: 'beach_bottom_mid', 15: 'beach_center',
+  7: 'beach_pond_bottom_right', 11: 'beach_pond_bottom_left',
+  13: 'beach_pond_top_right', 14: 'beach_pond_top_left',
+};
 
-  it('detects from mixed names', () => {
-    expect(detectPrefix(['decor', 'path_top_mid', 'other'])).toBe('path');
-  });
-});
+const WATER_MASKS: Record<number, string> = {
+  1: 'water_top_left', 2: 'water_top_right', 3: 'water_top_mid',
+  4: 'water_bottom_left', 5: 'water_center_left', 8: 'water_bottom_right',
+  10: 'water_center_right', 12: 'water_bottom_mid', 15: 'water_center',
+  7: 'water_mound_bottom_right', 11: 'water_mound_bottom_left',
+  13: 'water_mound_top_right', 14: 'water_mound_top_left',
+};
 
-describe('resolveAutotile', () => {
-  const terrainMap = new Map<number, { atlas: string; mode: '3x3' | 'fill'; prefix?: string }>();
-  terrainMap.set(1, { atlas: 'water.json', mode: '3x3' });
-  terrainMap.set(2, { atlas: 'grass.json', mode: 'fill' });
-
-  const prefixes = new Map<number, string>();
-  prefixes.set(1, 'water');
-  prefixes.set(2, 'grass_fill');
-
-  it('resolves fill terrain', () => {
-    const data = [2, 2, 2, 2];
-    const result = resolveAutotile(data, 2, 2, terrainMap, prefixes);
-    expect(result.every(c => c !== null && c.regionName === 'grass_fill')).toBe(true);
-  });
-
-  it('resolves isolated cell to top_left', () => {
-    const data = [0, 0, 0, 1, 0, 0, 0, 0, 0];
-    const result = resolveAutotile(data, 3, 3, terrainMap, prefixes);
-    expect(result[3]).toEqual({ atlasPath: 'water.json', regionName: 'water_top_left' });
-  });
-
-  it('resolves fully surrounded cell to center', () => {
-    const data = [1, 1, 1, 1, 1, 1, 1, 1, 1];
-    const result = resolveAutotile(data, 3, 3, terrainMap, prefixes);
-    expect(result[4]).toEqual({ atlasPath: 'water.json', regionName: 'water_center' });
-  });
-
-  it('resolves edge cell', () => {
-    // 3x3 grid: top row is water, rest empty → top-center has left+right neighbors
-    const data = [1, 1, 1, 0, 0, 0, 0, 0, 0];
-    const result = resolveAutotile(data, 3, 3, terrainMap, prefixes);
-    // top_mid (idx 1): left=1, right=1, up=0, down=0 → mask = 1+2 = 3 → center
-    expect(result[1]).toEqual({ atlasPath: 'water.json', regionName: 'water_center' });
-  });
-
-  it('returns null for empty cells', () => {
-    const data = [0, 0, 0];
-    const result = resolveAutotile(data, 3, 1, terrainMap, prefixes);
-    expect(result.every(c => c === null)).toBe(true);
-  });
-
-  it('handles mixed terrain types', () => {
-    const data = [2, 1, 2, 1, 1, 1, 2, 1, 2];
-    const result = resolveAutotile(data, 3, 3, terrainMap, prefixes);
-    // center (idx 4) = terrain 1, surrounded by 1 on all sides → center
-    expect(result[4]).toEqual({ atlasPath: 'water.json', regionName: 'water_center' });
-    // corners (idx 0,2,6,8) = terrain 2 (fill) → grass_fill
-    expect(result[0]!.regionName).toBe('grass_fill');
-  });
-});
+const WATER_REGIONS: TilesetRegion[] = [
+  makeRegion('water_top_left', 0, 0), makeRegion('water_top_mid', 16, 0), makeRegion('water_top_right', 32, 0),
+  makeRegion('water_center_left', 0, 16), makeRegion('water_center', 16, 16), makeRegion('water_center_right', 32, 16),
+  makeRegion('water_bottom_left', 0, 32), makeRegion('water_bottom_mid', 16, 32), makeRegion('water_bottom_right', 32, 32),
+  makeRegion('water_mound_top_left', 0, 48), makeRegion('water_mound_top_right', 16, 48),
+  makeRegion('water_mound_bottom_left', 0, 64), makeRegion('water_mound_bottom_right', 16, 64),
+];
 
 describe('resolveTilesetGrid', () => {
   const tilesetDef: TilesetDef = {
     cell_size: 16,
     tiles: [
-      { name: 'water', atlas: 'water.json', mode: '3x3', prefix: 'water', surround: 2 },
-      { name: 'grass', atlas: 'grass.json', mode: 'fill', prefix: 'grass_fill' },
-      { name: 'beach', atlas: 'beach.json', mode: '3x3', prefix: 'beach', surround: 1, compatible: [2] },
-      { name: 'rock', atlas: 'decor.json', region: 'rock' },
-      { name: 'flower', atlas: 'decor.json', region: 'flower' },
+      {
+        name: 'water', texture: 'water.png', mode: '3x3', surround: 3,
+        masks: WATER_MASKS, regions: WATER_REGIONS,
+      },
+      {
+        name: 'beach', texture: 'beach.png', mode: '3x3', surround: 1,
+        masks: BEACH_MASKS, regions: BEACH_REGIONS,
+      },
+      {
+        name: 'grass', texture: 'grass.png', mode: 'fill',
+        masks: { 15: 'grass_fill' },
+        regions: [makeRegion('grass_fill', 0, 0)],
+      },
     ],
-    transitions: {
-      '1_4': { atlas: 'rock_edge.json', prefix: 'rock_edge', mode: '3x3' },
-    },
   };
 
-  const prefixes = new Map<number, string>();
-  prefixes.set(1, 'water');
-  prefixes.set(2, 'grass_fill');
-  prefixes.set(3, 'beach');
-
-  it('resolves static tile', () => {
-    const data = [4, 0, 5];
-    const result = resolveTilesetGrid(data, 3, 1, tilesetDef, prefixes);
-    expect(result[0]).toEqual({ atlasPath: 'decor.json', regionName: 'rock' });
-    expect(result[1]).toBeNull();
-    expect(result[2]).toEqual({ atlasPath: 'decor.json', regionName: 'flower' });
+  it('resolves static tile in base layer', () => {
+    const def: TilesetDef = {
+      cell_size: 16,
+      tiles: [
+        {
+          name: 'rock', texture: 'decor.png',
+          regions: [makeRegion('rock', 32, 16)],
+        },
+      ],
+    };
+    const data = [1, 0];
+    const result = resolveTilesetGrid(data, 2, 1, def);
+    expect(result.base[0]).toEqual({ texturePath: 'decor.png', x: 32, y: 16, w: 16, h: 16 });
+    expect(result.base[1]).toBeNull();
+    expect(result.overlays.every(c => c === null)).toBe(true);
   });
 
-  it('resolves fill tile', () => {
+  it('resolves fill tile in base layer', () => {
+    const data = [3, 3, 3, 3];
+    const result = resolveTilesetGrid(data, 2, 2, tilesetDef);
+    expect(result.base.every(c => c !== null && c.texturePath === 'grass.png' && c.x === 0 && c.y === 0)).toBe(true);
+    expect(result.overlays.every(c => c === null)).toBe(true);
+  });
+
+  it('resolves 3x3 tile center in base layer', () => {
     const data = [2, 2, 2, 2];
-    const result = resolveTilesetGrid(data, 2, 2, tilesetDef, prefixes);
-    expect(result.every(c => c !== null && c.regionName === 'grass_fill')).toBe(true);
+    const result = resolveTilesetGrid(data, 2, 2, tilesetDef);
+    expect(result.base.every(c => c !== null && c.texturePath === 'beach.png' && c.x === 16 && c.y === 16)).toBe(true);
   });
 
-  it('resolves 3x3 autotile', () => {
-    const data = [1, 1, 1, 1, 1, 1, 1, 1, 1];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    expect(result[4]).toEqual({ atlasPath: 'water.json', regionName: 'water_center' });
+  it('places overlay on water cell adjacent to beach', () => {
+    const data = [1, 1, 1, 1, 2, 1, 1, 1, 1];
+    const result = resolveTilesetGrid(data, 3, 3, tilesetDef);
+
+    // Center beach cell → base = beach_center
+    expect(result.base[4]).toEqual({ texturePath: 'beach.png', x: 16, y: 16, w: 16, h: 16 });
+
+    // Adjacent water cells get beach overlays
+    expect(result.overlays[1]).not.toBeNull();
+    expect(result.overlays[1]!.texturePath).toBe('beach.png');
+
+    expect(result.overlays[3]).not.toBeNull();
+    expect(result.overlays[3]!.texturePath).toBe('beach.png');
+
+    expect(result.overlays[0]).not.toBeNull();
   });
 
-  it('resolves isolated 3x3 tile', () => {
-    const data = [0, 0, 0, 0, 1, 0, 0, 0, 0];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    expect(result[4]).toEqual({ atlasPath: 'water.json', regionName: 'water_top_left' });
+  it('no overlay on cells far from 3x3 terrain', () => {
+    const data = [1, 1, 1, 1];
+    const result = resolveTilesetGrid(data, 2, 2, tilesetDef);
+    expect(result.overlays.every(c => c === null)).toBe(true);
   });
 
-  it('resolves mixed grid with static and autotile', () => {
-    const data = [4, 1, 1, 5, 1, 1, 0, 0, 0];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    expect(result[0]).toEqual({ atlasPath: 'decor.json', regionName: 'rock' });
-    expect(result[3]).toEqual({ atlasPath: 'decor.json', regionName: 'flower' });
-    // water cells in middle should resolve
-    expect(result[4]).not.toBeNull();
-    expect(result[4]!.regionName).toContain('water_');
+  it('cross pattern produces correct overlays', () => {
+    const data = [
+      1, 1, 1, 1, 1,
+      1, 1, 2, 1, 1,
+      1, 2, 2, 2, 1,
+      1, 1, 2, 1, 1,
+      1, 1, 1, 1, 1,
+    ];
+    const result = resolveTilesetGrid(data, 5, 5, tilesetDef);
+
+    // [0][1] ABCD=0001 → beach_top_left
+    expect(result.overlays[0 * 5 + 1]).toEqual({ texturePath: 'beach.png', x: 0, y: 0, w: 16, h: 16 });
+    // [0][2] ABCD=0011 → beach_top_mid
+    expect(result.overlays[0 * 5 + 2]).toEqual({ texturePath: 'beach.png', x: 16, y: 0, w: 16, h: 16 });
+    // [1][1] ABCD=0111 → beach_pond_bottom_right
+    expect(result.overlays[1 * 5 + 1]).toEqual({ texturePath: 'beach.png', x: 64, y: 16, w: 16, h: 16 });
+    // [2][0] ABCD=0101 → beach_center_left
+    expect(result.overlays[2 * 5 + 0]).toEqual({ texturePath: 'beach.png', x: 0, y: 16, w: 16, h: 16 });
+    // [3][3] ABCD=1110 → beach_pond_top_left
+    expect(result.overlays[3 * 5 + 3]).toEqual({ texturePath: 'beach.png', x: 48, y: 0, w: 16, h: 16 });
+    // [4][2] ABCD=1100 → beach_bottom_mid
+    expect(result.overlays[4 * 5 + 2]).toEqual({ texturePath: 'beach.png', x: 16, y: 32, w: 16, h: 16 });
+    // [4][3] ABCD=1000 → beach_bottom_right
+    expect(result.overlays[4 * 5 + 3]).toEqual({ texturePath: 'beach.png', x: 32, y: 32, w: 16, h: 16 });
+
+    // Base: beach cells get beach_center, water cells get water_center
+    expect(result.base[1 * 5 + 2]).toEqual({ texturePath: 'beach.png', x: 16, y: 16, w: 16, h: 16 });
+    expect(result.base[2 * 5 + 2]).toEqual({ texturePath: 'beach.png', x: 16, y: 16, w: 16, h: 16 });
+    expect(result.base[0 * 5 + 0]).toEqual({ texturePath: 'water.png', x: 16, y: 16, w: 16, h: 16 });
+
+    // Corner water cells [0][0] and [4][4] should have no overlay (ABCD=0000)
+    expect(result.overlays[0 * 5 + 0]).toBeNull();
+    expect(result.overlays[4 * 5 + 4]).toBeNull();
   });
 
-  it('uses transition when tile borders non-surround, non-compatible tile', () => {
-    // Grid: water(1) bordered by rock(4) on left
-    // water's surround=2 (grass), rock is neither surround nor compatible
-    // Transition 1_4 exists → water cell next to rock uses rock_edge.json
-    const data = [0, 1, 0, 4, 1, 0, 0, 1, 0];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    // center cell (idx 4): left neighbor is 4 (rock), not surround(2), not compatible
-    // transition 1_4 exists → use rock_edge.json
-    expect(result[4]).toEqual({ atlasPath: 'rock_edge.json', regionName: expect.stringContaining('rock_edge_') });
+  it('compatible tiles count as same for ABCD', () => {
+    const def: TilesetDef = {
+      cell_size: 16,
+      tiles: [
+        {
+          name: 'water', texture: 'water.png', mode: 'fill',
+          masks: { 15: 'water_center' },
+          regions: [makeRegion('water_center', 16, 16)],
+        },
+        {
+          name: 'beach', texture: 'beach.png', mode: '3x3', surround: 1, compatible: [3],
+          masks: BEACH_MASKS, regions: BEACH_REGIONS,
+        },
+        {
+          name: 'grass', texture: 'grass.png', mode: 'fill',
+          masks: { 15: 'grass_fill' },
+          regions: [makeRegion('grass_fill', 0, 0)],
+        },
+      ],
+    };
+
+    const data = [
+      1, 1, 1,
+      1, 2, 3,
+      1, 1, 1,
+    ];
+    const result = resolveTilesetGrid(data, 3, 3, def);
+
+    // Cell [1][2] = grass(3), compatible with beach(2)
+    expect(result.base[1 * 3 + 2]).toEqual({ texturePath: 'grass.png', x: 0, y: 0, w: 16, h: 16 });
+
+    // Water cells adjacent to beach+grass block still get overlay
+    expect(result.overlays[0 * 3 + 1]).not.toBeNull();
   });
 
-  it('uses default atlas when neighbor is surround tile', () => {
-    // water(1) has surround=2 (grass). Water bordered by grass → default atlas correct.
-    // 0 1 0
-    // 2 1 0
-    // 0 1 0
-    const data = [0, 1, 0, 2, 1, 0, 0, 1, 0];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    // center (4): left=2 (grass = surround), so default atlas is fine
-    expect(result[4]).toEqual({ atlasPath: 'water.json', regionName: expect.stringContaining('water_') });
-  });
-
-  it('falls back to own atlas when no transition defined', () => {
-    // water(1) bordered by rock(4) — no transition 1_4 defined
-    const data = [0, 4, 0, 1, 1, 0, 0, 0, 0];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    // idx 3: water, right neighbor is water(1), left=0, up=4(no transition), down=0
-    expect(result[3]).toEqual({ atlasPath: 'water.json', regionName: expect.stringContaining('water_') });
-  });
-
-  it('compatible tiles count as same for bitmask', () => {
-    // beach(3) has compatible: [2] (grass). So grass is treated as same.
-    // 0 3 0
-    // 2 3 0
-    // 0 3 0
-    const data = [0, 3, 0, 2, 3, 0, 0, 3, 0];
-    const result = resolveTilesetGrid(data, 3, 3, tilesetDef, prefixes);
-    // center(4) has left=2 (compatible), so treated as same → more neighbors
-    expect(result[4]).not.toBeNull();
-    expect(result[4]!.atlasPath).toBe('beach.json');
+  it('handles empty cells', () => {
+    const data = [0, 0, 0, 0];
+    const result = resolveTilesetGrid(data, 2, 2, tilesetDef);
+    expect(result.base.every(c => c === null)).toBe(true);
+    expect(result.overlays.every(c => c === null)).toBe(true);
   });
 
   it('returns null for out-of-range tile IDs', () => {
     const data = [0, 99, 0];
-    const result = resolveTilesetGrid(data, 3, 1, tilesetDef, prefixes);
-    expect(result[0]).toBeNull();
-    expect(result[1]).toBeNull();
-    expect(result[2]).toBeNull();
+    const result = resolveTilesetGrid(data, 3, 1, tilesetDef);
+    expect(result.base[0]).toBeNull();
+    expect(result.base[1]).toBeNull();
+    expect(result.base[2]).toBeNull();
   });
 });

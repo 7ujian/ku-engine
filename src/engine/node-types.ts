@@ -150,6 +150,7 @@ export const createTileMap = factory('TileMap', {
   columns: 0,
   rows: 0,
   data: '',
+  terrain_map: {},
 });
 
 export const createTimer = factory('Timer', {
