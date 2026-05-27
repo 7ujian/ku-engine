@@ -5,6 +5,8 @@ import type { TiledTileDef } from '../src/persistence/tiled-types.js';
 import { PhysicsWorld } from '../src/engine/physics.js';
 import { SceneTree } from '../src/engine/scene-tree.js';
 import { createNodeByType } from '../src/engine/node-types.js';
+import { importTiledMap } from '../src/persistence/tiled-importer.js';
+import type { TiledMapResolved } from '../src/persistence/tiled-loader.js';
 
 describe('extractTileCollisions', () => {
   it('extracts rect collision from tile objectgroup', () => {
@@ -259,5 +261,67 @@ describe('PhysicsWorld polygon collision', () => {
     physics.syncFromTree();
     physics.step(16);
     physics.destroy();
+  });
+});
+
+describe('Tiled collision integration', () => {
+  it('imports collision shapes as CollisionShape children of TileMap', () => {
+    const tiledMap: TiledMapResolved = {
+      width: 2,
+      height: 1,
+      tilewidth: 16,
+      tileheight: 16,
+      orientation: 'orthogonal',
+      renderorder: 'right-down',
+      infinite: false,
+      mapDir: '/test',
+      mapPath: '/test/map.tmj',
+      layers: [
+        {
+          type: 'tilelayer',
+          name: 'ground',
+          width: 2,
+          height: 1,
+          data: [1, 1],
+        } as any,
+      ],
+      tilesets: [
+        {
+          firstgid: 1,
+          name: 'terrain',
+          image: '/test/tiles.png',
+          imagewidth: 32,
+          imageheight: 16,
+          tilewidth: 16,
+          tileheight: 16,
+          tilecount: 2,
+          columns: 2,
+          tiles: [
+            {
+              id: 0,
+              objectgroup: {
+                type: 'objectgroup',
+                name: '',
+                objects: [
+                  { id: 1, x: 0, y: 0, width: 16, height: 16 },
+                ],
+              },
+            },
+          ],
+        } as any,
+      ],
+    };
+
+    const scene = importTiledMap(tiledMap, '/test');
+    const tilemap = scene.children?.[0];
+    expect(tilemap).toBeDefined();
+    expect(tilemap!.type).toBe('TileMap');
+    expect(tilemap!.children).toBeDefined();
+    expect(tilemap!.children!.length).toBeGreaterThanOrEqual(1);
+    const collisionChild = tilemap!.children!.find(c => c.type === 'CollisionShape');
+    expect(collisionChild).toBeDefined();
+    expect(collisionChild!.properties.shape).toBe('rect');
+    expect(collisionChild!.properties.width).toBe(32);
+    expect(collisionChild!.properties.height).toBe(16);
   });
 });
