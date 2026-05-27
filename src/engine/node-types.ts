@@ -69,6 +69,7 @@ export const createCollisionShape = factory('CollisionShape', {
   width: 32,
   height: 32,
   radius: 0,
+  points: [],
   color: '#33cc33',
 });
 
@@ -152,6 +153,7 @@ export const createTileMap = factory('TileMap', {
   data: '',
   terrain_map: {},
   tiled_map: '',
+  tile_collisions_enabled: false,
 });
 
 export const createTimer = factory('Timer', {
