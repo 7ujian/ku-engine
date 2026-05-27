@@ -320,6 +320,57 @@ export class PhysicsWorld {
     this.parentCache.delete(nodeId);
   }
 
+  /** Create physics bodies from tile collision data (runtime path) */
+  addTileCollisions(
+    nodeId: string,
+    merged: Array<{ type: string; x: number; y: number; width?: number; height?: number; radius?: number; points?: Array<{ x: number; y: number }> }>,
+  ): void {
+    const bodies: Matter.Body[] = [];
+    for (let i = 0; i < merged.length; i++) {
+      const col = merged[i];
+      let body: Matter.Body;
+      const label = `${nodeId}_tile_${i}`;
+      if (col.type === 'circle') {
+        body = Matter.Bodies.circle(col.x, col.y, col.radius ?? 8, {
+          label,
+          isStatic: true,
+          collisionFilter: { category: 0x0001, mask: 0xFFFF },
+        });
+      } else if (col.type === 'polygon' && col.points && col.points.length >= 3) {
+        body = Matter.Bodies.fromVertices(col.x, col.y, col.points as Matter.Vector[], {
+          label,
+          isStatic: true,
+          collisionFilter: { category: 0x0001, mask: 0xFFFF },
+        });
+        if (!body) continue;
+      } else {
+        const w = col.width ?? 16;
+        const h = col.height ?? 16;
+        body = Matter.Bodies.rectangle(col.x + w / 2, col.y + h / 2, w, h, {
+          label,
+          isStatic: true,
+          collisionFilter: { category: 0x0001, mask: 0xFFFF },
+        });
+      }
+      bodies.push(body);
+    }
+    for (const body of bodies) {
+      Matter.Composite.add(this.engine.world, body);
+      this.bodyMap.set(body.label, body);
+    }
+  }
+
+  /** Remove tile collision bodies created by addTileCollisions */
+  removeTileCollisions(nodeId: string): void {
+    const prefix = `${nodeId}_tile_`;
+    for (const [key, body] of this.bodyMap) {
+      if (key.startsWith(prefix)) {
+        Matter.Composite.remove(this.engine.world, body);
+        this.bodyMap.delete(key);
+      }
+    }
+  }
+
   syncNode(node: Node): void {
     // Ensure parent cache is populated for this node
     if (!this.parentCache.has(node.id)) {
