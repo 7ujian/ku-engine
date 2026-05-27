@@ -245,7 +245,7 @@ export class PhysicsWorld {
     } else if (shape === 'polygon') {
       const rawPoints = (node.getProperty('points') as Array<{ x: number; y: number }>) ?? [];
       if (rawPoints.length >= 3) {
-        body = Matter.Bodies.fromVertices(wx, wy, rawPoints as Matter.Vector[], { label: node.id, isStatic, collisionFilter });
+        body = Matter.Bodies.fromVertices(wx, wy, [rawPoints as Matter.Vector[]], { label: node.id, isStatic, collisionFilter });
         if (!body) {
           body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
         }
@@ -337,7 +337,7 @@ export class PhysicsWorld {
           collisionFilter: { category: 0x0001, mask: 0xFFFF },
         });
       } else if (col.type === 'polygon' && col.points && col.points.length >= 3) {
-        body = Matter.Bodies.fromVertices(col.x, col.y, col.points as Matter.Vector[], {
+        body = Matter.Bodies.fromVertices(col.x, col.y, [col.points as Matter.Vector[]], {
           label,
           isStatic: true,
           collisionFilter: { category: 0x0001, mask: 0xFFFF },
