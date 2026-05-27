@@ -10,6 +10,7 @@ import type {
 	TiledTilesetFull,
 } from './tiled-types.js';
 import { GID_MASK } from './tiled-types.js';
+import { extractTileCollisions, buildMergedCollisions } from '../engine/tiled-collision.js';
 
 /** Create a base NodeData with defaults */
 function node(id: string, type: string, properties: PropertyMap, children: NodeData[] = []): NodeData {
@@ -106,6 +107,7 @@ function buildTiledLayerData(
 			opacity: layer.opacity,
 			name: layer.name,
 			tile_images: buildTileImages(ts, projectDir),
+			tile_collisions: extractTileCollisions(ts.tiles),
 		});
 	}
 
@@ -159,6 +161,8 @@ function importTileLayer(
 		if (!ts) return [];
 
 		const relImage = ts.image ? relative(projectDir, ts.image) : '';
+		const collisionChildren = buildCollisionChildren(ts, data, layer.width, layer.height);
+
 		return [node(sanitizeId(layer.name), 'TileMap', {
 			x: layer.offsetx ?? 0,
 			y: layer.offsety ?? 0,
@@ -175,7 +179,7 @@ function importTileLayer(
 				name: layer.name,
 				tile_images: buildTileImages(ts, projectDir),
 			}],
-		})];
+		}, collisionChildren)];
 	}
 
 	// Multiple tilesets: split into sibling TileMap nodes
@@ -193,6 +197,8 @@ function importTileLayer(
 		}
 
 		const relImage = ts.image ? relative(projectDir, ts.image) : '';
+		const collisionChildren = buildCollisionChildren(ts, filteredData, layer.width, layer.height);
+
 		nodes.push(node(sanitizeId(`${layer.name}_${ts.name}`), 'TileMap', {
 			x: layer.offsetx ?? 0,
 			y: layer.offsety ?? 0,
@@ -209,7 +215,7 @@ function importTileLayer(
 				name: layer.name,
 				tile_images: buildTileImages(ts, projectDir),
 			}],
-		}));
+		}, collisionChildren));
 	}
 
 	return nodes;
@@ -295,6 +301,39 @@ function mapProperties(properties: TiledProperty[]): PropertyMap {
 		}
 	}
 	return result;
+}
+
+/** Build CollisionShape child nodes from tile collision data */
+function buildCollisionChildren(
+	ts: TiledTilesetFull,
+	data: number[],
+	layerWidth: number,
+	layerHeight: number,
+): NodeData[] {
+	const collisions = extractTileCollisions(ts.tiles);
+	if (Object.keys(collisions).length === 0) return [];
+
+	const merged = buildMergedCollisions(
+		data, layerWidth, layerHeight, collisions, ts.firstgid, ts.tilewidth, ts.tileheight,
+	);
+
+	return merged.map((col, i) => {
+		const props: PropertyMap = {
+			x: col.x,
+			y: col.y,
+			shape: col.type,
+			color: '#33cc3388',
+		};
+		if (col.type === 'rect') {
+			props.width = col.width ?? 32;
+			props.height = col.height ?? 32;
+		} else if (col.type === 'circle') {
+			props.radius = col.radius ?? 8;
+		} else if (col.type === 'polygon') {
+			props.points = col.points ?? [];
+		}
+		return node(`collision_${i}`, 'CollisionShape', props);
+	});
 }
 
 function sanitizeId(name: string): string {
