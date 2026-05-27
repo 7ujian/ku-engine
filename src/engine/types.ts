@@ -99,6 +99,30 @@ export interface TilesetDef {
   transitions?: Record<string, TilesetTransitionDef>;
 }
 
+/** A collision shape extracted from a Tiled tile's objectgroup */
+export interface TileCollisionShape {
+  type: 'rect' | 'polygon' | 'ellipse';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  points?: Array<{ x: number; y: number }>;
+}
+
+/** Maps tile local IDs to their collision shapes */
+export type TileCollisionMap = Record<number, TileCollisionShape[]>;
+
+/** A merged collision shape in world space */
+export interface MergedCollision {
+  type: 'rect' | 'polygon' | 'circle';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  points?: Array<{ x: number; y: number }>;
+}
+
 /** Tiled spritesheet layer data stored on TileMap nodes */
 export interface TiledLayerData {
   image: string;
@@ -113,4 +137,6 @@ export interface TiledLayerData {
   name?: string;
   /** Per-tile image overrides for image collection tilesets (localID → image info) */
   tile_images?: Record<number, { image: string; w: number; h: number }>;
+  /** Tile collision shapes extracted from tileset objectgroups (local tile ID → shapes) */
+  tile_collisions?: TileCollisionMap;
 }
