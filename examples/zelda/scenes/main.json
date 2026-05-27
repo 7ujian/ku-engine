@@ -10,85 +10,15 @@
         "type": "Camera2D",
         "properties": {
           "zoom": 1,
-          "offset_x": 400,
-          "offset_y": 500
+          "offset_x": 240,
+          "offset_y": 160
         }
       },
       {
-        "id": "bg_grass",
-        "type": "Block",
+        "id": "village_map",
+        "type": "TileMap",
         "properties": {
-          "x": 400,
-          "y": 320,
-          "width": 800,
-          "height": 640,
-          "color": "#4a8c3f"
-        }
-      },
-      {
-        "id": "water_body",
-        "type": "Block",
-        "properties": {
-          "x": 72,
-          "y": 200,
-          "width": 144,
-          "height": 320,
-          "color": "#2a6cb6"
-        }
-      },
-      {
-        "id": "water_shine",
-        "type": "Block",
-        "properties": {
-          "x": 56,
-          "y": 180,
-          "width": 112,
-          "height": 16,
-          "color": "#3d8ce0"
-        }
-      },
-      {
-        "id": "beach_strip",
-        "type": "Block",
-        "properties": {
-          "x": 164,
-          "y": 260,
-          "width": 24,
-          "height": 160,
-          "color": "#e8d5a3"
-        }
-      },
-      {
-        "id": "path_h",
-        "type": "Block",
-        "properties": {
-          "x": 400,
-          "y": 460,
-          "width": 500,
-          "height": 28,
-          "color": "#c4a46c"
-        }
-      },
-      {
-        "id": "path_v",
-        "type": "Block",
-        "properties": {
-          "x": 300,
-          "y": 350,
-          "width": 28,
-          "height": 220,
-          "color": "#c4a46c"
-        }
-      },
-      {
-        "id": "farmland",
-        "type": "Block",
-        "properties": {
-          "x": 680,
-          "y": 200,
-          "width": 96,
-          "height": 96,
-          "color": "#8B6914"
+          "tiled_map": "assets/tiled/village.tmj"
         }
       },
       {
@@ -96,9 +26,9 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect",
-          "width": 800,
+          "width": 480,
           "height": 16,
-          "x": 400,
+          "x": 240,
           "y": 8,
           "collision_layer": 8,
           "collision_mask": 3
@@ -109,10 +39,10 @@
         "type": "CollisionShape",
         "properties": {
           "shape": "rect",
-          "width": 800,
+          "width": 480,
           "height": 16,
-          "x": 400,
-          "y": 632,
+          "x": 240,
+          "y": 312,
           "collision_layer": 8,
           "collision_mask": 3
         }
@@ -123,9 +53,9 @@
         "properties": {
           "shape": "rect",
           "width": 16,
-          "height": 640,
+          "height": 320,
           "x": 8,
-          "y": 320,
+          "y": 160,
           "collision_layer": 8,
           "collision_mask": 3
         }
@@ -136,61 +66,9 @@
         "properties": {
           "shape": "rect",
           "width": 16,
-          "height": 640,
-          "x": 792,
-          "y": 320,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_water_top",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 144,
-          "height": 16,
-          "x": 72,
-          "y": 44,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_water_left",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 16,
           "height": 320,
-          "x": 8,
-          "y": 200,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_water_right",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 16,
-          "height": 320,
-          "x": 140,
-          "y": 200,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_water_bottom",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 144,
-          "height": 16,
-          "x": 72,
-          "y": 356,
+          "x": 472,
+          "y": 160,
           "collision_layer": 8,
           "collision_mask": 3
         }
@@ -222,8 +100,8 @@
         "type": "Sprite",
         "properties": {
           "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
-          "x": 600,
-          "y": 160
+          "x": 420,
+          "y": 100
         }
       },
       {
@@ -233,8 +111,8 @@
           "shape": "rect",
           "width": 24,
           "height": 20,
-          "x": 600,
-          "y": 174,
+          "x": 420,
+          "y": 114,
           "collision_layer": 8,
           "collision_mask": 3
         }
@@ -244,8 +122,8 @@
         "type": "Sprite",
         "properties": {
           "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree_Small.png",
-          "x": 450,
-          "y": 100
+          "x": 200,
+          "y": 260
         }
       },
       {
@@ -255,52 +133,8 @@
           "shape": "rect",
           "width": 20,
           "height": 16,
-          "x": 450,
-          "y": 108,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "tree_3",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
-          "x": 700,
-          "y": 350
-        }
-      },
-      {
-        "id": "wall_tree_3",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 24,
-          "height": 20,
-          "x": 700,
-          "y": 364,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "tree_4",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
-          "x": 220,
-          "y": 520
-        }
-      },
-      {
-        "id": "wall_tree_4",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 24,
-          "height": 20,
-          "x": 220,
-          "y": 534,
+          "x": 200,
+          "y": 268,
           "collision_layer": 8,
           "collision_mask": 3
         }
@@ -310,8 +144,8 @@
         "type": "Sprite",
         "properties": {
           "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/House_1_Wood_Base_Blue.png",
-          "x": 480,
-          "y": 260
+          "x": 360,
+          "y": 200
         }
       },
       {
@@ -321,19 +155,10 @@
           "shape": "rect",
           "width": 80,
           "height": 96,
-          "x": 480,
-          "y": 268,
+          "x": 360,
+          "y": 208,
           "collision_layer": 8,
           "collision_mask": 3
-        }
-      },
-      {
-        "id": "bridge",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Bridge_Wood.png",
-          "x": 140,
-          "y": 360
         }
       },
       {
@@ -341,8 +166,8 @@
         "type": "Sprite",
         "properties": {
           "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Chest.png",
-          "x": 370,
-          "y": 540,
+          "x": 200,
+          "y": 60,
           "hframes": 2,
           "frame": 0,
           "tags": [
@@ -354,8 +179,8 @@
         "id": "house_entrance",
         "type": "Area",
         "properties": {
-          "x": 480,
-          "y": 316,
+          "x": 360,
+          "y": 256,
           "width": 32,
           "height": 16,
           "collision_layer": 16,
@@ -379,8 +204,8 @@
         "id": "player",
         "type": "RigidBody",
         "properties": {
-          "x": 400,
-          "y": 500,
+          "x": 240,
+          "y": 160,
           "width": 20,
           "height": 24,
           "mass": 1,
@@ -581,8 +406,8 @@
         "id": "slime_0",
         "type": "RigidBody",
         "properties": {
-          "x": 600,
-          "y": 300,
+          "x": 100,
+          "y": 200,
           "width": 28,
           "height": 24,
           "mass": 1,
@@ -657,8 +482,8 @@
         "id": "slime_1",
         "type": "RigidBody",
         "properties": {
-          "x": 250,
-          "y": 420,
+          "x": 380,
+          "y": 280,
           "width": 28,
           "height": 24,
           "mass": 1,
@@ -788,7 +613,7 @@
         "id": "hud_score",
         "type": "Label",
         "properties": {
-          "x": 560,
+          "x": 360,
           "y": 16,
           "text": "Score: 0",
           "font_size": 18,
@@ -799,8 +624,8 @@
         "id": "gameover_panel",
         "type": "Node2D",
         "properties": {
-          "x": 400,
-          "y": 320,
+          "x": 240,
+          "y": 160,
           "visible": false
         },
         "children": [

@@ -98,3 +98,19 @@ export interface TilesetDef {
   tiles: TilesetTileDef[];
   transitions?: Record<string, TilesetTransitionDef>;
 }
+
+/** Tiled spritesheet layer data stored on TileMap nodes */
+export interface TiledLayerData {
+  image: string;
+  columns: number;
+  tilewidth: number;
+  tileheight: number;
+  firstgid: number;
+  data: number[];
+  width: number;
+  height: number;
+  opacity?: number;
+  name?: string;
+  /** Per-tile image overrides for image collection tilesets (localID → image info) */
+  tile_images?: Record<number, { image: string; w: number; h: number }>;
+}

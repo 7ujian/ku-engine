@@ -20,7 +20,7 @@ async function main(): Promise<void> {
   const entryScene = config.entry ?? 'main';
 
   const scenePath = sceneFilePath(resolve(projectDir), entryScene);
-  const tree = await loadScene(scenePath);
+  const tree = await loadScene(scenePath, projectDir);
 
   const scripts = new ScriptEngine(tree);
   scripts.registerTree();

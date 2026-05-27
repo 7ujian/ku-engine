@@ -34,7 +34,7 @@ export class EditorRuntime {
 
     if (scene) {
       const path = sceneFilePath(resolve(dir, 'scenes'), scene);
-      tree = await loadScene(path);
+      tree = await loadScene(path, dir);
       lastSavePath = path;
     } else {
       tree = new SceneTree(new Node('root', 'Node'));

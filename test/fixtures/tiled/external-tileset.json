@@ -1,0 +1,22 @@
+{
+  "name": "outdoor",
+  "image": "tiles.png",
+  "imagewidth": 48,
+  "imageheight": 32,
+  "tilewidth": 16,
+  "tileheight": 16,
+  "tilecount": 6,
+  "columns": 3,
+  "terrains": [
+    { "name": "grass", "tile": 0 },
+    { "name": "water", "tile": 1 }
+  ],
+  "tiles": [
+    { "id": 0, "terrain": [0, 0, 0, 0] },
+    { "id": 1, "terrain": [1, 1, 1, 1] },
+    { "id": 2, "terrain": [0, 0, 0, 1] },
+    { "id": 3, "terrain": [0, 0, 1, 0] },
+    { "id": 4, "terrain": [0, 1, 0, 0] },
+    { "id": 5, "terrain": [1, 0, 0, 0] }
+  ]
+}

@@ -12,6 +12,7 @@ import { queryScene, queryNodes, queryDiff, queryCollisions, queryLogs, queryNod
 import { buildCommand } from './commands/build.js';
 import { shellCommand } from './commands/shell.js';
 import { pluginInstallCommand, pluginRemoveCommand, pluginListCommand, pluginCreateCommand, pluginInfoCommand, pluginCheckCommand, pluginDisableCommand, pluginEnableCommand } from './commands/plugin.js';
+import { importTiledCommand } from './commands/import-tiled.js';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -98,6 +99,15 @@ export function createProgram(): Command {
     .description('Package project for distribution')
     .action(async (opts: { output: string }) => {
       await buildCommand(getProjectDir(), opts.output);
+    });
+
+  // Import Tiled map
+  program
+    .command('import-tiled <file>')
+    .option('--name <scene-name>', 'Output scene name')
+    .description('Import a Tiled map editor JSON file as a ku scene')
+    .action(async (file: string, opts: { name?: string }) => {
+      await importTiledCommand(getProjectDir(), file, opts.name);
     });
 
   // Interactive shell

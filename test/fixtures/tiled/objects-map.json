@@ -1,0 +1,38 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "orientation": "orthogonal",
+  "width": 4,
+  "height": 3,
+  "tilewidth": 16,
+  "tileheight": 16,
+  "infinite": false,
+  "nextlayerid": 3,
+  "nextobjectid": 4,
+  "tilesets": [
+    {
+      "firstgid": 1,
+      "source": "external-tileset.json"
+    }
+  ],
+  "layers": [
+    {
+      "type": "tilelayer",
+      "id": 1,
+      "name": "ground",
+      "width": 4,
+      "height": 3,
+      "data": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    },
+    {
+      "type": "objectgroup",
+      "id": 2,
+      "name": "objects",
+      "objects": [
+        { "id": 1, "name": "spawn", "type": "", "x": 16, "y": 32, "width": 0, "height": 0, "point": true },
+        { "id": 2, "name": "wall", "type": "wall", "x": 0, "y": 0, "width": 64, "height": 16 },
+        { "id": 3, "name": "chest", "type": "", "x": 32, "y": 16, "width": 16, "height": 16, "gid": 5 }
+      ]
+    }
+  ]
+}

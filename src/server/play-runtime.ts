@@ -14,6 +14,7 @@ import { hitTest } from '../engine/hit-test.js';
 import { findCamera } from '../renderer/camera.js';
 import { AudioManager } from '../engine/audio.js';
 import { loadScene, sceneFilePath, saveSceneSync } from '../persistence/scene-io.js';
+import { invalidateTiledCache } from '../persistence/tiled-cache.js';
 import { loadWav } from '../persistence/audio-loader.js';
 import { loadScriptSource } from '../persistence/script-loader.js';
 import { setGameLoop, setInputManager, setSaveRuntimeState, setSceneName } from './message-handler.js';
@@ -43,6 +44,7 @@ export class PlayRuntime {
   audio: AudioManager;
   loop: GameLoop;
   private watcher: import('node:fs').FSWatcher | null = null;
+  private tiledWatcher: import('node:fs').FSWatcher | null = null;
   private watchSceneName = '';
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
   private doWatch = false;
@@ -90,12 +92,12 @@ export class PlayRuntime {
     // RELEASE mode: load named scene
     else if (config.loadScene) {
       const path = sceneFilePath(resolve(dir, 'scenes'), config.loadScene);
-      tree = await loadScene(path);
+      tree = await loadScene(path, dir);
     }
     // RELEASE mode: load entry scene from project.json
     else {
       const path = sceneFilePath(resolve(dir, 'scenes'), entryScene);
-      tree = await loadScene(path);
+      tree = await loadScene(path, dir);
     }
 
     const instance = new Instance(config.name ?? 'play1', tree, dir, config.port);
@@ -139,7 +141,7 @@ export class PlayRuntime {
     await renderer.open('ku');
 
     const audio = new AudioManager(dir, loadWav);
-    const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name));
+    const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name), dir);
     const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
 
     setGameLoop(loop);
@@ -180,6 +182,7 @@ export class PlayRuntime {
 
   async stop(): Promise<void> {
     if (this.watcher) { this.watcher.close(); this.watcher = null; }
+    if (this.tiledWatcher) { this.tiledWatcher.close(); this.tiledWatcher = null; }
     setGameLoop(null);
     setInputManager(null);
     if (this.syncClient) this.syncClient.disconnect();
@@ -192,13 +195,24 @@ export class PlayRuntime {
     const { watch } = require('node:fs') as typeof import('node:fs');
     const scenesDir = resolve(this.dir, 'scenes');
     let debounce: ReturnType<typeof setTimeout> | null = null;
-    this.watcher = watch(scenesDir, (_event: string, filename: string | null) => {
-      if (!filename || !filename.endsWith('.json')) return;
+    const triggerReload = () => {
       if (debounce) clearTimeout(debounce);
       debounce = setTimeout(() => {
         debounce = null;
         this.reloadScene();
       }, 300);
+    };
+    this.watcher = watch(scenesDir, (_event: string, filename: string | null) => {
+      if (!filename || !filename.endsWith('.json')) return;
+      triggerReload();
+    });
+    // Also watch for Tiled map changes
+    this.tiledWatcher = watch(this.dir, { recursive: true }, (_event: string, filename: string | null) => {
+      if (!filename) return;
+      if (filename.endsWith('.tmj') || filename.endsWith('.tsx')) {
+        invalidateTiledCache(resolve(this.dir, filename));
+        triggerReload();
+      }
     });
   }
 

@@ -1,0 +1,32 @@
+{
+    "activeFile": "",
+    "expandedProjectPaths": [
+    ],
+    "fileStates": {
+        "Beach_Tile.tsj": {
+            "scaleInDock": 1,
+            "scaleInEditor": 11
+        },
+        "Beach_Tile.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        }
+    },
+    "last.imagePath": "/home/jqiu/workspace/ku/examples/zelda/assets/Cute_Fantasy_Free/Tiles",
+    "map.lastUsedFormat": "json",
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "openFiles": [
+    ],
+    "project": "zelda.tiled-project",
+    "recentFiles": [
+        "Beach_Tile.tsj",
+        "Beach_Tile.tsx"
+    ],
+    "tileset.lastUsedFormat": "json",
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    }
+}

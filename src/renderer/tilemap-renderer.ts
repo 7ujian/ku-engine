@@ -5,7 +5,7 @@ import type { AtlasDef } from '../engine/atlas.js';
 import { regionByName } from '../engine/atlas.js';
 import { loadAtlas } from '../persistence/atlas-loader.js';
 import { loadTileset } from '../persistence/tileset-loader.js';
-import type { TilesetDef } from '../engine/types.js';
+import type { TilesetDef, TiledLayerData } from '../engine/types.js';
 import {
 	type TerrainDef,
 	type ResolvedCell,
@@ -15,6 +15,7 @@ import {
 	resolveAutotile,
 	resolveTilesetGrid,
 } from '../engine/autotile.js';
+import { GID_FLIP_H, GID_FLIP_V, GID_FLIP_D, GID_MASK } from '../persistence/tiled-types.js';
 
 type Ctx = ReturnType<Canvas['getContext']>;
 
@@ -37,6 +38,13 @@ export class TilemapRenderer {
 	}
 
 	drawTilemap(node: Node, x: number, y: number): void {
+		// Tiled format path
+		const tiledLayers = node.getProperty('tiled_layers');
+		if (Array.isArray(tiledLayers) && tiledLayers.length > 0) {
+			this.drawTiledLayer(tiledLayers as TiledLayerData[], x, y);
+			return;
+		}
+
 		const tilesetProp = (node.getProperty('tileset') as string) ?? '';
 
 		// New path: .tileset.json
@@ -56,6 +64,85 @@ export class TilemapRenderer {
 		}
 
 		this.drawLegacy(node, x, y);
+	}
+
+	private drawTiledLayer(layers: TiledLayerData[], baseX: number, baseY: number): void {
+		const ctx = this.ctx;
+		ctx.imageSmoothingEnabled = false;
+
+		for (const layer of layers) {
+			const prevAlpha = ctx.globalAlpha;
+			if (layer.opacity !== undefined && layer.opacity < 1) {
+				ctx.globalAlpha = layer.opacity;
+			}
+
+			const tw = layer.tilewidth;
+			const th = layer.tileheight;
+			const imgKey = layer.image.startsWith('/') ? layer.image : resolve(this.projectDir, layer.image);
+			const isCollection = !layer.image || layer.columns === 0;
+			const spritesheetImg = !isCollection ? this.textureCache.get(imgKey) : null;
+
+			for (let row = 0; row < layer.height; row++) {
+				for (let col = 0; col < layer.width; col++) {
+					const rawGid = layer.data[row * layer.width + col];
+					if (rawGid === 0) continue;
+
+					const flipH = !!(rawGid & GID_FLIP_H);
+					const flipV = !!(rawGid & GID_FLIP_V);
+					const flipD = !!(rawGid & GID_FLIP_D);
+					const gid = rawGid & GID_MASK;
+
+					if (gid === 0) continue;
+					if (gid < layer.firstgid) continue;
+
+					const localId = gid - layer.firstgid;
+					const dx = baseX + col * tw;
+					const dy = baseY + row * th;
+
+					if (isCollection) {
+						// Image collection: each tile has its own image
+						const tileInfo = layer.tile_images?.[localId];
+						if (!tileInfo) continue;
+						const tileImgKey = tileInfo.image.startsWith('/') ? tileInfo.image : resolve(this.projectDir, tileInfo.image);
+							const tileImg = this.textureCache.get(tileImgKey);
+						if (!tileImg) continue;
+						ctx.drawImage(tileImg, 0, 0, tileInfo.w, tileInfo.h, dx, dy + th - tileInfo.h, tileInfo.w, tileInfo.h);
+					} else if (spritesheetImg) {
+						const srcCol = localId % layer.columns;
+						const srcRow = Math.floor(localId / layer.columns);
+						const sx = srcCol * tw;
+						const sy = srcRow * th;
+
+						if (flipH || flipV || flipD) {
+							ctx.save();
+							ctx.translate(dx + tw / 2, dy + th / 2);
+							if (flipD) {
+								ctx.rotate(Math.PI / 2);
+								ctx.scale(1, -1);
+							}
+							if (flipH) ctx.scale(-1, 1);
+							if (flipV) ctx.scale(1, -1);
+							ctx.drawImage(spritesheetImg, sx, sy, tw, th, -tw / 2, -th / 2, tw, th);
+							ctx.restore();
+						} else {
+							ctx.drawImage(spritesheetImg, sx, sy, tw, th, dx, dy, tw, th);
+						}
+					}
+				}
+			}
+
+			if (layer.opacity !== undefined && layer.opacity < 1) {
+				ctx.globalAlpha = prevAlpha;
+			}
+		}
+	}
+
+	hasTexture(path: string): boolean {
+		return this.textureCache.has(path);
+	}
+
+	cacheTexture(path: string, img: Image): void {
+		this.textureCache.set(path, img);
 	}
 
 	private drawFromTileset(node: Node, x: number, y: number): void {

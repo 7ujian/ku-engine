@@ -1,0 +1,29 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "width": 4,
+  "height": 3,
+  "tilewidth": 16,
+  "tileheight": 16,
+  "infinite": false,
+  "nextlayerid": 2,
+  "nextobjectid": 1,
+  "tilesets": [
+    {
+      "firstgid": 1,
+      "source": "external-tileset.json"
+    }
+  ],
+  "layers": [
+    {
+      "type": "tilelayer",
+      "id": 1,
+      "name": "ground",
+      "width": 4,
+      "height": 3,
+      "data": [1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1]
+    }
+  ]
+}

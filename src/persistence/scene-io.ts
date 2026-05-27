@@ -1,16 +1,19 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { Node } from '../engine/node.js';
 import { SceneTree } from '../engine/scene-tree.js';
 import type { SceneFile, NodeData } from '../engine/types.js';
+import { loadTiledMapCached } from './tiled-cache.js';
+import { importTiledMapMerged } from './tiled-importer.js';
 
-export async function loadScene(filePath: string): Promise<SceneTree> {
+export async function loadScene(filePath: string, projectDir?: string): Promise<SceneTree> {
   const content = await readFile(filePath, 'utf-8');
   const data: SceneFile = JSON.parse(content);
   const scenesDir = dirname(filePath);
   const resolved = await resolveInstances(data.root, scenesDir, new Set());
-  const root = Node.fromJSON(resolved);
+  const tiledResolved = await resolveTiledMaps(resolved, projectDir ?? dirname(filePath));
+  const root = Node.fromJSON(tiledResolved);
   return new SceneTree(root);
 }
 
@@ -66,6 +69,28 @@ function mergeNodeData(template: NodeData, instance: NodeData): NodeData {
     ...(template.js_script || instance.js_script
       ? { js_script: instance.js_script || template.js_script }
       : {}),
+  };
+}
+
+async function resolveTiledMaps(nodeData: NodeData, projectDir: string): Promise<NodeData> {
+  const children = await Promise.all(
+    (nodeData.children ?? []).map(c => resolveTiledMaps(c, projectDir)),
+  );
+
+  const mapRef = (nodeData.properties?.tiled_map as string) ?? '';
+  if (!mapRef) return { ...nodeData, children };
+
+  const absPath = resolve(projectDir, mapRef);
+  const tiledMap = await loadTiledMapCached(absPath);
+  const merged = importTiledMapMerged(tiledMap, projectDir);
+
+  const newProps = { ...nodeData.properties, tiled_layers: merged.tiled_layers };
+  delete (newProps as Record<string, unknown>).tiled_map;
+
+  return {
+    ...nodeData,
+    properties: newProps,
+    children: [...merged.children, ...children],
   };
 }
 

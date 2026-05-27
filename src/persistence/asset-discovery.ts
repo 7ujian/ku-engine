@@ -117,6 +117,9 @@ function collectNodeAssets(
   if (typeof props.tileset === 'string' && props.tileset) {
     add(assets.tilesets, props.tileset);
   }
+  if (typeof props.tiled_map === 'string' && props.tiled_map) {
+    add(assets.tilemaps, props.tiled_map);
+  }
   if (typeof props.data === 'string' && props.data && !props.data.startsWith('\n')) {
     // Only add if it looks like a file path, not inline CSV data
     if (!props.data.includes('\n') && (props.data.endsWith('.csv') || props.data.endsWith('.json'))) {

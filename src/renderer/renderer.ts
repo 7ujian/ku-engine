@@ -496,20 +496,47 @@ export class Renderer {
 			}
 
 			if (node.type === 'TileMap') {
-				const tileset = (node.getProperty('tileset') as string) ?? '';
-				const cellSize = (node.getProperty('cell_size') as number) ?? 16;
-				if (tileset.endsWith('.tileset.json')) {
-					loadPromises.push(
-						this.tilemapRenderer.loadTilesetDef(tileset).then(def => {
-							if (def) return this.tilemapRenderer.loadTilesetTextures(def);
-						}),
-					);
-				} else if (tileset) {
-					loadPromises.push(this.tilemapRenderer.loadTilesetImage(tileset, cellSize, cellSize));
-				}
-				const terrainMap = node.getProperty('terrain_map');
-				if (terrainMap && typeof terrainMap === 'object') {
-					loadPromises.push(this.tilemapRenderer.loadTerrainAtlases(node));
+				// Tiled format: tiled_layers property
+				const tiledLayers = node.getProperty('tiled_layers');
+				if (Array.isArray(tiledLayers)) {
+					for (const layer of tiledLayers as any[]) {
+						// Spritesheet image
+						if (layer.image) {
+							const abs = layer.image.startsWith('/') ? layer.image : resolve(this.projectDir, layer.image);
+							if (!this.tilemapRenderer.hasTexture(abs)) {
+								loadPromises.push(
+									loadImage(abs).then(img => { this.tilemapRenderer.cacheTexture(abs, img); }).catch(() => {}),
+								);
+							}
+						}
+						// Per-tile images (image collection tilesets)
+						if (layer.tile_images) {
+							for (const tileInfo of Object.values(layer.tile_images) as { image: string }[]) {
+								const abs = tileInfo.image.startsWith('/') ? tileInfo.image : resolve(this.projectDir, tileInfo.image);
+								if (!this.tilemapRenderer.hasTexture(abs)) {
+									loadPromises.push(
+										loadImage(abs).then(img => { this.tilemapRenderer.cacheTexture(abs, img); }).catch(() => {}),
+									);
+								}
+							}
+						}
+					}
+				} else {
+					const tileset = (node.getProperty('tileset') as string) ?? '';
+					const cellSize = (node.getProperty('cell_size') as number) ?? 16;
+					if (tileset.endsWith('.tileset.json')) {
+						loadPromises.push(
+							this.tilemapRenderer.loadTilesetDef(tileset).then(def => {
+								if (def) return this.tilemapRenderer.loadTilesetTextures(def);
+							}),
+						);
+					} else if (tileset) {
+						loadPromises.push(this.tilemapRenderer.loadTilesetImage(tileset, cellSize, cellSize));
+					}
+					const terrainMap = node.getProperty('terrain_map');
+					if (terrainMap && typeof terrainMap === 'object') {
+						loadPromises.push(this.tilemapRenderer.loadTerrainAtlases(node));
+					}
 				}
 			}
 
