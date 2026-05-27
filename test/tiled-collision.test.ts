@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { extractTileCollisions, mergeAdjacentRects, buildMergedCollisions } from '../src/engine/tiled-collision.js';
 import type { TileCollisionMap } from '../src/engine/types.js';
 import type { TiledTileDef } from '../src/persistence/tiled-types.js';
+import { PhysicsWorld } from '../src/engine/physics.js';
+import { SceneTree } from '../src/engine/scene-tree.js';
+import { createNodeByType } from '../src/engine/node-types.js';
 
 describe('extractTileCollisions', () => {
   it('extracts rect collision from tile objectgroup', () => {
@@ -234,5 +237,27 @@ describe('buildMergedCollisions', () => {
     const result = buildMergedCollisions(data, 1, 1, collisions, 1, 16, 16);
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe('polygon');
+  });
+});
+
+describe('PhysicsWorld polygon collision', () => {
+  it('creates a Matter.js body for polygon CollisionShape', () => {
+    const tree = new SceneTree();
+    const physics = new PhysicsWorld(tree);
+    const shape = createNodeByType('CollisionShape', 'poly_shape', {
+      shape: 'polygon',
+      x: 100,
+      y: 100,
+      points: [
+        { x: 0, y: -20 },
+        { x: 20, y: 0 },
+        { x: 0, y: 20 },
+        { x: -20, y: 0 },
+      ],
+    });
+    tree.add('/', shape);
+    physics.syncFromTree();
+    physics.step(16);
+    physics.destroy();
   });
 });

@@ -242,6 +242,16 @@ export class PhysicsWorld {
     if (shape === 'circle') {
       const radius = (node.getProperty('radius') as number) ?? 16;
       body = Matter.Bodies.circle(wx, wy, radius, { label: node.id, isStatic, collisionFilter });
+    } else if (shape === 'polygon') {
+      const rawPoints = (node.getProperty('points') as Array<{ x: number; y: number }>) ?? [];
+      if (rawPoints.length >= 3) {
+        body = Matter.Bodies.fromVertices(wx, wy, rawPoints as Matter.Vector[], { label: node.id, isStatic, collisionFilter });
+        if (!body) {
+          body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
+        }
+      } else {
+        body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
+      }
     } else {
       body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
     }
