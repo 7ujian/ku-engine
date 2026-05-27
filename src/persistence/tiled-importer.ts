@@ -322,6 +322,8 @@ function buildCollisionChildren(
 			x: col.x,
 			y: col.y,
 			shape: col.type,
+			collision_layer: 8,
+			collision_mask: 65535,
 			color: '#33cc3388',
 		};
 		if (col.type === 'rect') {

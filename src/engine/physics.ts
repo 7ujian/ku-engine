@@ -1,8 +1,9 @@
 import Matter from 'matter-js';
 import { SceneTree } from './scene-tree.js';
 import { Node } from './node.js';
-import type { PropertyMap } from './types.js';
+import type { PropertyMap, TiledLayerData, MergedCollision } from './types.js';
 import { getWorldTransform, worldToLocal, getLocalTransform } from './transform.js';
+import { buildMergedCollisions } from './tiled-collision.js';
 
 export const PHYSICS_PROPERTIES = new Set([
   'x', 'y', 'velocity.x', 'velocity.y', 'rotation', 'scale_x', 'scale_y',
@@ -34,6 +35,7 @@ export class PhysicsWorld {
       if (node.type === 'RigidBody') this.syncBody(node);
       else if (node.type === 'CollisionShape') this.syncShape(node);
       else if (node.type === 'Area') this.syncArea(node);
+      else if (node.type === 'TileMap') this.syncTileCollisions(node);
     });
   }
 
@@ -323,34 +325,37 @@ export class PhysicsWorld {
   /** Create physics bodies from tile collision data (runtime path) */
   addTileCollisions(
     nodeId: string,
-    merged: Array<{ type: string; x: number; y: number; width?: number; height?: number; radius?: number; points?: Array<{ x: number; y: number }> }>,
+    merged: MergedCollision[],
+    offsetX = 0,
+    offsetY = 0,
   ): void {
+    const filter = { category: 0x0008, mask: 0xFFFF };
     const bodies: Matter.Body[] = [];
     for (let i = 0; i < merged.length; i++) {
       const col = merged[i];
       let body: Matter.Body;
       const label = `${nodeId}_tile_${i}`;
       if (col.type === 'circle') {
-        body = Matter.Bodies.circle(col.x, col.y, col.radius ?? 8, {
-          label,
-          isStatic: true,
-          collisionFilter: { category: 0x0001, mask: 0xFFFF },
-        });
+        body = Matter.Bodies.circle(
+          offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
+          col.radius ?? 8,
+          { label, isStatic: true, collisionFilter: filter },
+        );
       } else if (col.type === 'polygon' && col.points && col.points.length >= 3) {
-        body = Matter.Bodies.fromVertices(col.x, col.y, [col.points as Matter.Vector[]], {
-          label,
-          isStatic: true,
-          collisionFilter: { category: 0x0001, mask: 0xFFFF },
-        });
+        body = Matter.Bodies.fromVertices(
+          offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
+          [col.points as Matter.Vector[]],
+          { label, isStatic: true, collisionFilter: filter },
+        );
         if (!body) continue;
       } else {
         const w = col.width ?? 16;
         const h = col.height ?? 16;
-        body = Matter.Bodies.rectangle(col.x + w / 2, col.y + h / 2, w, h, {
-          label,
-          isStatic: true,
-          collisionFilter: { category: 0x0001, mask: 0xFFFF },
-        });
+        body = Matter.Bodies.rectangle(
+          offsetX + (col.x ?? 0) + w / 2, offsetY + (col.y ?? 0) + h / 2,
+          w, h,
+          { label, isStatic: true, collisionFilter: filter },
+        );
       }
       bodies.push(body);
     }
@@ -367,6 +372,28 @@ export class PhysicsWorld {
       if (key.startsWith(prefix)) {
         Matter.Composite.remove(this.engine.world, body);
         this.bodyMap.delete(key);
+      }
+    }
+  }
+
+  /** Auto-create tile collision bodies from a TileMap node's tiled_layers */
+  private syncTileCollisions(node: Node): void {
+    const enabled = node.getProperty('tile_collisions_enabled');
+    if (!enabled) return;
+
+    const tiledLayers = node.getProperty('tiled_layers');
+    if (!Array.isArray(tiledLayers)) return;
+
+    const world = getWorldTransform(node);
+    for (const layer of tiledLayers as TiledLayerData[]) {
+      if (!layer.tile_collisions) continue;
+      const merged = buildMergedCollisions(
+        layer.data, layer.width, layer.height,
+        layer.tile_collisions, layer.firstgid,
+        layer.tilewidth, layer.tileheight,
+      );
+      if (merged.length > 0) {
+        this.addTileCollisions(node.id, merged, world.x, world.y);
       }
     }
   }
