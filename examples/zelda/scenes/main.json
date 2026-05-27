@@ -10,155 +10,16 @@
         "type": "Camera2D",
         "properties": {
           "zoom": 1,
-          "offset_x": 240,
-          "offset_y": 160
+          "offset_x": 379,
+          "offset_y": 492
         }
       },
       {
         "id": "village_map",
         "type": "TileMap",
         "properties": {
-          "tiled_map": "assets/tiled/village.tmj"
-        }
-      },
-      {
-        "id": "wall_top",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 480,
-          "height": 16,
-          "x": 240,
-          "y": 8,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_bottom",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 480,
-          "height": 16,
-          "x": 240,
-          "y": 312,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_left",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 16,
-          "height": 320,
-          "x": 8,
-          "y": 160,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "wall_right",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 16,
-          "height": 320,
-          "x": 472,
-          "y": 160,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "tree_0",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
-          "x": 300,
-          "y": 150
-        }
-      },
-      {
-        "id": "wall_tree_0",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 24,
-          "height": 20,
-          "x": 300,
-          "y": 164,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "tree_1",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree.png",
-          "x": 420,
-          "y": 100
-        }
-      },
-      {
-        "id": "wall_tree_1",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 24,
-          "height": 20,
-          "x": 420,
-          "y": 114,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "tree_2",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Oak_Tree_Small.png",
-          "x": 200,
-          "y": 260
-        }
-      },
-      {
-        "id": "wall_tree_2",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 20,
-          "height": 16,
-          "x": 200,
-          "y": 268,
-          "collision_layer": 8,
-          "collision_mask": 3
-        }
-      },
-      {
-        "id": "house",
-        "type": "Sprite",
-        "properties": {
-          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/House_1_Wood_Base_Blue.png",
-          "x": 360,
-          "y": 200
-        }
-      },
-      {
-        "id": "wall_house",
-        "type": "CollisionShape",
-        "properties": {
-          "shape": "rect",
-          "width": 80,
-          "height": 96,
-          "x": 360,
-          "y": 208,
-          "collision_layer": 8,
-          "collision_mask": 3
+          "tiled_map": "assets/tiled/village.tmj",
+          "tile_collisions_enabled": true
         }
       },
       {
@@ -166,8 +27,8 @@
         "type": "Sprite",
         "properties": {
           "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Chest.png",
-          "x": 200,
-          "y": 60,
+          "x": 300,
+          "y": 460,
           "hframes": 2,
           "frame": 0,
           "tags": [
@@ -176,36 +37,11 @@
         }
       },
       {
-        "id": "house_entrance",
-        "type": "Area",
-        "properties": {
-          "x": 360,
-          "y": 256,
-          "width": 32,
-          "height": 16,
-          "collision_layer": 16,
-          "collision_mask": 1,
-          "tags": [
-            "house_door"
-          ]
-        },
-        "scripts": [
-          {
-            "event": "on_area_enter",
-            "actions": [
-              {
-                "change_scene": "house"
-              }
-            ]
-          }
-        ]
-      },
-      {
         "id": "player",
         "type": "RigidBody",
         "properties": {
-          "x": 240,
-          "y": 160,
+          "x": 379,
+          "y": 492,
           "width": 20,
           "height": 24,
           "mass": 1,
@@ -406,8 +242,8 @@
         "id": "slime_0",
         "type": "RigidBody",
         "properties": {
-          "x": 100,
-          "y": 200,
+          "x": 340,
+          "y": 440,
           "width": 28,
           "height": 24,
           "mass": 1,
@@ -482,8 +318,8 @@
         "id": "slime_1",
         "type": "RigidBody",
         "properties": {
-          "x": 380,
-          "y": 280,
+          "x": 420,
+          "y": 520,
           "width": 28,
           "height": 24,
           "mass": 1,
