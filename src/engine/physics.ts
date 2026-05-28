@@ -382,8 +382,14 @@ export class PhysicsWorld {
           { label, isStatic: true, collisionFilter: filter },
         );
       } else if (col.type === 'polygon' && col.points && col.points.length >= 3) {
+        // Compute centroid so shape aligns with world position.
+        // col.points are world-space; fromVertices centres shape at hull centroid.
+        let cx = 0, cy = 0;
+        for (const p of col.points) { cx += p.x; cy += p.y; }
+        cx /= col.points.length;
+        cy /= col.points.length;
         part = Matter.Bodies.fromVertices(
-          offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
+          offsetX + cx, offsetY + cy,
           [col.points as Matter.Vector[]],
           { label, isStatic: true, collisionFilter: filter },
         );
