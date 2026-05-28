@@ -730,8 +730,7 @@ export class Renderer {
 				// Background only — children drawn in drawNodeRecursive
 				this.guiRenderer.drawPanel(node, wx, wy);
 				break;
-			case 'RigidBody':
-			case 'CollisionShape': {
+			case 'RigidBody': {
 				const atlasPath = (node.getProperty('atlas') as string) ?? '';
 				if (atlasPath) {
 					const animName = (node.getProperty('animation') as string) ?? '';
@@ -741,16 +740,11 @@ export class Renderer {
 					} else {
 						this.spriteRenderer.drawSprite(node, wx, wy, dt);
 					}
-				} else {
-					// Draw a yellow placeholder for RigidBody without atlas
-					const w = (node.getProperty('width') as number) ?? 32;
-					const h = (node.getProperty('height') as number) ?? 32;
-					const color = (node.getProperty('color') as string) ?? '#ffff00';
-					ctx.fillStyle = color;
-					ctx.fillRect(wx - w / 2, wy - h / 2, w, h);
 				}
+				// RigidBody without atlas is invisible in normal pass (debug overlay shows it)
 				break;
 			}
+			// CollisionShape has no visual — only rendered in debug overlay
 			// Area nodes only render in debug overlay
 		}
 		ctx.restore();
