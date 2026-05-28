@@ -7,8 +7,17 @@ export interface CameraState {
   zoom: number;
 }
 
+function isNodeInTree(node: Node, root: Node): boolean {
+  let current: Node | null = node;
+  while (current) {
+    if (current === root) return true;
+    current = current.parent;
+  }
+  return false;
+}
+
 export function findCamera(tree: SceneTree, cached: { node: Node | null; cam: CameraState }): CameraState {
-  if (cached.node && cached.node.type === 'Camera2D' && cached.node.parent !== null) {
+  if (cached.node && cached.node.type === 'Camera2D' && isNodeInTree(cached.node, tree.root)) {
     cached.cam.x = (cached.node.getProperty('offset_x') as number) ?? 0;
     cached.cam.y = (cached.node.getProperty('offset_y') as number) ?? 0;
     cached.cam.zoom = (cached.node.getProperty('zoom') as number) ?? 1;
