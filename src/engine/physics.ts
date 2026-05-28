@@ -20,9 +20,8 @@ export class PhysicsWorld {
   private entries = new Map<string, BodyEntry>();
   private childShapeIds = new Set<string>();
   private tree: SceneTree;
-  private detector: Matter.Detector | null = null;
-  private cachedCollisions: Array<{ nodeA: string; nodeB: string }> | null = null;
-  private cachedAreaOverlaps: Array<{ nodeA: string; nodeB: string }> | null = null;
+  private currentCollisions: Array<{ nodeA: string; nodeB: string }> = [];
+  private currentAreaOverlaps: Array<{ nodeA: string; nodeB: string }> = [];
   private profiler: Profiler | null = null;
 
   constructor(tree: SceneTree) {
@@ -30,6 +29,20 @@ export class PhysicsWorld {
     this.engine = Matter.Engine.create();
     this.engine.gravity.y = 0;
     this.engine.gravity.scale = 0.003;
+
+    Matter.Events.on(this.engine, 'collisionActive', (event) => {
+      for (const pair of event.pairs) {
+        const idA = pair.bodyA.label;
+        const idB = pair.bodyB.label;
+        if (!idA || !idB) continue;
+        if (pair.bodyA.isStatic && pair.bodyB.isStatic) continue;
+        if (pair.isSensor) {
+          this.currentAreaOverlaps.push({ nodeA: idA, nodeB: idB });
+        } else {
+          this.currentCollisions.push({ nodeA: idA, nodeB: idB });
+        }
+      }
+    });
   }
 
   setProfiler(p: Profiler): void {
@@ -44,6 +57,52 @@ export class PhysicsWorld {
     return this.entries.get(nodeId)?.body;
   }
 
+  getDebugBodies(): Array<{
+    x: number; y: number;
+    width: number; height: number;
+    isSensor: boolean; isStatic: boolean;
+    label: string;
+    parts?: Array<{ x: number; y: number; width: number; height: number }>;
+  }> {
+    const result: Array<{
+      x: number; y: number;
+      width: number; height: number;
+      isSensor: boolean; isStatic: boolean;
+      label: string;
+      parts?: Array<{ x: number; y: number; width: number; height: number }>;
+    }> = [];
+    for (const entry of this.entries.values()) {
+      const b = entry.body;
+      const base: {
+        x: number; y: number;
+        width: number; height: number;
+        isSensor: boolean; isStatic: boolean;
+        label: string;
+        parts?: Array<{ x: number; y: number; width: number; height: number }>;
+      } = {
+        x: b.position.x,
+        y: b.position.y,
+        width: 0, height: 0,
+        isSensor: b.isSensor,
+        isStatic: b.isStatic,
+        label: b.label,
+      };
+      if (b.parts.length > 1) {
+        // Compound body — extract each part's bounds
+        base.parts = b.parts.slice(1).map((p: Matter.Body) => ({
+          x: p.position.x,
+          y: p.position.y,
+          width: (p.bounds.max.x - p.bounds.min.x),
+          height: (p.bounds.max.y - p.bounds.min.y),
+        }));
+      }
+      base.width = b.bounds.max.x - b.bounds.min.x;
+      base.height = b.bounds.max.y - b.bounds.min.y;
+      result.push(base);
+    }
+    return result;
+  }
+
   syncFromTree(): void {
     this.entries.clear();
     this.childShapeIds.clear();
@@ -56,8 +115,8 @@ export class PhysicsWorld {
   }
 
   step(dt: number): void {
-    this.cachedCollisions = null;
-    this.cachedAreaOverlaps = null;
+    this.currentCollisions = [];
+    this.currentAreaOverlaps = [];
 
     const m = this.profiler ? (n: string, fn: () => void) => this.profiler!.measure(n, fn) : (_n: string, fn: () => void) => fn();
 
@@ -140,44 +199,11 @@ export class PhysicsWorld {
   }
 
   getCollisions(): Array<{ nodeA: string; nodeB: string }> {
-    if (!this.cachedCollisions) this.detectAll();
-    return this.cachedCollisions!;
+    return this.currentCollisions;
   }
 
   getAreaOverlaps(): Array<{ nodeA: string; nodeB: string }> {
-    if (!this.cachedAreaOverlaps) this.detectAll();
-    return this.cachedAreaOverlaps!;
-  }
-
-  private detectAll(): void {
-    const bodies = Matter.Composite.allBodies(this.engine.world);
-    if (!this.detector) {
-      this.detector = Matter.Detector.create({ bodies });
-    } else {
-      Matter.Detector.setBodies(this.detector, bodies);
-    }
-    const events = Matter.Detector.collisions(this.detector);
-    const collisions: Array<{ nodeA: string; nodeB: string }> = [];
-    const overlaps: Array<{ nodeA: string; nodeB: string }> = [];
-    for (const pair of events) {
-      const idA = pair.bodyA.label;
-      const idB = pair.bodyB.label;
-      if (!idA || !idB) continue;
-      if (pair.bodyA.isSensor && pair.bodyB.isSensor) {
-        overlaps.push({ nodeA: idA, nodeB: idB });
-      } else if (!pair.bodyA.isSensor && !pair.bodyB.isSensor) {
-        collisions.push({ nodeA: idA, nodeB: idB });
-      } else {
-        overlaps.push({ nodeA: idA, nodeB: idB });
-      }
-    }
-    this.cachedCollisions = collisions;
-    this.cachedAreaOverlaps = overlaps;
-  }
-
-  invalidateCollisionCache(): void {
-    this.cachedCollisions = null;
-    this.cachedAreaOverlaps = null;
+    return this.currentAreaOverlaps;
   }
 
   private syncBody(node: Node): void {
@@ -318,46 +344,56 @@ export class PhysicsWorld {
     offsetX = 0,
     offsetY = 0,
   ): void {
+    if (merged.length === 0) return;
     const filter = { category: 0x0008, mask: 0xFFFF };
     const tileNode = this.entries.has(nodeId) ? this.entries.get(nodeId)!.node : this.tree.get(nodeId);
-    for (let i = 0; i < merged.length; i++) {
-      const col = merged[i];
-      let body: Matter.Body;
-      const label = `${nodeId}_tile_${i}`;
+    const label = `${nodeId}_compound`;
+
+    const parts: Matter.Body[] = [];
+    for (const col of merged) {
+      let part: Matter.Body;
       if (col.type === 'circle') {
-        body = Matter.Bodies.circle(
+        part = Matter.Bodies.circle(
           offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
           col.radius ?? 8,
-          { label, isStatic: true, collisionFilter: filter },
+          { isStatic: true, collisionFilter: filter },
         );
       } else if (col.type === 'polygon' && col.points && col.points.length >= 3) {
-        body = Matter.Bodies.fromVertices(
+        part = Matter.Bodies.fromVertices(
           offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
           [col.points as Matter.Vector[]],
-          { label, isStatic: true, collisionFilter: filter },
+          { isStatic: true, collisionFilter: filter },
         );
-        if (!body) continue;
+        if (!part) continue;
       } else {
         const w = col.width ?? 16;
         const h = col.height ?? 16;
-        body = Matter.Bodies.rectangle(
+        part = Matter.Bodies.rectangle(
           offsetX + (col.x ?? 0) + w / 2, offsetY + (col.y ?? 0) + h / 2,
           w, h,
-          { label, isStatic: true, collisionFilter: filter },
+          { isStatic: true, collisionFilter: filter },
         );
       }
-      Matter.Composite.add(this.engine.world, body);
-      this.entries.set(label, { body, node: tileNode });
+      parts.push(part);
     }
+
+    if (parts.length === 0) return;
+    const compound = Matter.Body.create({
+      parts,
+      isStatic: true,
+      label,
+      collisionFilter: filter,
+    });
+    Matter.Composite.add(this.engine.world, compound);
+    this.entries.set(label, { body: compound, node: tileNode });
   }
 
   removeTileCollisions(nodeId: string): void {
-    const prefix = `${nodeId}_tile_`;
-    for (const [key, entry] of this.entries) {
-      if (key.startsWith(prefix)) {
-        Matter.Composite.remove(this.engine.world, entry.body);
-        this.entries.delete(key);
-      }
+    const label = `${nodeId}_compound`;
+    const entry = this.entries.get(label);
+    if (entry) {
+      Matter.Composite.remove(this.engine.world, entry.body);
+      this.entries.delete(label);
     }
   }
 
@@ -392,8 +428,7 @@ export class PhysicsWorld {
     Matter.Engine.clear(this.engine);
     this.entries.clear();
     this.childShapeIds.clear();
-    this.detector = null;
-    this.cachedCollisions = null;
-    this.cachedAreaOverlaps = null;
+    this.currentCollisions = [];
+    this.currentAreaOverlaps = [];
   }
 }

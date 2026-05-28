@@ -174,6 +174,13 @@ export class Renderer {
 	private onTouch: TouchHandler | null = null;
 	private projectDir: string;
 	private debugPhysics: boolean;
+	private debugBodies: Array<{
+		x: number; y: number;
+		width: number; height: number;
+		isSensor: boolean; isStatic: boolean;
+		label: string;
+		parts?: Array<{ x: number; y: number; width: number; height: number }>;
+	}> = [];
 
 	// Immutable config
 	private readonly config: WindowConfig;
@@ -239,6 +246,16 @@ export class Renderer {
 
 	setKeyHandler(handler: KeyHandler): void {
 		this.onKey = handler;
+	}
+
+	setDebugBodies(bodies: Array<{
+		x: number; y: number;
+		width: number; height: number;
+		isSensor: boolean; isStatic: boolean;
+		label: string;
+		parts?: Array<{ x: number; y: number; width: number; height: number }>;
+	}>): void {
+		this.debugBodies = bodies;
 	}
 
 	setTouchHandler(handler: TouchHandler): void {
@@ -727,6 +744,20 @@ export class Renderer {
 
 	private drawDebugOverlay(tree: SceneTree): void {
 		if (!this.debugPhysics) return;
+		// Draw physics bodies (includes tile collisions not in scene tree)
+		for (const body of this.debugBodies) {
+			const color = body.isSensor ? 'rgba(0, 255, 255, 0.8)' : body.isStatic ? '#ff6600' : '#ffff00';
+			this.ctx.strokeStyle = color;
+			this.ctx.lineWidth = 1;
+			if (body.parts && body.parts.length > 0) {
+				for (const part of body.parts) {
+					this.ctx.strokeRect(part.x - part.width / 2, part.y - part.height / 2, part.width, part.height);
+				}
+			} else {
+				this.ctx.strokeRect(body.x - body.width / 2, body.y - body.height / 2, body.width, body.height);
+			}
+		}
+		// Draw scene tree debug shapes
 		this.drawDebugRecursive(tree.root, IDENTITY);
 	}
 
@@ -744,7 +775,7 @@ export class Renderer {
 				const w = (node.getProperty('width') as number) ?? (node.type === 'RigidBody' ? 30 : 32);
 				const h = (node.getProperty('height') as number) ?? (node.type === 'RigidBody' ? 24 : 32);
 				this.ctx.strokeStyle = color;
-				this.ctx.lineWidth = 1;
+				this.ctx.lineWidth = 2;
 				this.ctx.strokeRect(world.x - w / 2, world.y - h / 2, w, h);
 				break;
 			}
@@ -753,7 +784,7 @@ export class Renderer {
 				const aW = (node.getProperty('width') as number) ?? 32;
 				const aH = (node.getProperty('height') as number) ?? 32;
 				this.ctx.strokeStyle = color;
-				this.ctx.lineWidth = 1;
+				this.ctx.lineWidth = 2;
 				this.ctx.strokeRect(world.x - aW / 2, world.y - aH / 2, aW, aH);
 				break;
 			}

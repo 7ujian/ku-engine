@@ -232,6 +232,9 @@ export class GameLoop {
         this.onExit?.();
         return;
       }
+      if (this.physics) {
+        this.renderer.setDebugBodies(this.physics.getDebugBodies());
+      }
       this.renderer.draw(this.tree);
     }
 
