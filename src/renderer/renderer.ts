@@ -758,8 +758,18 @@ export class Renderer {
 
 	private drawDebugOverlay(tree: SceneTree): void {
 		if (!this.debugPhysics) return;
-		// Draw physics bodies (includes tile collisions not in scene tree)
+		// Collect scene-tree node IDs already rendered by drawDebugRecursive
+		const sceneDebugIds = new Set<string>();
+		(function collect(node: Node): void {
+			if (node.type === 'RigidBody' || node.type === 'CollisionShape' || node.type === 'Area') {
+				sceneDebugIds.add(node.id);
+			}
+			for (const child of node.children) collect(child);
+		})(tree.root);
+
+		// Draw physics-only bodies (compound tile collisions, etc.) not in scene tree
 		for (const body of this.debugBodies) {
+			if (sceneDebugIds.has(body.label)) continue;
 			const color = body.isSensor ? 'rgba(0, 255, 255, 0.8)' : body.isStatic ? '#ff6600' : '#ffff00';
 			this.ctx.strokeStyle = color;
 			this.ctx.lineWidth = 1;
@@ -771,7 +781,7 @@ export class Renderer {
 				this.drawDebugShape(body.x, body.y, body.width, body.height, body.circleRadius, body.vertices);
 			}
 		}
-		// Draw scene tree debug shapes
+		// Draw scene tree debug shapes (RigidBody yellow, CollisionShape green, Area cyan)
 		this.drawDebugRecursive(tree.root, IDENTITY);
 	}
 
