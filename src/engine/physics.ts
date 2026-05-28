@@ -62,24 +62,32 @@ export class PhysicsWorld {
     width: number; height: number;
     isSensor: boolean; isStatic: boolean;
     label: string;
-    parts?: Array<{ x: number; y: number; width: number; height: number }>;
+    circleRadius?: number;
+    vertices?: Array<{ x: number; y: number }>;
+    parts?: Array<{
+      x: number; y: number;
+      width: number; height: number;
+      circleRadius?: number;
+      vertices?: Array<{ x: number; y: number }>;
+    }>;
   }> {
     const result: Array<{
       x: number; y: number;
       width: number; height: number;
       isSensor: boolean; isStatic: boolean;
       label: string;
-      parts?: Array<{ x: number; y: number; width: number; height: number }>;
+      circleRadius?: number;
+      vertices?: Array<{ x: number; y: number }>;
+      parts?: Array<{
+        x: number; y: number;
+        width: number; height: number;
+        circleRadius?: number;
+        vertices?: Array<{ x: number; y: number }>;
+      }>;
     }> = [];
     for (const entry of this.entries.values()) {
       const b = entry.body;
-      const base: {
-        x: number; y: number;
-        width: number; height: number;
-        isSensor: boolean; isStatic: boolean;
-        label: string;
-        parts?: Array<{ x: number; y: number; width: number; height: number }>;
-      } = {
+      const base: typeof result[0] = {
         x: b.position.x,
         y: b.position.y,
         width: 0, height: 0,
@@ -88,13 +96,28 @@ export class PhysicsWorld {
         label: b.label,
       };
       if (b.parts.length > 1) {
-        // Compound body — extract each part's bounds
-        base.parts = b.parts.slice(1).map((p: Matter.Body) => ({
-          x: p.position.x,
-          y: p.position.y,
-          width: (p.bounds.max.x - p.bounds.min.x),
-          height: (p.bounds.max.y - p.bounds.min.y),
-        }));
+        base.parts = b.parts.slice(1).map((p: Matter.Body) => {
+          const part: NonNullable<typeof base.parts>[0] = {
+            x: p.position.x,
+            y: p.position.y,
+            width: p.bounds.max.x - p.bounds.min.x,
+            height: p.bounds.max.y - p.bounds.min.y,
+          };
+          if (p.circleRadius) {
+            part.circleRadius = p.circleRadius;
+          }
+          if (p.vertices.length > 2) {
+            part.vertices = p.vertices.map((v: Matter.Vector) => ({ x: v.x, y: v.y }));
+          }
+          return part;
+        });
+      } else {
+        if (b.circleRadius) {
+          base.circleRadius = b.circleRadius;
+        }
+        if (b.vertices.length > 2) {
+          base.vertices = b.vertices.map((v: Matter.Vector) => ({ x: v.x, y: v.y }));
+        }
       }
       base.width = b.bounds.max.x - b.bounds.min.x;
       base.height = b.bounds.max.y - b.bounds.min.y;
@@ -356,13 +379,13 @@ export class PhysicsWorld {
         part = Matter.Bodies.circle(
           offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
           col.radius ?? 8,
-          { isStatic: true, collisionFilter: filter },
+          { label, isStatic: true, collisionFilter: filter },
         );
       } else if (col.type === 'polygon' && col.points && col.points.length >= 3) {
         part = Matter.Bodies.fromVertices(
           offsetX + (col.x ?? 0), offsetY + (col.y ?? 0),
           [col.points as Matter.Vector[]],
-          { isStatic: true, collisionFilter: filter },
+          { label, isStatic: true, collisionFilter: filter },
         );
         if (!part) continue;
       } else {
@@ -371,7 +394,7 @@ export class PhysicsWorld {
         part = Matter.Bodies.rectangle(
           offsetX + (col.x ?? 0) + w / 2, offsetY + (col.y ?? 0) + h / 2,
           w, h,
-          { isStatic: true, collisionFilter: filter },
+          { label, isStatic: true, collisionFilter: filter },
         );
       }
       parts.push(part);

@@ -179,7 +179,14 @@ export class Renderer {
 		width: number; height: number;
 		isSensor: boolean; isStatic: boolean;
 		label: string;
-		parts?: Array<{ x: number; y: number; width: number; height: number }>;
+		circleRadius?: number;
+		vertices?: Array<{ x: number; y: number }>;
+		parts?: Array<{
+			x: number; y: number;
+			width: number; height: number;
+			circleRadius?: number;
+			vertices?: Array<{ x: number; y: number }>;
+		}>;
 	}> = [];
 
 	// Immutable config
@@ -253,7 +260,14 @@ export class Renderer {
 		width: number; height: number;
 		isSensor: boolean; isStatic: boolean;
 		label: string;
-		parts?: Array<{ x: number; y: number; width: number; height: number }>;
+		circleRadius?: number;
+		vertices?: Array<{ x: number; y: number }>;
+		parts?: Array<{
+			x: number; y: number;
+			width: number; height: number;
+			circleRadius?: number;
+			vertices?: Array<{ x: number; y: number }>;
+		}>;
 	}>): void {
 		this.debugBodies = bodies;
 	}
@@ -751,14 +765,32 @@ export class Renderer {
 			this.ctx.lineWidth = 1;
 			if (body.parts && body.parts.length > 0) {
 				for (const part of body.parts) {
-					this.ctx.strokeRect(part.x - part.width / 2, part.y - part.height / 2, part.width, part.height);
+					this.drawDebugShape(part.x, part.y, part.width, part.height, part.circleRadius, part.vertices);
 				}
 			} else {
-				this.ctx.strokeRect(body.x - body.width / 2, body.y - body.height / 2, body.width, body.height);
+				this.drawDebugShape(body.x, body.y, body.width, body.height, body.circleRadius, body.vertices);
 			}
 		}
 		// Draw scene tree debug shapes
 		this.drawDebugRecursive(tree.root, IDENTITY);
+	}
+
+	private drawDebugShape(x: number, y: number, w: number, h: number, radius?: number, vertices?: Array<{ x: number; y: number }>): void {
+		if (vertices && vertices.length >= 3) {
+			this.ctx.beginPath();
+			this.ctx.moveTo(vertices[0].x, vertices[0].y);
+			for (let i = 1; i < vertices.length; i++) {
+				this.ctx.lineTo(vertices[i].x, vertices[i].y);
+			}
+			this.ctx.closePath();
+			this.ctx.stroke();
+		} else if (radius) {
+			this.ctx.beginPath();
+			this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+			this.ctx.stroke();
+		} else {
+			this.ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+		}
 	}
 
 	private drawDebugRecursive(node: Node, parentWorld: Transform2D): void {

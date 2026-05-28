@@ -396,7 +396,7 @@
         "properties": {
           "x": 30,
           "y": 16,
-          "text": "❤",
+          "text": "\u2764",
           "font_size": 24,
           "color": "#ff3333"
         }
@@ -407,7 +407,7 @@
         "properties": {
           "x": 54,
           "y": 16,
-          "text": "❤",
+          "text": "\u2764",
           "font_size": 24,
           "color": "#ff3333"
         }
@@ -418,7 +418,7 @@
         "properties": {
           "x": 78,
           "y": 16,
-          "text": "❤",
+          "text": "\u2764",
           "font_size": 24,
           "color": "#ff3333"
         }
@@ -429,7 +429,7 @@
         "properties": {
           "x": 102,
           "y": 16,
-          "text": "❤",
+          "text": "\u2764",
           "font_size": 24,
           "color": "#ff3333"
         }
@@ -440,7 +440,7 @@
         "properties": {
           "x": 126,
           "y": 16,
-          "text": "❤",
+          "text": "\u2764",
           "font_size": 24,
           "color": "#ff3333"
         }
