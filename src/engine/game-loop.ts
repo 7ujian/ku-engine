@@ -338,6 +338,8 @@ export class GameLoop {
         this.jsScripts.setTree(newTree);
         await this.jsScripts.registerTree();
       }
+      this.scripts.evaluateEvent('on_enter', {});
+      this.jsScripts?.evaluateEvent('on_enter', {});
       // Re-wire spawn/destroy for new tree
       if (this.jsScripts) {
         const scripts = this.scripts;
