@@ -15,7 +15,7 @@ function getAttachFile(projectDir: string): string {
 export async function getAttachedInstance(projectDir: string): Promise<InstanceType> {
   const file = getAttachFile(projectDir);
   if (existsSync(file)) {
-    const content = await readFile(file, 'utf-8').catch(() => '');
+    const content = (await readFile(file, 'utf-8').catch(() => '')).trim();
     if (isValidInstanceName(content)) return normalizePlayName(content);
   }
   return 'edit';

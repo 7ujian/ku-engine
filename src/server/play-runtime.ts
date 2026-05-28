@@ -143,6 +143,23 @@ export class PlayRuntime {
     const audio = new AudioManager(dir, loadWav);
     const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name), dir);
     const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
+    if ((cfg.profiling as boolean) ?? false) {
+      physics.setProfiler(loop.profiler);
+      const rt_ref = { tree: loop.getTree(), physics };
+      loop.profiler.setReportCallback((samples) => {
+        const { bodyCount } = rt_ref.physics;
+        const { nodeCount } = rt_ref.tree;
+        console.log(`\n=== Profiler Report (bodies=${bodyCount} nodes=${nodeCount}) ===`);
+        for (const s of samples) {
+          console.log(
+            `  ${s.name}: total=${s.totalMs.toFixed(1)}ms ` +
+            `avg=${s.avgMs.toFixed(3)}ms max=${s.maxMs.toFixed(3)}ms ` +
+            `count=${s.count}`,
+          );
+        }
+        console.log('');
+      });
+    }
 
     setGameLoop(loop);
     setSceneName(instance.sceneName);

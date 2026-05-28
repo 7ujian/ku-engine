@@ -7,6 +7,7 @@ import { Renderer } from '../renderer/renderer.js';
 import { CollisionEvents } from './collision-events.js';
 import { interpolateKeyframes, getEasing, applyAnimationTracks, type PropertyAnimation, type AnimTrack } from './animation.js';
 import type { AudioManager } from '../engine/audio.js';
+import { Profiler } from './profiler.js';
 
 export class GameLoop {
   private tree: SceneTree;
@@ -32,6 +33,7 @@ export class GameLoop {
   private audio: AudioManager | null = null;
   private pendingScene: { name: string } | null = null;
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
+  readonly profiler = new Profiler(5000);
 
   constructor(
     tree: SceneTree,
@@ -159,6 +161,10 @@ export class GameLoop {
     return this.physics.getCollisions();
   }
 
+  getBodyCount(): number {
+    return this.physics.bodyCount;
+  }
+
   getLogs(): string[] {
     const logs = this.scripts.getLogs();
     if (this.jsScripts) logs.push(...this.jsScripts.getLogs());
@@ -189,7 +195,9 @@ export class GameLoop {
   }
 
   private scheduleFrame(): void {
-    this.loopHandle = setTimeout(() => this.frameLoop(), 0);
+    const elapsed = performance.now() - this.lastTime;
+    const sleepMs = Math.max(1, this.fixedDt - elapsed);
+    this.loopHandle = setTimeout(() => this.frameLoop(), sleepMs);
   }
 
   private frameLoop(): void {
@@ -235,34 +243,28 @@ export class GameLoop {
     this.frame++;
 
     if (this.physicsEnabled) {
-      this.physics.applyNodeChanges();
-      this.physics.step(dt);
+      this.profiler.measure('physics.applyNodeChanges', () => this.physics.applyNodeChanges());
+      this.profiler.measure('physics.step', () => this.physics.step(dt));
 
-      // Collision events: on_collision (enter) and on_collision_exit
-      const collisions = this.physics.getCollisions();
-      this.collisionEvents.update(collisions);
+      const collisions = this.profiler.measure('physics.detect', () => this.physics.getCollisions());
+      this.profiler.measure('collisionEvents.update', () => this.collisionEvents.update(collisions));
 
-      // Area overlap events: on_area_enter and on_area_exit
-      const areaOverlaps = this.physics.getAreaOverlaps();
-      this.collisionEvents.updateAreas(areaOverlaps);
+      const areaOverlaps = this.profiler.measure('physics.areaOverlaps', () => this.physics.getAreaOverlaps());
+      this.profiler.measure('collisionEvents.updateAreas', () => this.collisionEvents.updateAreas(areaOverlaps));
     }
-    this.tickAnimationPlayers(dt);
-    this.scripts.evaluateEvent('on_frame', { frame: this.frame, dt });
-    this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame, dt });
+    this.profiler.measure('animationPlayers', () => this.tickAnimationPlayers(dt));
+    this.profiler.measure('scripts.on_frame', () => this.scripts.evaluateEvent('on_frame', { frame: this.frame, dt }));
+    this.profiler.measure('jsScripts.on_frame', () => this.jsScripts?.evaluateEvent('on_frame', { frame: this.frame, dt }));
 
-    // Audio tick — feeds queued sounds to SDL2 device
     this.audio?.tick();
 
-    // Timer events
-    this.tickTimers(dt);
+    this.profiler.measure('timers', () => this.tickTimers(dt));
 
-    // Check for pending scene change request
     const change = this.scripts.getPendingSceneChange();
     if (change) {
       this.pendingScene = change;
     }
 
-    // Clear per-tick diagnostics to prevent unbounded growth
     this.scripts.clearErrors();
   }
 

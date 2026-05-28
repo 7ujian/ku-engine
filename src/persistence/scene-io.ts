@@ -3,9 +3,10 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { Node } from '../engine/node.js';
 import { SceneTree } from '../engine/scene-tree.js';
-import type { SceneFile, NodeData } from '../engine/types.js';
+import type { SceneFile, NodeData, TiledLayerData, PropertyMap } from '../engine/types.js';
 import { loadTiledMapCached } from './tiled-cache.js';
 import { importTiledMapMerged } from './tiled-importer.js';
+import { buildMergedCollisions } from '../engine/tiled-collision.js';
 
 export async function loadScene(filePath: string, projectDir?: string): Promise<SceneTree> {
   const content = await readFile(filePath, 'utf-8');
@@ -87,10 +88,48 @@ async function resolveTiledMaps(nodeData: NodeData, projectDir: string): Promise
   const newProps = { ...nodeData.properties, tiled_layers: merged.tiled_layers };
   delete (newProps as Record<string, unknown>).tiled_map;
 
+  const collisionsEnabled = nodeData.properties?.tile_collisions_enabled as boolean;
+  const collisionChildren: NodeData[] = [];
+  if (collisionsEnabled) {
+    let idx = 0;
+    for (const layer of merged.tiled_layers as TiledLayerData[]) {
+      if (!layer.tile_collisions || Object.keys(layer.tile_collisions).length === 0) continue;
+      const merged2 = buildMergedCollisions(
+        layer.data, layer.width, layer.height,
+        layer.tile_collisions, layer.firstgid, layer.tilewidth, layer.tileheight,
+      );
+      for (const col of merged2) {
+        const props: PropertyMap = {
+          x: col.x,
+          y: col.y,
+          shape: col.type,
+          collision_layer: 8,
+          collision_mask: 65535,
+        };
+        if (col.type === 'rect') {
+          props.width = col.width ?? 32;
+          props.height = col.height ?? 32;
+        } else if (col.type === 'circle') {
+          props.radius = col.radius ?? 8;
+        } else if (col.type === 'polygon') {
+          props.points = col.points ?? [];
+        }
+        collisionChildren.push({
+          id: `collision_${idx}`,
+          type: 'CollisionShape',
+          properties: props,
+          children: [],
+          scripts: [],
+        });
+        idx++;
+      }
+    }
+  }
+
   return {
     ...nodeData,
     properties: newProps,
-    children: [...merged.children, ...children],
+    children: [...merged.children, ...collisionChildren, ...children],
   };
 }
 

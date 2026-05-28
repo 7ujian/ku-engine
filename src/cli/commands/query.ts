@@ -39,6 +39,12 @@ export async function queryNode(projectDir: string, path: string): Promise<void>
   printJson(resp.payload);
 }
 
+export async function queryProfile(projectDir: string): Promise<void> {
+  const port = await getPort(projectDir);
+  const resp = await sendCommand('localhost', port, makeMessage('query.profile'));
+  printJson(resp.payload);
+}
+
 async function getPort(projectDir: string): Promise<number> {
   const inst = await getAttachedInstance(projectDir);
   return findInstancePort(projectDir, inst);

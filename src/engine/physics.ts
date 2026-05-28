@@ -2,21 +2,28 @@ import Matter from 'matter-js';
 import { SceneTree } from './scene-tree.js';
 import { Node } from './node.js';
 import type { PropertyMap, TiledLayerData, MergedCollision } from './types.js';
-import { getWorldTransform, worldToLocal, getLocalTransform } from './transform.js';
+import { getWorldTransform, worldToLocal } from './transform.js';
 import { buildMergedCollisions } from './tiled-collision.js';
+import type { Profiler } from './profiler.js';
 
 export const PHYSICS_PROPERTIES = new Set([
   'x', 'y', 'velocity.x', 'velocity.y', 'rotation', 'scale_x', 'scale_y',
 ]);
 
+interface BodyEntry {
+  body: Matter.Body;
+  node: Node;
+}
+
 export class PhysicsWorld {
   private engine: Matter.Engine;
-  private bodyMap = new Map<string, Matter.Body>();
-  private parentCache = new Map<string, string | null>();
+  private entries = new Map<string, BodyEntry>();
+  private childShapeIds = new Set<string>();
   private tree: SceneTree;
   private detector: Matter.Detector | null = null;
   private cachedCollisions: Array<{ nodeA: string; nodeB: string }> | null = null;
   private cachedAreaOverlaps: Array<{ nodeA: string; nodeB: string }> | null = null;
+  private profiler: Profiler | null = null;
 
   constructor(tree: SceneTree) {
     this.tree = tree;
@@ -25,13 +32,22 @@ export class PhysicsWorld {
     this.engine.gravity.scale = 0.003;
   }
 
-  syncFromTree(): void {
-    this.parentCache.clear();
-    this.bodyMap.clear();
-    this.tree.traverse((node, path) => {
-      const lastSlash = path.lastIndexOf('/');
-      this.parentCache.set(node.id, lastSlash <= 0 ? null : path.slice(0, lastSlash));
+  setProfiler(p: Profiler): void {
+    this.profiler = p;
+  }
 
+  get bodyCount(): number {
+    return this.entries.size;
+  }
+
+  getBody(nodeId: string): Matter.Body | undefined {
+    return this.entries.get(nodeId)?.body;
+  }
+
+  syncFromTree(): void {
+    this.entries.clear();
+    this.childShapeIds.clear();
+    this.tree.traverse((node, _path) => {
       if (node.type === 'RigidBody') this.syncBody(node);
       else if (node.type === 'CollisionShape') this.syncShape(node);
       else if (node.type === 'Area') this.syncArea(node);
@@ -43,98 +59,83 @@ export class PhysicsWorld {
     this.cachedCollisions = null;
     this.cachedAreaOverlaps = null;
 
-    // Apply per-body gravity before Engine.update so positions reflect it
-    const gScale = this.engine.gravity.scale;
-    for (const body of this.bodyMap.values()) {
-      if (body.isStatic) continue;
-      const gs = (body.plugin as Record<string, unknown> | undefined)?.gravityScale as number ?? 1;
-      if (gs !== 0) {
-        Matter.Body.setVelocity(body, {
-          x: body.velocity.x,
-          y: body.velocity.y + gs * gScale * dt,
-        });
+    const m = this.profiler ? (n: string, fn: () => void) => this.profiler!.measure(n, fn) : (_n: string, fn: () => void) => fn();
+
+    m('phys.gravity', () => {
+      const gScale = this.engine.gravity.scale;
+      for (const entry of this.entries.values()) {
+        if (entry.body.isStatic) continue;
+        const gs = (entry.body.plugin as Record<string, unknown> | undefined)?.gravityScale as number ?? 1;
+        if (gs !== 0) {
+          Matter.Body.setVelocity(entry.body, {
+            x: entry.body.velocity.x,
+            y: entry.body.velocity.y + gs * gScale * dt,
+          });
+        }
       }
-    }
+    });
 
-    // Reposition child shapes to follow their parent rigid bodies
-    this.syncChildShapes();
-
-    Matter.Engine.update(this.engine, dt);
-    this.syncToTree();
-    // Final child shape sync after physics update
-    this.syncChildShapes();
+    m('phys.syncChildShapes1', () => this.syncChildShapes());
+    m('phys.Engine.update', () => Matter.Engine.update(this.engine, dt));
+    m('phys.syncToTree', () => this.syncToTree());
+    m('phys.syncChildShapes2', () => this.syncChildShapes());
   }
 
   applyNodeChanges(): void {
-    for (const [nodeId, body] of this.bodyMap) {
-      try {
-        const node = this.tree.get(nodeId);
-        // Skip child CollisionShapes whose parent is a RigidBody — position is derived
-        if (node.type === 'CollisionShape' && node.parent && this.bodyMap.has(node.parent.id)) continue;
-        // Read local position, convert to world for physics body
-        const world = getWorldTransform(node);
-        Matter.Body.setPosition(body, { x: world.x, y: world.y });
-        // Sync velocity (for impulses/flaps by scripts)
-        const vx = (node.getPropertyByPath('velocity.x') as number);
-        const vy = (node.getPropertyByPath('velocity.y') as number);
-        if (vx !== undefined || vy !== undefined) {
-          Matter.Body.setVelocity(body, { x: vx ?? body.velocity.x, y: vy ?? body.velocity.y });
-        }
-      } catch {
-        // node removed
+    for (const entry of this.entries.values()) {
+      if (entry.body.isStatic) continue;
+      const node = entry.node;
+      if (node.type === 'CollisionShape' && node.parent && this.entries.has(node.parent.id)) continue;
+      const world = getWorldTransform(node);
+      Matter.Body.setPosition(entry.body, { x: world.x, y: world.y });
+      const vx = (node.getPropertyByPath('velocity.x') as number);
+      const vy = (node.getPropertyByPath('velocity.y') as number);
+      if (vx !== undefined || vy !== undefined) {
+        Matter.Body.setVelocity(entry.body, { x: vx ?? entry.body.velocity.x, y: vy ?? entry.body.velocity.y });
       }
     }
   }
 
   private syncChildShapes(): void {
-    for (const [nodeId, body] of this.bodyMap) {
-      try {
-        const node = this.tree.get(nodeId);
-        if (node.type !== 'CollisionShape') continue;
+    for (const id of this.childShapeIds) {
+      const entry = this.entries.get(id);
+      if (!entry) continue;
+      const node = entry.node;
+      const parent = node.parent;
+      if (!parent) continue;
 
-        const parent = node.parent;
-        if (!parent) continue;
+      const parentEntry = this.entries.get(parent.id);
+      if (!parentEntry) continue;
 
-        const parentBody = this.bodyMap.get(parent.id);
-        // Only sync shapes whose parent has a physics body (RigidBody).
-        // Root-level shapes manage their own positions via scripts/physics.
-        if (!parentBody) continue;
+      const parentBody = parentEntry.body;
+      const parentWorld = getWorldTransform(parent);
+      const parentX = parentBody.position.x;
+      const parentY = parentBody.position.y;
+      const parentRotation = parentBody.angle;
+      const parentScaleX = parentWorld.scaleX;
+      const parentScaleY = parentWorld.scaleY;
+      const offsetX = (node.getProperty('x') as number) ?? 0;
+      const offsetY = (node.getProperty('y') as number) ?? 0;
 
-        const parentWorld = getWorldTransform(parent);
-        const parentX = parentBody.position.x;
-        const parentY = parentBody.position.y;
-        const parentRotation = parentBody.angle;
-        const parentScaleX = parentWorld.scaleX;
-        const parentScaleY = parentWorld.scaleY;
-        const offsetX = (node.getProperty('x') as number) ?? 0;
-        const offsetY = (node.getProperty('y') as number) ?? 0;
-
-        const cosR = Math.cos(parentRotation);
-        const sinR = Math.sin(parentRotation);
-        Matter.Body.setPosition(body, {
-          x: parentX + cosR * offsetX * parentScaleX - sinR * offsetY * parentScaleY,
-          y: parentY + sinR * offsetX * parentScaleX + cosR * offsetY * parentScaleY,
-        });
-      } catch {
-        // node removed
-      }
+      const cosR = Math.cos(parentRotation);
+      const sinR = Math.sin(parentRotation);
+      Matter.Body.setPosition(entry.body, {
+        x: parentX + cosR * offsetX * parentScaleX - sinR * offsetY * parentScaleY,
+        y: parentY + sinR * offsetX * parentScaleX + cosR * offsetY * parentScaleY,
+      });
     }
   }
 
   syncToTree(): void {
-    for (const [nodeId, body] of this.bodyMap) {
-      try {
-        const node = this.tree.get(nodeId);
-        // Skip child shapes of RigidBody — position is derived from parent
-        if (node.type === 'CollisionShape' && node.parent && this.bodyMap.has(node.parent.id)) continue;
-        const local = worldToLocal(node, body.position.x, body.position.y);
-        node.setProperty('x', local.x);
-        node.setProperty('y', local.y);
-        node.setPropertyByPath('velocity.x', body.velocity.x);
-        node.setPropertyByPath('velocity.y', body.velocity.y);
-      } catch {
-        // node was removed during step
-      }
+    for (const entry of this.entries.values()) {
+      if (entry.body.isStatic) continue;
+      const node = entry.node;
+      if (node.type === 'CollisionShape' && node.parent && this.entries.has(node.parent.id)) continue;
+      const local = worldToLocal(node, entry.body.position.x, entry.body.position.y);
+      node.setProperty('x', local.x);
+      node.setProperty('y', local.y);
+      node.setPropertyByPath('velocity.x', entry.body.velocity.x);
+      node.setPropertyByPath('velocity.y', entry.body.velocity.y);
     }
   }
 
@@ -148,7 +149,6 @@ export class PhysicsWorld {
     return this.cachedAreaOverlaps!;
   }
 
-  /** Run collision detection once, cache results for both getCollisions and getAreaOverlaps */
   private detectAll(): void {
     const bodies = Matter.Composite.allBodies(this.engine.world);
     if (!this.detector) {
@@ -168,7 +168,6 @@ export class PhysicsWorld {
       } else if (!pair.bodyA.isSensor && !pair.bodyB.isSensor) {
         collisions.push({ nodeA: idA, nodeB: idB });
       } else {
-        // One sensor, one non-sensor → area overlap
         overlaps.push({ nodeA: idA, nodeB: idB });
       }
     }
@@ -176,32 +175,29 @@ export class PhysicsWorld {
     this.cachedAreaOverlaps = overlaps;
   }
 
-  /** Invalidate cached collision results (call after physics step) */
   invalidateCollisionCache(): void {
     this.cachedCollisions = null;
     this.cachedAreaOverlaps = null;
   }
 
   private syncBody(node: Node): void {
-    const existing = this.bodyMap.get(node.id);
+    const existing = this.entries.get(node.id);
     const world = getWorldTransform(node);
-    const wx = world.x;
-    const wy = world.y;
+
+    if (existing) {
+      Matter.Body.setPosition(existing.body, { x: world.x, y: world.y });
+      const vx = (node.getPropertyByPath('velocity.x') as number) ?? existing.body.velocity.x;
+      const vy = (node.getPropertyByPath('velocity.y') as number) ?? existing.body.velocity.y;
+      Matter.Body.setVelocity(existing.body, { x: vx, y: vy });
+      return;
+    }
+
     const mass = (node.getProperty('mass') as number) ?? 1;
     const w = (node.getProperty('width') as number) ?? 32;
     const h = (node.getProperty('height') as number) ?? 32;
     const gravityScale = (node.getProperty('gravity_scale') as number) ?? 1;
 
-    if (existing) {
-      Matter.Body.setPosition(existing, { x: wx, y: wy });
-      // Sync velocity from node props; fall back to current body velocity if unset
-      const vx = (node.getPropertyByPath('velocity.x') as number) ?? existing.velocity.x;
-      const vy = (node.getPropertyByPath('velocity.y') as number) ?? existing.velocity.y;
-      Matter.Body.setVelocity(existing, { x: vx, y: vy });
-      return;
-    }
-
-    const body = Matter.Bodies.rectangle(wx, wy, w, h, {
+    const body = Matter.Bodies.rectangle(world.x, world.y, w, h, {
       label: node.id,
       mass,
       plugin: { gravityScale },
@@ -211,23 +207,20 @@ export class PhysicsWorld {
       },
     });
 
-    // Sync initial velocity
     const vx = (node.getPropertyByPath('velocity.x') as number) ?? 0;
     const vy = (node.getPropertyByPath('velocity.y') as number) ?? 0;
     Matter.Body.setVelocity(body, { x: vx, y: vy });
 
     Matter.Composite.add(this.engine.world, body);
-    this.bodyMap.set(node.id, body);
+    this.entries.set(node.id, { body, node });
   }
 
   private syncShape(node: Node): void {
-    const existing = this.bodyMap.get(node.id);
+    const existing = this.entries.get(node.id);
     const world = getWorldTransform(node);
-    const wx = world.x;
-    const wy = world.y;
 
     if (existing) {
-      Matter.Body.setPosition(existing, { x: wx, y: wy });
+      Matter.Body.setPosition(existing.body, { x: world.x, y: world.y });
       return;
     }
 
@@ -235,27 +228,38 @@ export class PhysicsWorld {
     const width = (node.getProperty('width') as number) ?? 32;
     const height = (node.getProperty('height') as number) ?? 32;
     const isStatic = !(node.getProperty('dynamic') as boolean);
+    const isChildOfBody = node.parent ? this.entries.has(node.parent.id) && this.entries.get(node.parent.id)!.body.plugin?.gravityScale !== undefined : false;
 
     let body: Matter.Body;
-    const collisionFilter = {
+    const collisionFilter: { category: number; mask: number; group?: number } = {
       category: (node.getProperty('collision_layer') as number) ?? 0x0001,
       mask: (node.getProperty('collision_mask') as number) ?? 0xFFFF,
     };
+    // Prevent child shapes from colliding with their parent RigidBody
+    if (isChildOfBody) {
+      const group = -(node.parent!.id.charCodeAt(0) + 1);
+      collisionFilter.group = group;
+      // Also set parent to same group so they don't collide
+      const parentEntry = this.entries.get(node.parent!.id);
+      if (parentEntry && !parentEntry.body.collisionFilter.group) {
+        Matter.Body.set(parentEntry.body, { collisionFilter: { ...parentEntry.body.collisionFilter, group } });
+      }
+    }
     if (shape === 'circle') {
       const radius = (node.getProperty('radius') as number) ?? 16;
-      body = Matter.Bodies.circle(wx, wy, radius, { label: node.id, isStatic, collisionFilter });
+      body = Matter.Bodies.circle(world.x, world.y, radius, { label: node.id, isStatic, collisionFilter });
     } else if (shape === 'polygon') {
       const rawPoints = (node.getProperty('points') as Array<{ x: number; y: number }>) ?? [];
       if (rawPoints.length >= 3) {
-        body = Matter.Bodies.fromVertices(wx, wy, [rawPoints as Matter.Vector[]], { label: node.id, isStatic, collisionFilter });
+        body = Matter.Bodies.fromVertices(world.x, world.y, [rawPoints as Matter.Vector[]], { label: node.id, isStatic, collisionFilter });
         if (!body) {
-          body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
+          body = Matter.Bodies.rectangle(world.x, world.y, width, height, { label: node.id, isStatic, collisionFilter });
         }
       } else {
-        body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
+        body = Matter.Bodies.rectangle(world.x, world.y, width, height, { label: node.id, isStatic, collisionFilter });
       }
     } else {
-      body = Matter.Bodies.rectangle(wx, wy, width, height, { label: node.id, isStatic, collisionFilter });
+      body = Matter.Bodies.rectangle(world.x, world.y, width, height, { label: node.id, isStatic, collisionFilter });
     }
 
     if (!isStatic) {
@@ -263,23 +267,26 @@ export class PhysicsWorld {
     }
 
     Matter.Composite.add(this.engine.world, body);
-    this.bodyMap.set(node.id, body);
+    this.entries.set(node.id, { body, node });
+
+    if (node.parent && this.entries.has(node.parent.id)) {
+      this.childShapeIds.add(node.id);
+    }
   }
 
   private syncArea(node: Node): void {
-    const existing = this.bodyMap.get(node.id);
+    const existing = this.entries.get(node.id);
     const world = getWorldTransform(node);
-    const wx = world.x;
-    const wy = world.y;
-    const width = (node.getProperty('width') as number) ?? 32;
-    const height = (node.getProperty('height') as number) ?? 32;
 
     if (existing) {
-      Matter.Body.setPosition(existing, { x: wx, y: wy });
+      Matter.Body.setPosition(existing.body, { x: world.x, y: world.y });
       return;
     }
 
-    const body = Matter.Bodies.rectangle(wx, wy, width, height, {
+    const width = (node.getProperty('width') as number) ?? 32;
+    const height = (node.getProperty('height') as number) ?? 32;
+
+    const body = Matter.Bodies.rectangle(world.x, world.y, width, height, {
       label: node.id,
       isStatic: true,
       isSensor: true,
@@ -289,24 +296,7 @@ export class PhysicsWorld {
       },
     });
     Matter.Composite.add(this.engine.world, body);
-    this.bodyMap.set(node.id, body);
-  }
-
-  private getParentPathCached(node: Node): string | null {
-    if (this.parentCache.has(node.id)) return this.parentCache.get(node.id) ?? null;
-    // Fallback: find via traversal
-    let found = false;
-    let parentPath: string | null = null;
-    this.tree.traverse((n, path) => {
-      if (found) return;
-      if (n === node) {
-        const lastSlash = path.lastIndexOf('/');
-        parentPath = lastSlash <= 0 ? null : path.slice(0, lastSlash);
-        this.parentCache.set(node.id, parentPath);
-        found = true;
-      }
-    });
-    return parentPath;
+    this.entries.set(node.id, { body, node });
   }
 
   setGravity(scale: number): void {
@@ -314,15 +304,14 @@ export class PhysicsWorld {
   }
 
   removeBody(nodeId: string): void {
-    const body = this.bodyMap.get(nodeId);
-    if (body) {
-      Matter.Composite.remove(this.engine.world, body);
-      this.bodyMap.delete(nodeId);
+    const entry = this.entries.get(nodeId);
+    if (entry) {
+      Matter.Composite.remove(this.engine.world, entry.body);
+      this.entries.delete(nodeId);
     }
-    this.parentCache.delete(nodeId);
+    this.childShapeIds.delete(nodeId);
   }
 
-  /** Create physics bodies from tile collision data (runtime path) */
   addTileCollisions(
     nodeId: string,
     merged: MergedCollision[],
@@ -330,7 +319,7 @@ export class PhysicsWorld {
     offsetY = 0,
   ): void {
     const filter = { category: 0x0008, mask: 0xFFFF };
-    const bodies: Matter.Body[] = [];
+    const tileNode = this.entries.has(nodeId) ? this.entries.get(nodeId)!.node : this.tree.get(nodeId);
     for (let i = 0; i < merged.length; i++) {
       const col = merged[i];
       let body: Matter.Body;
@@ -357,26 +346,21 @@ export class PhysicsWorld {
           { label, isStatic: true, collisionFilter: filter },
         );
       }
-      bodies.push(body);
-    }
-    for (const body of bodies) {
       Matter.Composite.add(this.engine.world, body);
-      this.bodyMap.set(body.label, body);
+      this.entries.set(label, { body, node: tileNode });
     }
   }
 
-  /** Remove tile collision bodies created by addTileCollisions */
   removeTileCollisions(nodeId: string): void {
     const prefix = `${nodeId}_tile_`;
-    for (const [key, body] of this.bodyMap) {
+    for (const [key, entry] of this.entries) {
       if (key.startsWith(prefix)) {
-        Matter.Composite.remove(this.engine.world, body);
-        this.bodyMap.delete(key);
+        Matter.Composite.remove(this.engine.world, entry.body);
+        this.entries.delete(key);
       }
     }
   }
 
-  /** Auto-create tile collision bodies from a TileMap node's tiled_layers */
   private syncTileCollisions(node: Node): void {
     const enabled = node.getProperty('tile_collisions_enabled');
     if (!enabled) return;
@@ -399,18 +383,6 @@ export class PhysicsWorld {
   }
 
   syncNode(node: Node): void {
-    // Ensure parent cache is populated for this node
-    if (!this.parentCache.has(node.id)) {
-      let found = false;
-      this.tree.traverse((n, path) => {
-        if (found) return;
-        if (n === node) {
-          const lastSlash = path.lastIndexOf('/');
-          this.parentCache.set(node.id, lastSlash <= 0 ? null : path.slice(0, lastSlash));
-          found = true;
-        }
-      });
-    }
     if (node.type === 'RigidBody') this.syncBody(node);
     else if (node.type === 'CollisionShape') this.syncShape(node);
     else if (node.type === 'Area') this.syncArea(node);
@@ -418,8 +390,8 @@ export class PhysicsWorld {
 
   destroy(): void {
     Matter.Engine.clear(this.engine);
-    this.bodyMap.clear();
-    this.parentCache.clear();
+    this.entries.clear();
+    this.childShapeIds.clear();
     this.detector = null;
     this.cachedCollisions = null;
     this.cachedAreaOverlaps = null;

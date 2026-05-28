@@ -3,9 +3,17 @@ import { getWorldTransform, worldToLocalDirect } from './transform.js';
 
 export class SceneTree {
   root: Node;
+  private _nodeCount = 0;
 
   constructor(root?: Node) {
     this.root = root ?? new Node('root', 'Node');
+  }
+
+  get nodeCount(): number {
+    if (this._nodeCount === 0) {
+      this.traverse(() => { this._nodeCount++; });
+    }
+    return this._nodeCount;
   }
 
   get(path: string): Node {
@@ -26,6 +34,7 @@ export class SceneTree {
       throw new Error(`child already exists: ${node.id}`);
     }
     parent.addChild(node);
+    this._nodeCount = 0;
   }
 
   remove(path: string): Node {
@@ -35,6 +44,7 @@ export class SceneTree {
     const parent = parts.length === 0 ? this.root : this.get(parts.join('/'));
     const removed = parent.removeChild(childId);
     if (!removed) throw new Error(`node not found: ${path}`);
+    this._nodeCount = 0;
     return removed;
   }
 

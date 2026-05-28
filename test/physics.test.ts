@@ -93,7 +93,7 @@ describe('PhysicsWorld', () => {
     world.syncFromTree();
 
     // Initial shape position should be parent + offset
-    const shapeBody = (world as any).bodyMap.get('shape');
+    const shapeBody = world.getBody('shape');
     expect(shapeBody.position.x).toBeCloseTo(110);
     expect(shapeBody.position.y).toBeCloseTo(100);
 
@@ -103,7 +103,7 @@ describe('PhysicsWorld', () => {
     world.step(1000 / 60);
 
     // Shape should still track parent position + offset
-    const playerBody = (world as any).bodyMap.get('player');
+    const playerBody = world.getBody('player');
     const parentY = playerBody.position.y;
     expect(shapeBody.position.x).toBeCloseTo(110, 0);
     // Shape Y should be at parent Y + 0 offset

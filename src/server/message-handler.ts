@@ -304,6 +304,11 @@ const srcPath = payload.path as string;
       return { result: node.toJSON() };
     }
 
+    case 'query.profile': {
+      if (!gameLoop) return { result: { samples: [], bodies: 0, nodes: tree.nodeCount } };
+      return { result: { samples: gameLoop.profiler.getSamples(), bodies: gameLoop.getBodyCount(), nodes: tree.nodeCount } };
+    }
+
     // Sync (editor-side)
     case 'sync.snapshot': {
 return { result: { root: tree.root.toJSON() } };

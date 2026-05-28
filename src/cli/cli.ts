@@ -8,7 +8,7 @@ import { sceneCreate, sceneList, sceneLoad, sceneTree, sceneSave, sceneRm } from
 import { nodeAdd, nodeNew, nodeInstance, nodeDuplicate, nodeSave, nodeRm, nodeSet, nodeGet, nodeList, nodeMove } from './commands/node.js';
 import { inputKey, inputClick, inputAxis } from './commands/input.js';
 import { pauseCommand, resumeCommand, stepCommand } from './commands/runtime.js';
-import { queryScene, queryNodes, queryDiff, queryCollisions, queryLogs, queryNode } from './commands/query.js';
+import { queryScene, queryNodes, queryDiff, queryCollisions, queryLogs, queryNode, queryProfile } from './commands/query.js';
 import { buildCommand } from './commands/build.js';
 import { shellCommand } from './commands/shell.js';
 import { pluginInstallCommand, pluginRemoveCommand, pluginListCommand, pluginCreateCommand, pluginInfoCommand, pluginCheckCommand, pluginDisableCommand, pluginEnableCommand } from './commands/plugin.js';
@@ -328,6 +328,13 @@ export function createProgram(): Command {
     .description('Show node properties and children')
     .action(async (path: string) => {
       await queryNode(getProjectDir(), path);
+    });
+
+  query
+    .command('profile')
+    .description('Profiler data (bodies, nodes, subsystem timing)')
+    .action(async () => {
+      await queryProfile(getProjectDir());
     });
 
   // Plugin management
