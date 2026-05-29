@@ -469,6 +469,7 @@ export class Renderer {
 	}
 
 	private _debugFrame = 0;
+	private _sceneRoot: Node | null = null;
 	private _labelCount = 0;
 	async draw(tree: SceneTree): Promise<void> {
 		if (!this.isOpen()) return;
@@ -591,6 +592,7 @@ export class Renderer {
 		}
 
 		// Draw nodes with world transform accumulation
+		this._sceneRoot = tree.root;
 		this.drawNodeRecursive(tree.root, IDENTITY, dt);
 
 		// Debug physics overlay (on top of all sprites)
@@ -606,10 +608,13 @@ export class Renderer {
 		}
 
 		this.present();
-		if (this._debugFrame % 60 === 0) console.log('[render] frame=%d labels=%d', this._debugFrame, this._labelCount);
 	}
 
 	private drawNodeRecursive(node: Node, parentWorld: Transform2D, dt: number): void {
+		this._drawNodeRecursive(node, parentWorld, dt, []);
+	}
+
+	private _drawNodeRecursive(node: Node, parentWorld: Transform2D, dt: number, labels: Array<{ node: Node; wx: number; wy: number }>): void {
 		const visible = node.getProperty('visible');
 		if (visible === false) return;
 
@@ -632,16 +637,28 @@ export class Renderer {
 			this.drawNode(node, snapped.x, snapped.y, world.scaleX, world.scaleY, dt);
 			this.guiRenderer.beginScrollView(node, snapped.x, snapped.y);
 			for (const child of node.children) {
-				this.drawNodeRecursive(child, IDENTITY, dt);
+				this._drawNodeRecursive(child, IDENTITY, dt, labels);
 			}
 			this.guiRenderer.endScrollView();
 			return;
 		}
 
-		this.drawNode(node, snapped.x, snapped.y, world.scaleX, world.scaleY, dt);
+		// Collect labels to draw after all other nodes (on top)
+		if (node.type === 'Label') {
+			labels.push({ node, wx: snapped.x, wy: snapped.y });
+		} else {
+			this.drawNode(node, snapped.x, snapped.y, world.scaleX, world.scaleY, dt);
+		}
 
 		for (const child of node.children) {
-			this.drawNodeRecursive(child, snapped, dt);
+			this._drawNodeRecursive(child, snapped, dt, labels);
+		}
+
+		// Draw collected labels last (HUD always on top)
+		if (node === this._sceneRoot) {
+			for (const l of labels) {
+				this.drawNode(l.node, l.wx, l.wy, 1, 1, dt);
+			}
 		}
 	}
 
