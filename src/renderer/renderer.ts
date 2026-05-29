@@ -468,12 +468,16 @@ export class Renderer {
 		this.window = null;
 	}
 
+	private _debugFrame = 0;
+	private _labelCount = 0;
 	async draw(tree: SceneTree): Promise<void> {
 		if (!this.isOpen()) return;
 
 		const now = Date.now();
 		const dt = now - this.lastTime;
 		this.lastTime = now;
+		this._debugFrame++;
+		this._labelCount = 0;
 
 		const ctx = this.ctx;
 		const mode = this.config.stretch_mode;
@@ -602,6 +606,7 @@ export class Renderer {
 		}
 
 		this.present();
+		if (this._debugFrame % 60 === 0) console.log('[render] frame=%d labels=%d', this._debugFrame, this._labelCount);
 	}
 
 	private drawNodeRecursive(node: Node, parentWorld: Transform2D, dt: number): void {
@@ -763,6 +768,7 @@ export class Renderer {
 				break;
 			case 'Label':
 				this.labelRenderer.drawLabel(node, wx, wy);
+				this._labelCount++;
 				break;
 			case 'Block': {
 				const w = (node.getProperty('width') as number) ?? 32;

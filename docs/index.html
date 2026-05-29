@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ku — 2D Game Engine for AI Agents</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #252936;
+      --border: #363b4f;
+      --text: #e4e7f0;
+      --text-muted: #8b90a0;
+      --accent: #7c5cfc;
+      --accent2: #fc5c7d;
+      --green: #5cfa7c;
+      --yellow: #facc5c;
+      --cyan: #5cfafc;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre {
+      font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      font-size: 0.875em;
+      background: var(--surface2);
+      border-radius: 4px;
+    }
+    code { padding: 2px 6px; }
+    pre { padding: 16px; overflow-x: auto; line-height: 1.5; }
+    pre code { background: none; padding: 0; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 48px 0 40px;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p { color: var(--text-muted); font-size: 1.1rem; margin-top: 8px; }
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    nav ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 12px 0;
+    }
+    nav a {
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.15s;
+    }
+    nav a:hover {
+      color: var(--text);
+      background: var(--surface2);
+      text-decoration: none;
+    }
+    section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 24px 0 12px; color: var(--cyan); }
+    h4 { font-size: 0.95rem; font-weight: 600; margin: 16px 0 8px; color: var(--yellow); }
+    p { margin-bottom: 12px; }
+    ul, ol { margin: 0 0 12px 20px; }
+    li { margin-bottom: 4px; }
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      white-space: pre;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      color: var(--cyan);
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: var(--surface); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-green { background: rgba(92, 250, 124, 0.15); color: var(--green); }
+    .badge-yellow { background: rgba(250, 204, 92, 0.15); color: var(--yellow); }
+    .badge-pink { background: rgba(252, 92, 125, 0.15); color: var(--accent2); }
+    .badge-purple { background: rgba(124, 92, 252, 0.15); color: var(--accent); }
+    .cmd { background: var(--surface2); padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    .highlight { color: var(--accent); }
+    .comment { color: var(--text-muted); }
+    .prop { color: var(--green); }
+    .type { color: var(--yellow); }
+    .action { color: var(--accent2); }
+    .event { color: var(--cyan); }
+    .endpoint { background: var(--surface2); padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    footer {
+      padding: 32px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>ku</h1>
+      <p>CLI-based 2D game engine for AI agents</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="container">
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#nodes">Node System</a></li>
+        <li><a href="#cli">CLI Commands</a></li>
+        <li><a href="#scripts">JSON Scripts</a></li>
+        <li><a href="#physics">Physics</a></li>
+        <li><a href="#renderer">Renderer</a></li>
+        <li><a href="#protocol">Protocol</a></li>
+        <li><a href="#plugins">Plugins</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p><strong>ku</strong> is a CLI-based 2D game engine designed for AI agents. AI agents act as both developers (creating scenes, editing nodes) and players (sending input, reacting to state).</p>
+      <div class="grid-2">
+        <div>
+          <h4>Tech Stack</h4>
+          <ul>
+            <li>Node.js 20+, TypeScript ES2022</li>
+            <li><span class="cmd">commander</span> — CLI framework</li>
+            <li><span class="cmd">ws</span> — WebSocket server/client</li>
+            <li><span class="cmd">matter-js</span> — 2D physics</li>
+            <li><span class="cmd">@kmamal/sdl</span> — SDL2 rendering + audio</li>
+            <li><span class="cmd">@napi-rs/canvas</span> — CPU canvas rendering</li>
+            <li><span class="cmd">vitest</span> — testing</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Quick Commands</h4>
+          <pre><code>npm run build          # compile TypeScript
+npm test               # run tests
+npx ku edit [scene]    # start editor
+npx ku play            # spawn play instance
+npx ku attach play     # switch to play</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <p>Dual-instance model: <strong>Editor</strong> and <strong>Play</strong> are separate OS processes.</p>
+
+      <div class="diagram">┌──────────┐     WebSocket     ┌──────────────────┐
+│   ku CLI │ ◄───────────────► │  edit :21200     │
+│          │                    │  (scene editing) │
+│   AI SDK │ ◄───────────────► │  play1 :OS-port  │
+│          │     WebSocket     │  (game loop)     │
+│          │ ◄───────────────► │  play2 :OS-port  │
+└──────────┘                    └──────────────────┘</div>
+
+      <table>
+        <tr><th>Component</th><th>File</th><th>Purpose</th></tr>
+        <tr><td><span class="badge badge-purple">Editor</span></td><td><code>editor-runtime.ts</code></td><td>Persistent, scene editing, no game loop</td></tr>
+        <tr><td><span class="badge badge-green">Play</span></td><td><code>play-runtime.ts</code></td><td>Ephemeral, full game loop, physics + scripts</td></tr>
+        <tr><td><span class="badge badge-yellow">Instance</span></td><td><code>instance.ts</code></td><td>Base class: SceneTree + WebSocket + message handler</td></tr>
+      </table>
+
+      <h3>Instance Lifecycle</h3>
+      <div class="diagram">ku edit [scene]
+       │
+       ▼
+┌─────────────────────┐
+│  Editor running     │◄─────────────────┐
+│  (port 21200)      │                  │
+└─────────┬───────────┘                  │
+          │ ku play (snapshot)           │
+          ▼                              │
+┌─────────────────────┐                  │
+│  Play running       │   ku stop play   │
+│  (port 21201)      │──────────────────┘
+└─────────┬───────────┘
+          │
+    ku stop edit
+          │
+          ▼
+   Editor stopped</div>
+
+      <h3>Discovery Files</h3>
+      <pre><code>.ku.edit.pid     → editor process ID
+.ku.edit.port    → editor WebSocket port (21200)
+.ku.play.pid     → play process ID
+.ku.play.port    → play WebSocket port (21201)</code></pre>
+    </section>
+
+    <section id="nodes">
+      <h2>Node System</h2>
+      <p>The scene is a tree of typed nodes (Godot-inspired). Nodes are addressed by slash-separated path (e.g. <code>player/sprite</code>).</p>
+
+      <h3>Built-in Node Types</h3>
+      <table>
+        <tr><th>Type</th><th>Purpose</th><th>Key Properties</th></tr>
+        <tr><td><span class="type">Node</span></td><td>Base container</td><td><code>position</code>, <code>rotation</code>, <code>scale</code></td></tr>
+        <tr><td><span class="type">Node2D</span></td><td>2D spatial node</td><td><code>x</code>, <code>y</code>, <code>rotation</code>, <code>scale_x</code>, <code>scale_y</code></td></tr>
+        <tr><td><span class="type">Sprite</span></td><td>Renders an image</td><td><code>texture</code>, <code>flip_h</code>, <code>flip_v</code>, <code>frame</code>, <code>atlas</code>, <code>region</code></td></tr>
+        <tr><td><span class="type">AnimatedSprite</span></td><td>Sprite with frames</td><td><code>frames</code>, <code>speed</code>, <code>playing</code>, <code>animations</code>, <code>animation</code></td></tr>
+        <tr><td><span class="type">RigidBody</span></td><td>Physics body</td><td><code>mass</code>, <code>velocity</code>, <code>gravity_scale</code>, <code>width</code>, <code>height</code></td></tr>
+        <tr><td><span class="type">Area</span></td><td>Detection zone</td><td><code>monitorable</code>, shapes</td></tr>
+        <tr><td><span class="type">CollisionShape</span></td><td>Collision geometry</td><td><code>shape</code> (rect/circle/polygon), <code>size</code>, <code>radius</code></td></tr>
+        <tr><td><span class="type">Camera2D</span></td><td>Viewport control</td><td><code>zoom</code>, <code>offset</code>, <code>smoothing</code></td></tr>
+        <tr><td><span class="type">Label</span></td><td>Text display</td><td><code>text</code>, <code>font_size</code>, <code>color</code></td></tr>
+        <tr><td><span class="type">TileMap</span></td><td>Grid-based map</td><td><code>tileset</code>, <code>cell_size</code>, <code>data</code></td></tr>
+        <tr><td><span class="type">Timer</span></td><td>Countdown timer</td><td><code>wait_time</code>, <code>one_shot</code>, <code>autostart</code></td></tr>
+        <tr><td><span class="type">AudioPlayer</span></td><td>Sound playback</td><td><code>stream</code>, <code>volume</code>, <code>playing</code></td></tr>
+        <tr><td><span class="type">AnimationPlayer</span></td><td>Animation control</td><td><code>animations</code>, <code>current</code>, <code>playing</code></td></tr>
+        <tr><td><span class="type">Block</span></td><td>Static collider</td><td><code>width</code>, <code>height</code>, <code>color</code></td></tr>
+      </table>
+
+      <h3>Node Data Structure</h3>
+<pre><code>{
+  <span class="prop">"id"</span>: <span class="highlight">"player"</span>,
+  <span class="prop">"type"</span>: <span class="highlight">"Node2D"</span>,
+  <span class="prop">"properties"</span>: {
+    <span class="prop">"x"</span>: 100,
+    <span class="prop">"y"</span>: 300,
+    <span class="prop">"rotation"</span>: 0,
+    <span class="prop">"scale_x"</span>: 1,
+    <span class="prop">"scale_y"</span>: 1,
+    <span class="prop">"visible"</span>: true
+  },
+  <span class="prop">"children"</span>: [
+    { <span class="prop">"id"</span>: <span class="highlight">"sprite"</span>, <span class="prop">"type"</span>: <span class="highlight">"Sprite"</span>, <span class="prop">"properties"</span>: {...}, <span class="prop">"children"</span>: [] }
+  ],
+  <span class="prop">"scripts"</span>: []
+}</code></pre>
+
+      <h3>Transform System</h3>
+      <p>Nodes store <strong>local</strong> coordinates. World transform computed by composing parent chain:</p>
+      <pre><code>world = parent_world × local
+worldToLocal(node, worldX, worldY)  // physics sync
+localToWorld(node, localX, localY)  // render coords</code></pre>
+      <p><code>SceneTree.move()</code> preserves world position when reparenting.</p>
+
+      <h3>Scene Instancing</h3>
+<pre><code>{
+  <span class="prop">"id"</span>: <span class="highlight">"player"</span>,
+  <span class="prop">"type"</span>: <span class="highlight">"Node2D"</span>,
+  <span class="prop">"instance"</span>: <span class="highlight">"scenes/player.json"</span>
+}</code></pre>
+      <p>Referenced scene loaded at runtime, merged: instance props override template defaults, children/scripts concatenate. Circular refs detected and rejected.</p>
+    </section>
+
+    <section id="cli">
+      <h2>CLI Commands</h2>
+
+      <h3>Instance Management</h3>
+      <table>
+        <tr><th>Command</th><th>Description</th></tr>
+        <tr><td><code>ku edit [scene]</code></td><td>Start editor instance (loads scene if provided)</td></tr>
+        <tr><td><code>ku play [--hot-reload]</code></td><td>Spawn play instance synced from editor's live tree</td></tr>
+        <tr><td><code>ku stop [edit|play]</code></td><td>Stop an instance (default: play)</td></tr>
+        <tr><td><code>ku attach [edit|play]</code></td><td>Attach CLI to an instance</td></tr>
+        <tr><td><code>ku detach</code></td><td>Detach CLI from current instance</td></tr>
+        <tr><td><code>ku instances</code></td><td>List running instances</td></tr>
+      </table>
+
+      <h3>Project</h3>
+      <table>
+        <tr><th>Command</th><th>Description</th></tr>
+        <tr><td><code>ku init &lt;name&gt;</code></td><td>Create a new project</td></tr>
+        <tr><td><code>ku build [--output &lt;dir&gt;]</code></td><td>Package project for distribution</td></tr>
+        <tr><td><code>ku status</code></td><td>Show server and instance status</td></tr>
+      </table>
+
+      <h3>Scene (editor only)</h3>
+      <table>
+        <tr><th>Command</th><th>Description</th></tr>
+        <tr><td><code>ku scene create &lt;name&gt;</code></td><td>Create empty scene file</td></tr>
+        <tr><td><code>ku scene list</code></td><td>List all scenes</td></tr>
+        <tr><td><code>ku scene load &lt;name&gt;</code></td><td>Load scene into editor</td></tr>
+        <tr><td><code>ku scene tree</code></td><td>Print current node tree</td></tr>
+        <tr><td><code>ku scene save [name]</code></td><td>Save editor state to file</td></tr>
+      </table>
+
+      <h3>Node (editor: read-write | play: read-only)</h3>
+      <table>
+        <tr><th>Command</th><th>Description</th></tr>
+        <tr><td><code>ku node add &lt;path&gt; &lt;type&gt;</code></td><td>Add child node (editor only)</td></tr>
+        <tr><td><code>ku node rm &lt;path&gt;</code></td><td>Remove node (editor only)</td></tr>
+        <tr><td><code>ku node set &lt;path&gt;.&lt;prop&gt; &lt;value&gt;</code></td><td>Set property (editor only)</td></tr>
+        <tr><td><code>ku node get &lt;path&gt;</code></td><td>Get all properties</td></tr>
+        <tr><td><code>ku node list &lt;path&gt;</code></td><td>List children</td></tr>
+        <tr><td><code>ku node move &lt;path&gt; &lt;new_parent&gt;</code></td><td>Reparent node (editor only)</td></tr>
+      </table>
+
+      <h3>Runtime Control (play only)</h3>
+      <table>
+        <tr><th>Command</th><th>Description</th></tr>
+        <tr><td><code>ku pause</code></td><td>Pause game loop</td></tr>
+        <tr><td><code>ku resume</code></td><td>Resume game loop</td></tr>
+        <tr><td><code>ku step</code></td><td>Advance one frame (when paused)</td></tr>
+        <tr><td><code>ku inspect &lt;path&gt;</code></td><td>Detailed node state + scripts</td></tr>
+        <tr><td><code>ku watch &lt;path&gt;.&lt;prop&gt;</code></td><td>Subscribe to property changes</td></tr>
+      </table>
+
+      <h3>AI Input (play only)</h3>
+      <table>
+        <tr><th>Command</th><th>Description</th></tr>
+        <tr><td><code>ku input key &lt;key&gt; [down|up]</code></td><td>Simulate key event</td></tr>
+        <tr><td><code>ku input click &lt;x&gt; &lt;y&gt;</code></td><td>Simulate click</td></tr>
+        <tr><td><code>ku input axis &lt;name&gt; &lt;value&gt;</code></td><td>Set axis value (-1 to 1)</td></tr>
+        <tr><td><code>ku input touch &lt;phase&gt; &lt;x&gt; &lt;y&gt;</code></td><td>Simulate touch (start|move|end)</td></tr>
+      </table>
+
+      <h3>Output Format</h3>
+      <p>All output is JSON by default. Use <code>--pretty</code> for human-readable output.</p>
+<pre><code><span class="comment">// Success</span>
+{<span class="prop">"ok"</span>: true, <span class="prop">"data"</span>: {<span class="prop">"x"</span>: 100, <span class="prop">"y"</span>: 300}}
+
+<span class="comment">// Error</span>
+{<span class="prop">"ok"</span>: false, <span class="prop">"error"</span>: <span class="highlight">"node not found: player/legs"</span>}</code></pre>
+    </section>
+
+    <section id="scripts">
+      <h2>JSON Scripting</h2>
+      <p>Event-driven scripts with triggers and actions. No embedded scripting language. Optional JS scripting via sandboxed <code>vm</code> engine.</p>
+
+      <h3>Events</h3>
+      <table>
+        <tr><th>Event</th><th>Trigger</th><th>Filter Fields</th></tr>
+        <tr><td><span class="event">on_key</span></td><td>Key pressed</td><td><code>key</code></td></tr>
+        <tr><td><span class="event">on_key_up</span></td><td>Key released</td><td><code>key</code></td></tr>
+        <tr><td><span class="event">on_frame</span></td><td>Every frame</td><td><code>interval</code> (skip frames)</td></tr>
+        <tr><td><span class="event">on_collision</span></td><td>Collision enters</td><td><code>with</code> (node tag or type)</td></tr>
+        <tr><td><span class="event">on_collision_exit</span></td><td>Collision exits</td><td><code>with</code></td></tr>
+        <tr><td><span class="event">on_area_enter</span></td><td>Body enters Area zone</td><td><code>with</code></td></tr>
+        <tr><td><span class="event">on_area_exit</span></td><td>Body leaves Area zone</td><td><code>with</code></td></tr>
+        <tr><td><span class="event">on_timer</span></td><td>Timer expires</td><td><code>timer</code> (node id)</td></tr>
+        <tr><td><span class="event">on_touch_start</span></td><td>Touch/pointer down</td><td>—</td></tr>
+        <tr><td><span class="event">on_touch_move</span></td><td>Touch/pointer drag</td><td>—</td></tr>
+        <tr><td><span class="event">on_touch_end</span></td><td>Touch/pointer up</td><td>—</td></tr>
+        <tr><td><span class="event">on_click</span></td><td>Mouse click</td><td>—</td></tr>
+        <tr><td><span class="event">on_enter</span></td><td>Scene loaded</td><td>—</td></tr>
+        <tr><td><span class="event">on_custom</span></td><td>Custom event via <code>emit</code></td><td><code>name</code></td></tr>
+      </table>
+
+      <h3>Actions</h3>
+<pre><code>{<span class="action">"set"</span>: <span class="highlight">"property.path"</span>, <span class="prop">"to"</span>: &lt;value&gt;}
+{<span class="action">"set"</span>: <span class="highlight">"property.path"</span>, <span class="prop">"to"</span>: <span class="highlight">"{{expression}}"</span>}
+{<span class="action">"set_on"</span>: <span class="highlight">"target_node"</span>, <span class="prop">"key"</span>: <span class="highlight">"property"</span>, <span class="prop">"to"</span>: &lt;value&gt;}
+{<span class="action">"move"</span>: {<span class="prop">"x"</span>: 10, <span class="prop">"y"</span>: 0}}
+{<span class="action">"move_toward"</span>: {<span class="prop">"x"</span>: 180, <span class="prop">"y"</span>: 100, <span class="prop">"speed"</span>: 3}}
+{<span class="action">"spawn"</span>: <span class="highlight">"NodeType"</span>, <span class="prop">"at"</span>: {<span class="prop">"x"</span>: 100, <span class="prop">"y"</span>: 50}, <span class="prop">"as"</span>: <span class="highlight">"bullet_0"</span>}
+{<span class="action">"destroy"</span>: <span class="highlight">"&lt;path_or_self&gt;"</span>}
+{<span class="action">"emit"</span>: <span class="highlight">"&lt;event_name&gt;"</span>, <span class="prop">"data"</span>: {...}}
+{<span class="action">"play"</span>: <span class="highlight">"&lt;audio_node&gt;"</span>}
+{<span class="action">"stop"</span>: <span class="highlight">"&lt;audio_node&gt;"</span>}
+{<span class="action">"log"</span>: <span class="highlight">"&lt;message&gt;"</span>}
+{<span class="action">"change_scene"</span>: <span class="highlight">"&lt;scene_name&gt;"</span>}</code></pre>
+
+      <h3>Expressions</h3>
+      <p>Templates wrapped in <code>{{ }}</code> use recursive descent parser with operator precedence and cross-node references:</p>
+<pre><code>{{speed}}                → property reference
+{{velocity.x}}           → nested property reference
+{{-speed}}               → negated
+{{x + 10}}               → arithmetic (+, -, *, /, %)
+{{/player/score}}         → cross-node reference
+{{random(0, 100)}}        → random float
+{{min(3, 7)}}             → minimum
+{{max(3, 7)}}             → maximum
+{{abs(-5)}}               → absolute value
+{{floor(3.7)}}            → floor
+{{ceil(3.2)}}             → ceiling</code></pre>
+
+      <h3>Conditions</h3>
+<pre><code>{
+  <span class="event">"event"</span>: <span class="highlight">"on_frame"</span>,
+  <span class="prop">"condition"</span>: {
+    <span class="prop">"speed"</span>: {<span class="type">"gt"</span>: 0},
+    <span class="prop">"/player/dead"</span>: {<span class="type">"neq"</span>: true}
+  },
+  <span class="prop">"actions"</span>: [
+    {<span class="action">"set"</span>: <span class="highlight">"score"</span>, <span class="prop">"to"</span>: <span class="highlight">"{{score + 1}}"</span>}
+  ]
+}</code></pre>
+      <p>Operators: <code>eq</code>, <code>neq</code>, <code>gt</code>, <code>lt</code>, <code>gte</code>, <code>lte</code>, <code>in</code>, <code>between</code></p>
+
+      <h3>JavaScript Scripts</h3>
+      <p>Nodes can reference a <code>.js</code> file via <code>js_script</code> field. JS scripts run in sandboxed <code>vm</code> context.</p>
+<pre><code><span class="comment">// scripts/player.js</span>
+let vx = 0;
+handlers.on_frame = function(ctx) {
+  if (ctx.node.get(<span class="highlight">'moving_right'</span>)) vx = ctx.node.get(<span class="highlight">'speed'</span>);
+  else if (ctx.node.get(<span class="highlight">'moving_left'</span>)) vx = -ctx.node.get(<span class="highlight">'speed'</span>);
+  else vx = 0;
+  ctx.node.set(<span class="highlight">'velocity.x'</span>, vx);
+};
+handlers.on_collision = function(ctx) {
+  if (ctx.data.other === <span class="highlight">'coin'</span>) {
+    ctx.scene.destroy(ctx.data.other);
+    ctx.emit(<span class="highlight">'coin_collected'</span>);
+  }
+};</code></pre>
+      <p><strong>ctx API</strong>: <code>ctx.node.get(prop)</code>, <code>ctx.node.set(prop, val)</code>, <code>ctx.node.id</code>, <code>ctx.scene.get(path, prop)</code>, <code>ctx.scene.set(path, prop, val)</code>, <code>ctx.scene.spawn(type, id, props?)</code>, <code>ctx.scene.destroy(path)</code>, <code>ctx.scene.find(path)</code>, <code>ctx.emit(event, data?)</code>, <code>ctx.data</code>, <code>ctx.log(...)</code></p>
+    </section>
+
+    <section id="physics">
+      <h2>Physics</h2>
+      <p>Powered by <strong>matter-js</strong>. CollisionShape nodes that are children of RigidBody nodes automatically track parent's position/rotation each frame.</p>
+
+      <h3>RigidBody Properties</h3>
+      <table>
+        <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>mass</code></td><td>number</td><td>Body mass</td></tr>
+        <tr><td><code>velocity</code></td><td>{x, y}</td><td>Current velocity</td></tr>
+        <tr><td><code>gravity_scale</code></td><td>number</td><td>Gravity multiplier (0 = no gravity)</td></tr>
+        <tr><td><code>linear_damping</code></td><td>number</td><td>Velocity damping</td></tr>
+        <tr><td><code>width</code>, <code>height</code></td><td>number</td><td>Collision bounds</td></tr>
+        <tr><td><code>angular_velocity</code></td><td>number</td><td>Rotational velocity</td></tr>
+      </table>
+
+      <h3>Collision Handling</h3>
+      <p><code>on_collision</code> fires when RigidBody collides with another RigidBody or Block. <code>on_area_enter</code> fires when any body enters an Area node's zone.</p>
+
+      <h3>CollisionShape Shapes</h3>
+      <ul>
+        <li><code>rect</code> — axis-aligned rectangle</li>
+        <li><code>circle</code> — circle (use <code>radius</code>)</li>
+        <li><code>polygon</code> — arbitrary polygon (use <code>points</code>)</li>
+      </ul>
+    </section>
+
+    <section id="renderer">
+      <h2>Renderer</h2>
+      <p>SDL2 via native bindings. Two-pass rendering: draw + debug overlay.</p>
+
+      <h3>Sprite Atlas</h3>
+      <p>Sprites can reference texture atlases — single image with named regions in companion JSON:</p>
+<pre><code>{
+  <span class="prop">"texture"</span>: <span class="highlight">"assets/player_sheet.png"</span>,
+  <span class="prop">"regions"</span>: [
+    {<span class="prop">"name"</span>: <span class="highlight">"idle_0"</span>, <span class="prop">"x"</span>: 0, <span class="prop">"y"</span>: 0, <span class="prop">"width"</span>: 32, <span class="prop">"height"</span>: 48},
+    {<span class="prop">"name"</span>: <span class="highlight">"walk_0"</span>, <span class="prop">"x"</span>: 32, <span class="prop">"y"</span>: 0, <span class="prop">"width"</span>: 32, <span class="prop">"height"</span>: 48}
+  ]
+}</code></pre>
+      <p><strong>Sprite rendering modes</strong>:</p>
+      <ol>
+        <li><strong>Standalone texture</strong>: <code>texture</code> set, <code>atlas</code> empty</li>
+        <li><strong>Atlas region</strong>: <code>atlas</code> + <code>region</code> set → draw named region</li>
+        <li><strong>Atlas animation</strong>: <code>atlas</code> + <code>animation</code> set → play named animation</li>
+      </ol>
+
+      <h3>Coordinate System</h3>
+      <ul>
+        <li>Origin (0,0) at top-left</li>
+        <li>X increases right</li>
+        <li>Y increases down</li>
+        <li>Units are pixels</li>
+      </ul>
+
+      <h3>Camera2D</h3>
+      <p>Applies viewport offset and zoom to all draws. Supports smoothing for follow-camera behavior.</p>
+    </section>
+
+    <section id="protocol">
+      <h2>Client-Server Protocol</h2>
+      <p>WebSocket communication using JSON messages.</p>
+
+      <h3>Message Format</h3>
+<pre><code>{
+  <span class="prop">"type"</span>: <span class="highlight">"command|query|event|response|diff"</span>,
+  <span class="prop">"id"</span>: <span class="highlight">"unique-message-id"</span>,
+  <span class="prop">"instance"</span>: <span class="highlight">"edit|play"</span>,
+  <span class="prop">"payload"</span>: { ... }
+}</code></pre>
+
+      <h3>Command → Response</h3>
+<pre><code><span class="comment">// CLI → Server</span>
+{<span class="prop">"type"</span>: <span class="highlight">"command"</span>, <span class="prop">"id"</span>: <span class="highlight">"cmd-001"</span>, <span class="prop">"payload"</span>: {<span class="prop">"action"</span>: <span class="highlight">"node.set"</span>, <span class="prop">"path"</span>: <span class="highlight">"player"</span>, <span class="prop">"property"</span>: <span class="highlight">"x"</span>, <span class="prop">"value"</span>: 150}}
+
+<span class="comment">// Server → CLI</span>
+{<span class="prop">"type"</span>: <span class="highlight">"response"</span>, <span class="prop">"id"</span>: <span class="highlight">"cmd-001"</span>, <span class="prop">"payload"</span>: {<span class="prop">"ok"</span>: true, <span class="prop">"data"</span>: {<span class="prop">"x"</span>: 150, <span class="prop">"y"</span>: 300}}}</code></pre>
+
+      <h3>State Diff (Server → subscribed clients)</h3>
+<pre><code>{
+  <span class="prop">"type"</span>: <span class="highlight">"diff"</span>,
+  <span class="prop">"payload"</span>: {
+    <span class="prop">"frame"</span>: 1234,
+    <span class="prop">"changes"</span>: [
+      {<span class="prop">"path"</span>: <span class="highlight">"player.x"</span>, <span class="prop">"old"</span>: 100, <span class="prop">"new"</span>: 102}
+    ]
+  }
+}</code></pre>
+
+      <h3>Sync Protocol (Editor → Play)</h3>
+      <table>
+        <tr><th>Op</th><th>Payload</th><th>Description</th></tr>
+        <tr><td><code>add</code></td><td><code>{path, node}</code></td><td>Add node to tree</td></tr>
+        <tr><td><code>remove</code></td><td><code>{path}</code></td><td>Remove node from tree</td></tr>
+        <tr><td><code>set</code></td><td><code>{path, property, value}</code></td><td>Set node property</td></tr>
+        <tr><td><code>move</code></td><td><code>{from, to}</code></td><td>Reparent node</td></tr>
+        <tr><td><code>replace_scripts</code></td><td><code>{path, scripts}</code></td><td>Full script array replacement</td></tr>
+        <tr><td><code>replace_all</code></td><td><code>{root}</code></td><td>Full tree snapshot replacement</td></tr>
+        <tr><td><code>script_add</code></td><td><code>{path, script, index?}</code></td><td>Add script at index</td></tr>
+        <tr><td><code>script_remove</code></td><td><code>{path, index?, name?}</code></td><td>Remove script</td></tr>
+        <tr><td><code>script_set</code></td><td><code>{path, index, script}</code></td><td>Replace script at index</td></tr>
+      </table>
+    </section>
+
+    <section id="plugins">
+      <h2>Plugin System</h2>
+      <p>ESM plugins loaded from <code>&lt;project&gt;/plugins/&lt;name&gt;/index.js</code>.</p>
+
+      <h3>KuPlugin Interface</h3>
+<pre><code>{
+  <span class="prop">"name"</span>: <span class="highlight">"my-plugin"</span>,
+  <span class="prop">"version"</span>: <span class="highlight">"1.0.0"</span>,
+  <span class="prop">"init"</span>(host) { ... },
+  <span class="prop">"destroy"</span>() { ... }
+}</code></pre>
+
+      <h3>PluginHost API</h3>
+      <ul>
+        <li><code>registerNodeType(type, factory)</code> — register custom node types</li>
+        <li><code>registerAction(name, handler)</code> — register custom script actions</li>
+        <li><code>registerMessageHandler(pattern, handler)</code> — register message handlers</li>
+        <li><code>registerCliCommand(command, handler)</code> — register CLI commands</li>
+        <li><code>registerNodeRenderer(type, renderer)</code> — register custom node renderers</li>
+      </ul>
+
+      <p>See <code>examples/tetris/plugins/</code> for a sample plugin.</p>
+    </section>
+
+    <section id="project-structure">
+      <h2>Project Structure</h2>
+      <div class="diagram">my-game/
+├── scenes/
+│   ├── player.json
+│   ├── enemy.json
+│   └── level_1.json
+├── assets/
+│   ├── sprites/
+│   ├── tilesets/
+│   ├── audio/
+│   └── fonts/
+├── scripts/
+│   └── (optional reusable script snippets)
+├── plugins/
+│   └── (ESM plugins)
+├── project.json              Project config
+├── ku.json                   Engine config
+└── README.md</div>
+
+      <h3>project.json</h3>
+<pre><code>{
+  <span class="prop">"name"</span>: <span class="highlight">"hello2d"</span>,
+  <span class="prop">"entry"</span>: <span class="highlight">"scenes/level_1.json"</span>,
+  <span class="prop">"resolution"</span>: {<span class="prop">"width"</span>: 640, <span class="prop">"height"</span>: 480},
+  <span class="prop">"physics"</span>: {
+    <span class="prop">"gravity"</span>: 980,
+    <span class="prop">"pixels_per_meter"</span>: 100
+  }
+}</code></pre>
+    </section>
+
+    <section id="ai-workflow">
+      <h2>AI Agent Workflow</h2>
+      <p>The dual-instance model enables a tight edit-test loop for AI agents:</p>
+
+      <h3>Edit-Test Loop</h3>
+      <div class="diagram">ku edit                              # 1. Start editor
+
+# ... create/modify scene ...
+
+ku play                              # 2. Spawn play from snapshot
+ku attach play
+ku query player.x                    # 3. Inspect play state
+ku input key right down              # 4. Test interaction
+ku query diff                        # 5. Verify behavior
+ku stop play                         # 6. Discard play, return to editor
+ku attach edit
+
+# ... fix issues found during testing ...
+
+ku play                              # 7. Re-test with updated scene</div>
+
+      <h3>Key Design Principles</h3>
+      <ul>
+        <li><strong>JSON everywhere</strong> — all input/output is structured JSON</li>
+        <li><strong>Queryable state</strong> — <code>ku query</code> gives full access to game state</li>
+        <li><strong>Diffs</strong> — <code>ku query diff</code> shows what changed</li>
+        <li><strong>Deterministic</strong> — same inputs produce same outputs</li>
+        <li><strong>Idempotent edits</strong> — <code>ku node set player.x 100</code> always produces same result</li>
+        <li><strong>Composable</strong> — commands can be scripted and chained</li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>ku game engine &mdash; Documentation</p>
+  </footer>
+</body>
+</html>

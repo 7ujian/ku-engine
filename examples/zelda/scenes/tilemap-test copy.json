@@ -1,0 +1,104 @@
+{
+  "scene": "tilemap-test",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {
+      "x": 0,
+      "y": 0
+    },
+    "children": [
+      {
+        "id": "terrain",
+        "type": "TileMap",
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "tileset": "assets/outdoor.tileset.json",
+          "columns": 20,
+          "rows": 15,
+          "data": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,2,3,3,3,3,3,3,3,3,2,1,1,1,1,1,1,1,1,1,2,3,3,3,3,4,3,3,3,3,3,2,1,1,1,1,1,1,1,2,3,3,3,3,3,4,3,3,5,5,5,3,2,1,1,1,1,1,1,2,3,4,4,4,4,4,4,4,5,5,5,3,2,1,1,1,1,1,1,2,3,3,3,3,3,4,3,3,5,5,5,3,2,1,1,1,1,1,1,1,2,3,3,3,3,4,3,3,3,3,3,2,1,1,1,1,1,1,1,1,1,2,3,3,3,4,3,3,3,3,2,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
+        },
+        "children": []
+      },
+      {
+        "id": "player",
+        "type": "AnimatedSprite",
+        "properties": {
+          "x": 152,
+          "y": 104,
+          "atlas": "assets/player.atlas.json",
+          "animation": "idle_down",
+          "playing": true,
+          "animations": {
+            "idle_down": {
+              "frames": [
+                "idle_down_0",
+                "idle_down_1"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_up": {
+              "frames": [
+                "idle_up_0",
+                "idle_up_1"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_right": {
+              "frames": [
+                "idle_right_0",
+                "idle_right_1"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "walk_down": {
+              "frames": [
+                "walk_down_0",
+                "walk_down_1",
+                "walk_down_2",
+                "walk_down_3"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_up": {
+              "frames": [
+                "walk_up_0",
+                "walk_up_1",
+                "walk_up_2",
+                "walk_up_3"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_right": {
+              "frames": [
+                "walk_right_0",
+                "walk_right_1",
+                "walk_right_2",
+                "walk_right_3"
+              ],
+              "speed": 8,
+              "loop": true
+            }
+          }
+        },
+        "children": []
+      },
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": {
+          "offset_x": 160,
+          "offset_y": 120,
+          "zoom": 2
+        },
+        "children": []
+      }
+    ]
+  }
+}

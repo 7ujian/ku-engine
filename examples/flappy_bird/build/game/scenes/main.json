@@ -1,0 +1,197 @@
+{
+  "scene": "flappy_bird",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "ground",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 640,
+          "height": 40,
+          "radius": 0,
+          "x": 320,
+          "y": 460
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "ceiling",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 640,
+          "height": 40,
+          "radius": 0,
+          "x": 320,
+          "y": -20
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "bird",
+        "type": "RigidBody",
+        "properties": {
+          "x": 150,
+          "y": 220,
+          "mass": 1,
+          "velocity": { "x": 0, "y": 0 },
+          "gravity_scale": 1,
+          "linear_damping": 0,
+          "dead": false
+        },
+        "children": [],
+        "scripts": [
+          {
+            "event": "on_key",
+            "filter": { "key": "SPACE" },
+            "condition": { "dead": { "neq": true } },
+            "actions": [
+              { "set": "velocity.y", "to": -4 },
+              { "log": "flap!" }
+            ]
+          },
+          {
+            "event": "on_key",
+            "filter": { "key": "UP" },
+            "condition": { "dead": { "neq": true } },
+            "actions": [
+              { "set": "velocity.y", "to": -4 }
+            ]
+          },
+          {
+            "event": "on_collision",
+            "condition": { "dead": { "neq": true } },
+            "actions": [
+              { "set": "dead", "to": true },
+              { "set": "velocity.y", "to": 0 },
+              { "set": "gravity_scale", "to": 0 },
+              { "log": "GAME OVER" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "pipe_0_top",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 52,
+          "height": 90,
+          "radius": 0,
+          "x": 400,
+          "y": 85
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [{ "move": { "x": -2.5, "y": 0 } }] },
+          { "event": "on_frame", "condition": { "x": { "lt": -30 } }, "actions": [{ "set": "x", "to": 700 }] }
+        ]
+      },
+      {
+        "id": "pipe_0_bot",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 52,
+          "height": 170,
+          "radius": 0,
+          "x": 400,
+          "y": 355
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [{ "move": { "x": -2.5, "y": 0 } }] },
+          { "event": "on_frame", "condition": { "x": { "lt": -30 } }, "actions": [{ "set": "x", "to": 700 }] }
+        ]
+      },
+      {
+        "id": "pipe_1_top",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 52,
+          "height": 150,
+          "radius": 0,
+          "x": 560,
+          "y": 115
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [{ "move": { "x": -2.5, "y": 0 } }] },
+          { "event": "on_frame", "condition": { "x": { "lt": -30 } }, "actions": [{ "set": "x", "to": 700 }] }
+        ]
+      },
+      {
+        "id": "pipe_1_bot",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 52,
+          "height": 110,
+          "radius": 0,
+          "x": 560,
+          "y": 385
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [{ "move": { "x": -2.5, "y": 0 } }] },
+          { "event": "on_frame", "condition": { "x": { "lt": -30 } }, "actions": [{ "set": "x", "to": 700 }] }
+        ]
+      },
+      {
+        "id": "pipe_2_top",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 52,
+          "height": 70,
+          "radius": 0,
+          "x": 720,
+          "y": 75
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [{ "move": { "x": -2.5, "y": 0 } }] },
+          { "event": "on_frame", "condition": { "x": { "lt": -30 } }, "actions": [{ "set": "x", "to": 700 }] }
+        ]
+      },
+      {
+        "id": "pipe_2_bot",
+        "type": "CollisionShape",
+        "properties": {
+          "shape": "rect",
+          "width": 52,
+          "height": 190,
+          "radius": 0,
+          "x": 720,
+          "y": 345
+        },
+        "children": [],
+        "scripts": [
+          { "event": "on_frame", "actions": [{ "move": { "x": -2.5, "y": 0 } }] },
+          { "event": "on_frame", "condition": { "x": { "lt": -30 } }, "actions": [{ "set": "x", "to": 700 }] }
+        ]
+      },
+      {
+        "id": "title_label",
+        "type": "Label",
+        "properties": {
+          "text": "FLAPPY BIRD — SPACE to flap",
+          "font_size": 22,
+          "color": "#ffffff",
+          "x": 155,
+          "y": 25
+        },
+        "children": [],
+        "scripts": []
+      }
+    ],
+    "scripts": []
+  }
+}

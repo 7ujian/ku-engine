@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ku — Project Mind Map</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #363b4f;
+      --text: #e4e7f0;
+      --text-muted: #8b90a0;
+      --accent: #7c5cfc;
+      --accent2: #fc5c7d;
+      --green: #5cfa7c;
+      --yellow: #facc5c;
+      --cyan: #5cfafc;
+      --orange: #fc9c5c;
+      --line: rgba(124, 92, 252, 0.3);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    #canvas {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    #canvas:active { cursor: grabbing; }
+    .node {
+      position: absolute;
+      padding: 10px 16px;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+      transition: box-shadow 0.2s, border-color 0.2s;
+      user-select: none;
+    }
+    .node:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(124, 92, 252, 0.4);
+      z-index: 100;
+    }
+    .node.root {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      color: white;
+      padding: 14px 28px;
+    }
+    .node.arch { border-color: var(--cyan); }
+    .node.nodes { border-color: var(--green); }
+    .node.cli { border-color: var(--yellow); }
+    .node.scripts { border-color: var(--accent2); }
+    .node.physics { border-color: var(--orange); }
+    .node.renderer { border-color: #fa5cfc; }
+    .node.protocol { border-color: #5cfafc; }
+    .node.plugin { border-color: #facc5c; }
+    .edge {
+      position: absolute;
+      pointer-events: none;
+      stroke: var(--line);
+      stroke-width: 2;
+      fill: none;
+    }
+    #tooltip {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      max-width: 280px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 1000;
+      line-height: 1.5;
+    }
+    #tooltip.visible { opacity: 1; }
+    #controls {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 100;
+    }
+    #controls button {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    #controls button:hover {
+      background: var(--border);
+      border-color: var(--accent);
+    }
+    #info {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="tooltip"></div>
+  <div id="controls">
+    <button onclick="zoomIn()">Zoom +</button>
+    <button onclick="zoomOut()">Zoom -</button>
+    <button onclick="resetView()">Reset</button>
+    <button onclick="toggleLabels()">Labels</button>
+  </div>
+  <div id="info">Drag to pan • Scroll to zoom • Click node for details</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+
+    let W, H;
+    let zoom = 1;
+    let panX = 0, panY = 0;
+    let showLabels = true;
+
+    // Interaction state
+    let mode = 'pan'; // 'pan' | 'node'
+    let dragNode = null;
+    let dragStart = { x: 0, y: 0, nodeX: 0, nodeY: 0 };
+    let panStart = { x: 0, y: 0, panX: 0, panY: 0 };
+    let clickNode = null;
+    let clickPos = { x: 0, y: 0 };
+
+    const rawNodes = [
+      // Root
+      { id: 'ku', label: 'ku', x: 0.5, y: 0.5, type: 'root',
+        desc: 'CLI-based 2D game engine for AI agents' },
+
+      // Architecture branch
+      { id: 'arch', label: 'Architecture', x: 0.22, y: 0.25, type: 'arch',
+        desc: 'Dual-instance model: Editor + Play as separate OS processes' },
+      { id: 'editor', label: 'EditorRuntime\n(port 21200)', x: 0.10, y: 0.12, type: 'arch',
+        desc: 'Persistent scene editing. No game loop, no physics/scripts. Auto-save support.' },
+      { id: 'play', label: 'PlayRuntime\n(port 21201)', x: 0.22, y: 0.08, type: 'arch',
+        desc: 'Ephemeral game execution. Full loop: physics + scripts + input + render. State discarded on stop.' },
+      { id: 'instance', label: 'Instance\n(base class)', x: 0.34, y: 0.15, type: 'arch',
+        desc: 'SceneTree + WebSocket server + message handler. Shared by Editor and Play.' },
+      { id: 'sync', label: 'Sync Client', x: 0.35, y: 0.25, type: 'arch',
+        desc: 'Edit→Play delta streaming. Snapshot for initial load, delta stream for hot-reload.' },
+      { id: 'cli', label: 'ku CLI', x: 0.42, y: 0.32, type: 'arch',
+        desc: 'Commander.js CLI. Attach to edit/play. Shell mode with REPL.' },
+
+      // Node System branch
+      { id: 'nodes', label: 'Node System', x: 0.78, y: 0.25, type: 'nodes',
+        desc: '14 built-in node types. Tree structure. Godot-inspired.' },
+      { id: 'node2d', label: 'Node2D', x: 0.65, y: 0.12, type: 'nodes',
+        desc: '2D spatial: x, y, rotation, scale_x, scale_y. Participates in transform composition.' },
+      { id: 'sprite', label: 'Sprite', x: 0.75, y: 0.08, type: 'nodes',
+        desc: 'Renders images. Modes: standalone texture, atlas region, atlas animation.' },
+      { id: 'animated', label: 'AnimatedSprite', x: 0.88, y: 0.10, type: 'nodes',
+        desc: 'Frame array or atlas animation. Supports loop, ping_pong, one-shot.' },
+      { id: 'rigid', label: 'RigidBody', x: 0.65, y: 0.20, type: 'nodes',
+        desc: 'Physics body: mass, velocity, gravity_scale. Syncs with matter-js.' },
+      { id: 'area', label: 'Area', x: 0.75, y: 0.18, type: 'nodes',
+        desc: 'Detection zone. Triggers on_area_enter/on_area_exit events.' },
+      { id: 'collshape', label: 'CollisionShape', x: 0.88, y: 0.20, type: 'nodes',
+        desc: 'rect/circle/polygon. Child of RigidBody → auto-tracks parent position.' },
+      { id: 'tilemap', label: 'TileMap', x: 0.65, y: 0.28, type: 'nodes',
+        desc: 'Grid-based map. Tileset image + CSV data.' },
+      { id: 'camera', label: 'Camera2D', x: 0.78, y: 0.24, type: 'nodes',
+        desc: 'Viewport control. Zoom, offset, smoothing for follow-camera.' },
+      { id: 'label', label: 'Label', x: 0.88, y: 0.28, type: 'nodes',
+        desc: 'Text display. font_size, color properties.' },
+      { id: 'timer', label: 'Timer', x: 0.65, y: 0.36, type: 'nodes',
+        desc: 'Countdown timer. Triggers on_timer event. one_shot, autostart.' },
+      { id: 'audio', label: 'AudioPlayer', x: 0.78, y: 0.34, type: 'nodes',
+        desc: 'WAV playback via SDL2. volume, stream properties.' },
+      { id: 'animplayer', label: 'AnimationPlayer', x: 0.88, y: 0.36, type: 'nodes',
+        desc: 'Controls AnimatedSprite playback via play/stop actions.' },
+      { id: 'block', label: 'Block', x: 0.65, y: 0.44, type: 'nodes',
+        desc: 'Static collision collider. width, height, color.' },
+
+      // CLI branch
+      { id: 'cli2', label: 'CLI Commands', x: 0.22, y: 0.55, type: 'cli',
+        desc: 'All output JSON by default. --pretty for human-readable.' },
+      { id: 'instance-cmds', label: 'Instance', x: 0.08, y: 0.44, type: 'cli',
+        desc: 'edit, play, stop, attach, detach, instances' },
+      { id: 'scene-cmds', label: 'Scene', x: 0.12, y: 0.52, type: 'cli',
+        desc: 'create, list, load, tree, save (editor only)' },
+      { id: 'node-cmds', label: 'Node', x: 0.08, y: 0.60, type: 'cli',
+        desc: 'add, rm, set, get, list, move (editor: rw, play: ro)' },
+      { id: 'runtime-cmds', label: 'Runtime', x: 0.14, y: 0.68, type: 'cli',
+        desc: 'pause, resume, step, inspect, watch (play only)' },
+      { id: 'input-cmds', label: 'AI Input', x: 0.22, y: 0.72, type: 'cli',
+        desc: 'key, click, axis, touch (play only)' },
+      { id: 'query-cmds', label: 'Query', x: 0.30, y: 0.64, type: 'cli',
+        desc: 'scene, nodes, collisions, score, diff' },
+
+      // Scripts branch
+      { id: 'scripts', label: 'JSON Scripts', x: 0.78, y: 0.55, type: 'scripts',
+        desc: 'Event-driven rules: trigger + optional filter + actions' },
+      { id: 'events', label: 'Events', x: 0.62, y: 0.44, type: 'scripts',
+        desc: 'on_key, on_key_up, on_frame, on_collision, on_area_enter, on_timer, on_touch_*, on_click, on_enter, on_custom' },
+      { id: 'actions', label: 'Actions', x: 0.72, y: 0.44, type: 'scripts',
+        desc: 'set, move, move_toward, spawn, destroy, emit, play, stop, log, change_scene' },
+      { id: 'expressions', label: 'Expressions', x: 0.82, y: 0.44, type: 'scripts',
+        desc: '{{expr}} with cross-node refs (/player/score), arithmetic, functions (random, min, max, abs, floor, ceil)' },
+      { id: 'conditions', label: 'Conditions', x: 0.92, y: 0.48, type: 'scripts',
+        desc: 'eq, neq, gt, lt, gte, lte, in, between. Applied to on_frame, etc.' },
+      { id: 'js-script', label: 'JS Scripts', x: 0.88, y: 0.60, type: 'scripts',
+        desc: 'Sandboxed .js files via vm module. ctx.node, ctx.scene, ctx.emit, ctx.data API.' },
+      { id: 'instancing', label: 'Scene Instancing', x: 0.88, y: 0.70, type: 'scripts',
+        desc: '"instance": "scenes/player.json". Runtime merge, props override, circular ref detection.' },
+
+      // Physics branch
+      { id: 'physics', label: 'Physics', x: 0.5, y: 0.78, type: 'physics',
+        desc: 'matter-js integration. Fixed timestep with accumulator.' },
+      { id: 'physics-shapes', label: 'Shapes', x: 0.38, y: 0.88, type: 'physics',
+        desc: 'rect, circle, polygon. CollisionShape children of RigidBody auto-sync.' },
+      { id: 'collision', label: 'Collision Events', x: 0.50, y: 0.92, type: 'physics',
+        desc: 'on_collision (RigidBody↔RigidBody), on_area_enter (any↔Area)' },
+      { id: 'game-loop', label: 'Game Loop', x: 0.62, y: 0.88, type: 'physics',
+        desc: 'Fixed dt=16.67ms, accumulator pattern, cap at 250ms. render() once per visual frame.' },
+
+      // Renderer branch
+      { id: 'renderer', label: 'Renderer', x: 0.5, y: 0.40, type: 'renderer',
+        desc: 'SDL2 via @kmamal/sdl. Two-pass: draw + debug overlay.' },
+      { id: 'transform', label: 'Transform2D', x: 0.42, y: 0.50, type: 'renderer',
+        desc: 'world = parent_world × local. worldToLocal, localToWorld helpers.' },
+      { id: 'atlas', label: 'Sprite Atlas', x: 0.50, y: 0.50, type: 'renderer',
+        desc: 'JSON regions file + sprite sheet PNG. region or animation mode.' },
+      { id: 'camera2d', label: 'Camera2D', x: 0.58, y: 0.50, type: 'renderer',
+        desc: 'Viewport offset + zoom applied to all draws.' },
+
+      // Protocol branch
+      { id: 'protocol', label: 'Protocol', x: 0.85, y: 0.85, type: 'protocol',
+        desc: 'WebSocket + JSON. Separate servers on 21200 (edit) and 21201 (play).' },
+      { id: 'discovery', label: 'Discovery Files', x: 0.75, y: 0.92, type: 'protocol',
+        desc: '.ku.edit.pid, .ku.edit.port, .ku.play.pid, .ku.play.port' },
+      { id: 'sync-ops', label: 'Sync Ops', x: 0.88, y: 0.92, type: 'protocol',
+        desc: 'add, remove, set, move, replace_scripts, replace_all, script_add, script_remove, script_set' },
+
+      // Plugin branch
+      { id: 'plugin', label: 'Plugin System', x: 0.22, y: 0.88, type: 'plugin',
+        desc: 'ESM plugins from plugins/<name>/index.js. KuPlugin interface.' },
+      { id: 'host-api', label: 'PluginHost API', x: 0.12, y: 0.92, type: 'plugin',
+        desc: 'registerNodeType, registerAction, registerMessageHandler, registerCliCommand, registerNodeRenderer' },
+    ];
+
+    // Build parent-child relationships from edge list
+    const edges = [
+      ['ku', 'arch'], ['ku', 'nodes'], ['ku', 'cli2'], ['ku', 'scripts'],
+      ['ku', 'physics'], ['ku', 'renderer'], ['ku', 'protocol'], ['ku', 'plugin'],
+      ['arch', 'editor'], ['arch', 'play'], ['arch', 'instance'], ['arch', 'sync'], ['arch', 'cli'],
+      ['nodes', 'node2d'], ['nodes', 'sprite'], ['nodes', 'animated'], ['nodes', 'rigid'],
+      ['nodes', 'area'], ['nodes', 'collshape'], ['nodes', 'tilemap'], ['nodes', 'camera'],
+      ['nodes', 'label'], ['nodes', 'timer'], ['nodes', 'audio'], ['nodes', 'animplayer'], ['nodes', 'block'],
+      ['cli2', 'instance-cmds'], ['cli2', 'scene-cmds'], ['cli2', 'node-cmds'], ['cli2', 'runtime-cmds'],
+      ['cli2', 'input-cmds'], ['cli2', 'query-cmds'],
+      ['scripts', 'events'], ['scripts', 'actions'], ['scripts', 'expressions'], ['scripts', 'conditions'],
+      ['scripts', 'js-script'], ['scripts', 'instancing'],
+      ['physics', 'physics-shapes'], ['physics', 'collision'], ['physics', 'game-loop'],
+      ['renderer', 'transform'], ['renderer', 'atlas'], ['renderer', 'camera2d'],
+      ['protocol', 'discovery'], ['protocol', 'sync-ops'],
+      ['plugin', 'host-api'],
+    ];
+
+    // Initialize nodes with parent/children/fold state
+    const nodeMap = {};
+    rawNodes.forEach(n => {
+      nodeMap[n.id] = {
+        ...n,
+        parent: null,
+        children: [],
+        folded: false,
+        origX: n.x,
+        origY: n.y,
+      };
+    });
+
+    // Build tree from edges: [parent, child] → parent has child
+    edges.forEach(([parentId, childId]) => {
+      const parent = nodeMap[parentId];
+      const child = nodeMap[childId];
+      if (parent && child) {
+        child.parent = parentId;
+        parent.children.push(childId);
+      }
+    });
+
+    // Get all descendant IDs (recursive)
+    function getDescendants(id) {
+      const node = nodeMap[id];
+      if (!node) return [];
+      return node.children.flatMap(cid => [cid, ...getDescendants(cid)]);
+    }
+
+    // Screen to normalized coords
+    function screenToNorm(sx, sy) {
+      return {
+        x: (sx - W/2 - panX) / (W * zoom) + 0.5,
+        y: (sy - H/2 - panY) / (H * zoom) + 0.5,
+      };
+    }
+
+    // Project normalized coords to screen
+    function project(n) {
+      return {
+        x: (n.x - 0.5) * W * zoom + W/2 + panX,
+        y: (n.y - 0.5) * H * zoom + H/2 + panY,
+      };
+    }
+
+    // Is a node visible? Check if any ancestor is folded
+    function isVisible(id) {
+      let curr = nodeMap[id];
+      while (curr && curr.parent) {
+        if (nodeMap[curr.parent].folded) return false;
+        curr = nodeMap[curr.parent];
+      }
+      return true;
+    }
+
+    function nodeColor(type) {
+      const colors = {
+        root: '#7c5cfc', arch: '#5cfafc', nodes: '#5cfa7c',
+        cli: '#facc5c', scripts: '#fc5c7d', physics: '#fc9c5c',
+        renderer: '#fa5cfc', protocol: '#5cfafc', plugin: '#facc5c'
+      };
+      return colors[type] || '#7c5cfc';
+    }
+
+    function nodeRadius(n) {
+      return n.type === 'root' ? 50 : 35;
+    }
+
+    function drawEdge(aId, bId) {
+      if (!isVisible(aId) || !isVisible(bId)) return;
+      const pa = project(nodeMap[aId]);
+      const pb = project(nodeMap[bId]);
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.stroke();
+    }
+
+    function drawFoldIndicator(n) {
+      if (n.children.length === 0) return;
+      const p = project(n);
+      const r = nodeRadius(n) * zoom;
+      const cx = p.x + r * 0.7;
+      const cy = p.y - r * 0.7;
+      const sz = 10 * zoom;
+      ctx.fillStyle = '#0f1117';
+      ctx.strokeStyle = nodeColor(n.type);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, sz, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = nodeColor(n.type);
+      ctx.font = `bold ${9 * zoom}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.folded ? '+' : '−', cx, cy);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Edges
+      ctx.strokeStyle = 'rgba(124, 92, 252, 0.25)';
+      ctx.lineWidth = 2;
+      edges.forEach(([a, b]) => drawEdge(a, b));
+
+      // Nodes (reverse for correct z-order)
+      const visibleNodes = rawNodes.map(n => n.id).filter(isVisible);
+      visibleNodes.forEach(id => {
+        const n = nodeMap[id];
+        const p = project(n);
+        const color = nodeColor(n.type);
+        const isRoot = n.type === 'root';
+        const r = nodeRadius(n) * zoom;
+
+        // Shadow for dragged node
+        if (dragNode && dragNode.id === n.id) {
+          ctx.shadowColor = 'rgba(124, 92, 252, 0.5)';
+          ctx.shadowBlur = 20;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        // Node circle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = isRoot ? color : 'rgba(26, 29, 39, 0.95)';
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isRoot ? 0 : 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Label
+        if (showLabels) {
+          ctx.fillStyle = isRoot ? '#fff' : '#e4e7f0';
+          ctx.font = `${(isRoot ? 14 : 11) * zoom}px "Segoe UI", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const lines = n.label.split('\n');
+          lines.forEach((line, i) => {
+            const y = p.y + (i - (lines.length - 1) / 2) * (13 * zoom);
+            ctx.fillText(line, p.x, y);
+          });
+        }
+
+        // Fold indicator
+        drawFoldIndicator(n);
+      });
+    }
+
+    function getNodeAt(sx, sy) {
+      // Check in reverse (top-most first)
+      const ids = rawNodes.map(n => n.id).filter(isVisible).reverse();
+      for (const id of ids) {
+        const n = nodeMap[id];
+        const p = project(n);
+        const r = nodeRadius(n) * zoom;
+        const dx = sx - p.x, dy = sy - p.y;
+        if (dx * dx + dy * dy <= r * r) return n;
+      }
+      return null;
+    }
+
+    // Fold/unfold toggle
+    function toggleFold(id) {
+      const node = nodeMap[id];
+      if (!node || node.children.length === 0) return;
+      node.folded = !node.folded;
+      draw();
+    }
+
+    // Move node and all descendants by delta (in normalized coords)
+    function moveSubtree(id, dx, dy) {
+      const ids = [id, ...getDescendants(id)];
+      ids.forEach(i => {
+        nodeMap[i].x += dx;
+        nodeMap[i].y += dy;
+      });
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      // Always reset mode first
+      mode = 'pan';
+      dragNode = null;
+
+      const node = getNodeAt(e.clientX, e.clientY);
+      if (node) {
+        // Check if clicking fold indicator
+        const p = project(node);
+        const r = nodeRadius(node) * zoom;
+        const fx = p.x + r * 0.7;
+        const fy = p.y - r * 0.7;
+        const dx = e.clientX - fx, dy = e.clientY - fy;
+        if (Math.sqrt(dx*dx + dy*dy) <= 12 * zoom) {
+          toggleFold(node.id);
+          return;
+        }
+        // Start dragging node
+        mode = 'node';
+        dragNode = node;
+        dragStart = { x: e.clientX, y: e.clientY, nodeX: node.x, nodeY: node.y };
+      } else {
+        // Pan
+        panStart = { x: e.clientX, y: e.clientY, panX, panY };
+      }
+      clickNode = node;
+      clickPos = { x: e.clientX, y: e.clientY };
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      if (mode === 'node' && dragNode) {
+        const dx = (e.clientX - dragStart.x) / (W * zoom);
+        const dy = (e.clientY - dragStart.y) / (H * zoom);
+        dragNode.x = dragStart.nodeX + dx;
+        dragNode.y = dragStart.nodeY + dy;
+        draw();
+      } else if (mode === 'pan') {
+        panX = panStart.panX + e.clientX - panStart.x;
+        panY = panStart.panY + e.clientY - panStart.y;
+        draw();
+      }
+    });
+
+    function endInteraction(e) {
+      const moved = mode === 'node' && dragNode && (
+        Math.abs(e.clientX - dragStart.x) > 5 || Math.abs(e.clientY - dragStart.y) > 5
+      );
+      const clicked = clickNode &&
+        Math.abs(e.clientX - clickPos.x) < 5 && Math.abs(e.clientY - clickPos.y) < 5;
+
+      if (!moved && clicked && clickNode) {
+        const n = clickNode;
+        tooltip.innerHTML = `<strong style="color:${nodeColor(n.type)}">${n.label.replace(/\n/g, ' ')}</strong><br><br>${n.desc}`;
+        tooltip.style.left = (e.clientX + 15) + 'px';
+        tooltip.style.top = (e.clientY + 15) + 'px';
+        tooltip.classList.add('visible');
+      }
+
+      mode = 'pan';
+      dragNode = null;
+      clickNode = null;
+    }
+
+    canvas.addEventListener('mouseup', endInteraction);
+    canvas.addEventListener('mouseleave', endInteraction);
+
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      zoom = Math.max(0.3, Math.min(3, zoom * factor));
+      draw();
+    });
+
+    canvas.addEventListener('dblclick', e => {
+      const node = getNodeAt(e.clientX, e.clientY);
+      if (node) toggleFold(node.id);
+    });
+
+    function zoomIn() { zoom = Math.min(3, zoom * 1.2); draw(); }
+    function zoomOut() { zoom = Math.max(0.3, zoom / 1.2); draw(); }
+    function resetView() {
+      zoom = 1;
+      panX = 0;
+      panY = 0;
+      // Reset node positions
+      rawNodes.forEach(n => {
+        const node = nodeMap[n.id];
+        node.x = node.origX;
+        node.y = node.origY;
+        node.folded = false;
+      });
+      draw();
+    }
+    function toggleLabels() { showLabels = !showLabels; draw(); }
+
+    window.addEventListener('resize', () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      draw();
+    });
+
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    draw();
+  </script>
+</body>
+</html>

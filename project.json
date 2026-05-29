@@ -1,0 +1,10 @@
+{
+  "name": "tilemap-editor",
+  "entry": "__tilemap_editor_tmp",
+  "window": {
+    "width": 1024,
+    "height": 768,
+    "scale_mode": "system",
+    "resizable": true
+  }
+}
