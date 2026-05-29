@@ -116,7 +116,14 @@ const parentPath = payload.path as string;
 
     case 'node.rm': {
 const path = payload.path as string;
+      const node = tree.get(path);
+      const ids: string[] = [];
+      (function collect(n: typeof node) { ids.push(n.id); for (const c of n.children) collect(c); })(node);
       tree.remove(path);
+      if (gameLoop) {
+        for (const id of ids) gameLoop.removeBody(id);
+        gameLoop.unregisterNode(ids);
+      }
       return {
         result: { removed: path },
         syncOps: [{ op: 'remove', path }],

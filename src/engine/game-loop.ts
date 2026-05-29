@@ -166,6 +166,19 @@ export class GameLoop {
     if (node) this.physics.syncNode(node);
   }
 
+  removeBody(nodeId: string): void {
+    this.physics.removeBody(nodeId);
+    this.scripts.unregisterNodeById(nodeId);
+    this.jsScripts?.unregisterNodeById(nodeId);
+  }
+
+  unregisterNode(ids: string[]): void {
+    for (const id of ids) {
+      this.scripts.unregisterNodeById(id);
+      this.jsScripts?.unregisterNodeById(id);
+    }
+  }
+
   getCollisions(): Array<{ nodeA: string; nodeB: string }> {
     return this.physics.getCollisions();
   }
