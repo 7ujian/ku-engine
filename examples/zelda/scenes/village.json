@@ -191,6 +191,16 @@
               ],
               "speed": 10,
               "loop": false
+            },
+            "death": {
+              "frames": [
+                "die_0",
+                "die_1",
+                "die_2",
+                "die_3"
+              ],
+              "speed": 4,
+              "loop": false
             }
           },
           "animation": "idle_down",

@@ -84,7 +84,12 @@ handlers.on_key_up = function (ctx) {
 handlers.on_frame = function (ctx) {
   var dt = ctx.dt;
   var hp = ctx.node.get('hp');
-  if (hp <= 0) return;
+  if (hp <= 0) {
+    ctx.node.set('velocity', { x: 0, y: 0 });
+    ctx.node.set('animation', 'death');
+    ctx.node.set('playing', true);
+    return;
+  }
 
   var vx = 0, vy = 0;
   var direction = ctx.node.get('direction') || 'down';
