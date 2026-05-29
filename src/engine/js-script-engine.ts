@@ -232,7 +232,15 @@ export class JsScriptEngine {
               loadedIds.push(childNode.id);
             }
           }
-          await self.registerTree();
+          // Register scripts only for newly loaded nodes (don't clear existing)
+          const loadPromises: Promise<void>[] = [];
+          (function collect(node: Node): void {
+            if ((node as any).js_script) {
+              loadPromises.push(self.registerNode(node));
+            }
+            for (const child of node.children) collect(child);
+          })(container);
+          await Promise.all(loadPromises);
           // Fire on_enter per loaded node (not all scripts, to avoid load_scene loop)
           for (const id of loadedIds) {
             self.evaluateEvent('on_enter', { node: id });
