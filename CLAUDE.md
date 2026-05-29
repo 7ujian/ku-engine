@@ -135,6 +135,10 @@ All 6 original phases complete. **P1 complete**: scene instancing, audio backend
 
 See `docs/MILESTONE_1_0_REVIEW.md` for full architecture review and prioritized backlog (P2 remaining).
 
+## Design pillars
+
+- **Node as interface**: Features expose their API through Node types. Methods, data, and configuration live on node properties and scripts — not standalone classes. ku CLI and AI agents interact with everything via `node get/set/call`. Example: a Profiler node exposes `samples`, `enabled`, `reset()` as properties/scripts, queryable with `ku query node /profiler`.
+
 ## Key constraints
 
 - All CLI output is JSON by default
