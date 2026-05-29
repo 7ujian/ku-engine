@@ -503,6 +503,7 @@ export class Renderer {
 		this._labelCount = 0;
 
 		const ctx = this.ctx;
+		ctx.imageSmoothingEnabled = false;
 		const mode = this.config.stretch_mode;
 
 		// canvas_items: black fill for letterbox areas, then apply stretch transform
