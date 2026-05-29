@@ -65,6 +65,7 @@ zelda/
 ## Script architecture
 
 ### player.js — attached to `player` RigidBody
+- **Death**: hp ≤ 0 stops velocity, plays `death` animation (die_0..3, loop:false, stops at last frame).
 - **Movement**: WASD/arrows → velocity on RigidBody. gravity_scale=0 (top-down).
 - **Animation**: Sets `animation` to `walk_<dir>` / `idle_<dir>` / `attack_<dir>`, flips via `flip_h`.
 - **Combat**: Space → enables `sword_hitbox` CollisionShape (mask toggles 0↔2).

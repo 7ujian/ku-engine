@@ -158,11 +158,20 @@ See `docs/MILESTONE_1_0_REVIEW.md` for full architecture review and prioritized 
 - Project fonts auto-loaded from `assets/fonts/*.ttf` via `GlobalFonts.registerFromPath()`
 - Debug physics overlay: physics-only bodies (compound tiles) in orange, scene-tree bodies skipped
 
+## Container properties (Node2D)
+
+- `y_sort_enabled` (default false): Sort children by world Y ascending — larger Y renders on top.
+- `pixel_perfect_enabled` (default false): Snap children to integer positions for crisp pixel art.
+
+## Animation
+
+- `loop` property on animation defs: true (default) loops, false stops at last frame.
+- `advanceFrame()` handles loop/ping_pong. Used by sprite renderer.
+
 ## Key constraints
 
 - All CLI output is JSON by default
 - Write commands work in any mode (no longer restricted to editor)
 - Ports 21200/21201 are reserved — do not use 7890 or 789x (allocated to proxy)
 - `project.json` fields: `name`, `entry`, `debug_physics`, `profiling`, `window.width/height`
-- All imports use `.js` extension (ESM with Node16 moduleResolution)
 - All imports use `.js` extension (ESM with Node16 moduleResolution)
