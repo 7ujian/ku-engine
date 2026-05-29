@@ -138,11 +138,31 @@ See `docs/MILESTONE_1_0_REVIEW.md` for full architecture review and prioritized 
 ## Design pillars
 
 - **Node as interface**: Features expose their API through Node types. Methods, data, and configuration live on node properties and scripts — not standalone classes. ku CLI and AI agents interact with everything via `node get/set/call`. Example: a Profiler node exposes `samples`, `enabled`, `reset()` as properties/scripts, queryable with `ku query node /profiler`.
+- **Scene = prefab (Godot model)**: One root node per application. Scenes are loaded as children of root or containers. `node_path` property references a scene file — on load, its children are merged into the node. `load_scene(path, file)` loads a scene into a container at runtime.
+- **Object identity**: Every Node gets a unique `_object_id` (monotonic counter) at construction. Never reused. Used for debugging CLI↔game instance divergence. Queryable via `node get <path>._object_id` and `ls -l`.
+
+## Physics
+
+- Closed type system with plugin extensibility: `PhysicsWorld.registerPhysicsType('Enemy', 'RigidBody')`
+- Base types: RigidBody, CollisionShape, Area, TileMap
+- `syncNode(node)` dispatches by `node.type` to the matching physics handler
+- Tile collisions use compound bodies (`Body.create({ parts })`) — one body per TileMap, not per tile
+- Collision filter: layer + mask bits; negative `group` prevents parent-child collision
+- Labels render after all other nodes (always on top)
+
+## Rendering
+
+- `@napi-rs/canvas` CPU canvas → SDL2 window via pixel buffer
+- Two-pass: game pass (world space, camera transform) → GUI pass (screen space)
+- Labels collected during traversal, drawn last to stay on top
+- Project fonts auto-loaded from `assets/fonts/*.ttf` via `GlobalFonts.registerFromPath()`
+- Debug physics overlay: physics-only bodies (compound tiles) in orange, scene-tree bodies skipped
 
 ## Key constraints
 
 - All CLI output is JSON by default
 - Write commands work in any mode (no longer restricted to editor)
 - Ports 21200/21201 are reserved — do not use 7890 or 789x (allocated to proxy)
-- `project.json` fields: `name`, `entry`, `debug_physics`, `window.width/height`
+- `project.json` fields: `name`, `entry`, `debug_physics`, `profiling`, `window.width/height`
+- All imports use `.js` extension (ESM with Node16 moduleResolution)
 - All imports use `.js` extension (ESM with Node16 moduleResolution)
