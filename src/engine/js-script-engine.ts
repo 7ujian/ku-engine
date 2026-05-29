@@ -211,8 +211,10 @@ export class JsScriptEngine {
       destroy: (path: string) => {
         try {
           const node = self.tree.get(path);
+          const ids: string[] = [];
+          (function collect(n: Node) { ids.push(n.id); for (const c of n.children) collect(c); })(node);
           self.tree.remove(path);
-          self.onDestroy?.(node.id);
+          for (const id of ids) self.onDestroy?.(id);
         } catch { /* ignore */ }
       },
       load_scene: async (containerPath: string, sceneFile: string) => {
