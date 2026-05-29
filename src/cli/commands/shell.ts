@@ -905,7 +905,8 @@ export class ShellSession {
             console.log(`total ${children.length}`);
             for (const child of children) {
               const cc = child.childCount ?? 0;
-              console.log(`${String(cc).padStart(3)} ${child.type.padEnd(16)} ${dirName(child.id, cc)}`);
+              const oid = child._object_id ?? '?';
+              console.log(`#${String(oid).padStart(4)} ${String(cc).padStart(3)} ${child.type.padEnd(16)} ${dirName(child.id, cc)}`);
             }
           } else {
             const names = children.map((c: any) => dirName(c.id, c.childCount ?? 0));

@@ -153,7 +153,8 @@ const setPath = payload.path as string;
       const property = payload.property as string | undefined;
       const node = tree.get(getPath);
       if (property) {
-        const value = node.getPropertyByPath(property);
+        // _object_id is on the Node, not in properties
+        const value = property === '_object_id' ? node._object_id : node.getPropertyByPath(property);
         return { result: { property, value: value ?? null } };
       }
       return { result: node.toJSON() };
@@ -162,7 +163,7 @@ const setPath = payload.path as string;
     case 'node.list': {
       const listPath = payload.path as string;
       const node = tree.get(listPath);
-      return { result: node.children.map(c => ({ id: c.id, type: c.type, childCount: c.children.length })) };
+      return { result: node.children.map(c => ({ id: c.id, type: c.type, childCount: c.children.length, _object_id: c._object_id })) };
     }
 
     case 'node.move': {
