@@ -1,4 +1,4 @@
-// enemy.js — Enemy patrol/chase AI, damage, death
+// enemy.js — Enemy patrol/chase AI, jump attack, damage, death
 var PATROL_SPEED = 0.4;
 var CHASE_SPEED = 1.2;
 var CHASE_RANGE = 140;
@@ -7,17 +7,32 @@ var ATTACK_COOLDOWN = 800;
 var PATROL_INTERVAL = 2000;
 var FLASH_TIME = 150;
 
+// Jump attack
+var JUMP_SPEED = 2.5;
+var JUMP_DURATION = 220;
+var LAND_DURATION = 100;
+var SLIDE_BACK_SPEED = 1.2;
+var SLIDE_BACK_DURATION = 350;
+
 var patrolDir = 0;
 var patrolTimer = 0;
 var flashTimer = 0;
 var attackTimer = 0;
 var dead = false;
 
+// Jump attack state machine: idle -> jumping -> landing -> sliding_back -> idle
+var jumpState = 'idle';       // idle, jumping, landing, sliding_back
+var jumpPhaseTimer = 0;
+var jumpDirX = 0;
+var jumpDirY = 0;
+
 handlers.on_enter = function (ctx) {
   patrolDir = Math.floor(Math.random() * 4);
   patrolTimer = PATROL_INTERVAL * (0.5 + Math.random());
   flashTimer = 0;
   attackTimer = ATTACK_COOLDOWN * Math.random();
+  jumpState = 'idle';
+  jumpPhaseTimer = 0;
   dead = false;
 };
 
@@ -31,23 +46,71 @@ handlers.on_frame = function (ctx) {
     return;
   }
 
-  // Get player position
+  // --- Jump attack state machine ---
+  if (jumpState !== 'idle') {
+    jumpPhaseTimer += dt;
+    var jvx = 0, jvy = 0;
+
+    if (jumpState === 'jumping') {
+      if (jumpPhaseTimer >= JUMP_DURATION) {
+        jumpState = 'landing';
+        jumpPhaseTimer = 0;
+        // Deal damage on impact
+        try {
+          var playerHp = ctx.scene.get('/player', 'hp');
+          var inv = ctx.scene.get('/player', 'invincible_timer') || 0;
+          if (playerHp > 0 && inv <= 0) {
+            ctx.scene.set('/player', 'hp', playerHp - 1);
+            ctx.scene.set('/player', 'invincible_timer', 1000);
+            if (playerHp - 1 <= 0) {
+              ctx.scene.set('/player', 'hp', 0);
+              ctx.scene.set('/player', 'velocity', { x: 0, y: 0 });
+              ctx.emit('player_died', {});
+            }
+          }
+        } catch (e) {}
+      } else {
+        jvx = jumpDirX * JUMP_SPEED;
+        jvy = jumpDirY * JUMP_SPEED;
+      }
+    } else if (jumpState === 'landing') {
+      jvx = 0; jvy = 0;
+      if (jumpPhaseTimer >= LAND_DURATION) {
+        jumpState = 'sliding_back';
+        jumpPhaseTimer = 0;
+      }
+    } else if (jumpState === 'sliding_back') {
+      if (jumpPhaseTimer >= SLIDE_BACK_DURATION) {
+        jumpState = 'idle';
+        jumpPhaseTimer = 0;
+        attackTimer = ATTACK_COOLDOWN;
+      } else {
+        jvx = -jumpDirX * SLIDE_BACK_SPEED;
+        jvy = -jumpDirY * SLIDE_BACK_SPEED;
+      }
+    }
+
+    ctx.node.set('velocity', { x: jvx, y: jvy });
+    ctx.node.set('animation', 'move');
+    ctx.node.set('playing', true);
+    if (flashTimer > 0) { flashTimer -= dt; }
+    return;
+  }
+
+  // --- Normal AI ---
   var px, py;
   try {
     px = ctx.scene.get('/player', 'x');
     py = ctx.scene.get('/player', 'y');
   } catch (e) { px = undefined; }
 
-  var ex = ctx.node.get('x');
-  var ey = ctx.node.get('y');
   var vx = 0, vy = 0;
   var speed = PATROL_SPEED;
   var chasing = false;
-  var attacking = false;
 
   if (px !== undefined) {
-    var dx = px - ex;
-    var dy = py - ey;
+    var dx = px - ctx.node.get('x');
+    var dy = py - ctx.node.get('y');
     var dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist < CHASE_RANGE && dist > 0) {
@@ -58,25 +121,14 @@ handlers.on_frame = function (ctx) {
         vx = (dx / dist) * speed;
         vy = (dy / dist) * speed;
       } else {
-        // Stop and attack
-        attacking = true;
+        // Stop and trigger jump attack
         vx = 0; vy = 0;
         attackTimer -= dt;
         if (attackTimer <= 0) {
-          attackTimer = ATTACK_COOLDOWN;
-          try {
-            var playerHp = ctx.scene.get('/player', 'hp');
-            var inv = ctx.scene.get('/player', 'invincible_timer') || 0;
-            if (playerHp > 0 && inv <= 0) {
-              ctx.scene.set('/player', 'hp', playerHp - 1);
-              ctx.scene.set('/player', 'invincible_timer', 1000);
-              if (playerHp - 1 <= 0) {
-                ctx.scene.set('/player', 'hp', 0);
-                ctx.scene.set('/player', 'velocity', { x: 0, y: 0 });
-                ctx.emit('player_died', {});
-              }
-            }
-          } catch (e) {}
+          jumpState = 'jumping';
+          jumpPhaseTimer = 0;
+          jumpDirX = dx / dist;
+          jumpDirY = dy / dist;
         }
       }
     }
@@ -97,7 +149,7 @@ handlers.on_frame = function (ctx) {
   }
 
   ctx.node.set('velocity', { x: vx, y: vy });
-  ctx.node.set('animation', attacking ? 'attack' : chasing ? 'move' : 'idle');
+  ctx.node.set('animation', chasing ? 'move' : 'idle');
   ctx.node.set('playing', true);
 
   // Damage flash
