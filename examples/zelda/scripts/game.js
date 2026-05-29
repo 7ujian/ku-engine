@@ -86,7 +86,7 @@ handlers.on_key = function (ctx) {
 
 handlers.restart_game = function (ctx) {
   // Container-based restart for wrapper scenes (main); change_scene for self-contained (house)
-  var hasVillageMap = ctx.scene.get('/village_map', 'x') !== undefined;
+  var hasVillageMap = ctx.scene.get('/village_map', 'tiled_layers') !== undefined;
   if (hasVillageMap) {
     for (var i = 0; i < LEVEL_NODES.length; i++) {
       try { ctx.scene.destroy('/' + LEVEL_NODES[i]); } catch (e) {}
