@@ -49,6 +49,7 @@ export interface NodeData {
   scripts: ScriptRule[];
   instance?: string;
   js_script?: string;
+  _oid?: number;
 }
 
 export interface SceneFile {

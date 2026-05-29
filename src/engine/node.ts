@@ -9,6 +9,9 @@ export class Node {
   instance?: string;
   js_script?: string;
   parent: Node | null = null;
+  readonly _oid: number;
+
+  private static _nextOid = 1;
 
   constructor(id: string, type: string, properties?: PropertyMap) {
     this.id = id;
@@ -16,6 +19,7 @@ export class Node {
     this.properties = properties ?? {};
     this.children = [];
     this.scripts = [];
+    this._oid = Node._nextOid++;
   }
 
   getProperty(name: string): unknown {
@@ -81,6 +85,7 @@ export class Node {
       scripts: this.scripts.map(s => ({ ...s, filter: s.filter ? { ...s.filter } : undefined, actions: [...s.actions] })),
       ...(this.instance ? { instance: this.instance } : {}),
       ...(this.js_script ? { js_script: this.js_script } : {}),
+      _oid: this._oid,
     };
   }
 
