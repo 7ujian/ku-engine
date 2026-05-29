@@ -146,6 +146,8 @@ export const createScrollView = factory('ScrollView', {
 });
 
 export const createTileMap = factory('TileMap', {
+  x: 0,
+  y: 0,
   tileset: '',
   cell_size: 16,
   columns: 0,
