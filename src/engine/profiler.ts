@@ -14,7 +14,6 @@ type SampleData = { total: number; count: number; max: number; min: number; last
 
 export class Profiler {
   private samples = new Map<string, SampleData>();
-  private startTime = 0;
   private reportIntervalMs: number;
   private lastSync = 0;
   private targetNode: Node | null = null;
