@@ -81,14 +81,17 @@ handlers.on_key = function (ctx) {
 };
 
 handlers.restart_game = function (ctx) {
-  // Destroy level nodes without touching app nodes (camera, HUD, profiler)
-  for (var i = 0; i < LEVEL_NODES.length; i++) {
-    try { ctx.scene.destroy('/' + LEVEL_NODES[i]); } catch (e) {}
+  // Container-based restart for wrapper scenes (main); change_scene for self-contained (house)
+  var hasVillageMap = ctx.scene.get('/village_map', 'x') !== undefined;
+  if (hasVillageMap) {
+    for (var i = 0; i < LEVEL_NODES.length; i++) {
+      try { ctx.scene.destroy('/' + LEVEL_NODES[i]); } catch (e) {}
+    }
+    ctx.scene.load_scene('/', LEVEL_FILE);
+    try { ctx.scene.set('/gameover_panel', 'visible', false); } catch (e) {}
+  } else {
+    ctx.emit('change_scene', { scene: 'house' });
   }
-  // Reload level content into root
-  ctx.scene.load_scene('/', LEVEL_FILE);
-  // Hide gameover panel
-  try { ctx.scene.set('/gameover_panel', 'visible', false); } catch (e) {}
 };
 
 handlers.player_died = function (ctx) {
