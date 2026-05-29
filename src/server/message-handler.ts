@@ -56,8 +56,10 @@ export interface HandleResult {
 
 export function handleMessage(tree: SceneTree, instanceMode: InstanceType, msg: Message): HandleResult {
   try {
+    // For play instances, use gameLoop's live tree (updated on scene change)
+    const activeTree = (instanceMode === 'play' && gameLoop) ? gameLoop.getTree() : tree;
     const action = msg.payload.action as string;
-    const { result, syncOps } = route(tree, instanceMode, action, msg.payload);
+    const { result, syncOps } = route(activeTree, instanceMode, action, msg.payload);
     if (syncOps && isEditInstance(instanceMode)) onDirty?.();
     return {
       response: { type: 'response', id: msg.id, payload: { ok: true, data: result } },
