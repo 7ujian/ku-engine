@@ -44,6 +44,8 @@ function updateHUD(ctx) {
     try {
       ctx.scene.set(path, 'x', hudLeft + (i - 1) * 24);
       ctx.scene.set(path, 'y', hudTop + 12);
+      ctx.scene.set(path, 'font', 'Silkscreen');
+      ctx.scene.set(path, 'font_size', 14);
       if (i <= hp) {
         ctx.scene.set(path, 'text', '❤');
         ctx.scene.set(path, 'color', '#ff3333');
@@ -57,6 +59,8 @@ function updateHUD(ctx) {
   try {
     ctx.scene.set('/hud_score', 'x', hudLeft + 400);
     ctx.scene.set('/hud_score', 'y', hudTop + 14);
+    ctx.scene.set('/hud_score', 'font', 'Silkscreen');
+    ctx.scene.set('/hud_score', 'font_size', 14);
     ctx.scene.set('/hud_score', 'text', 'Score: ' + score);
   } catch (e) {}
 

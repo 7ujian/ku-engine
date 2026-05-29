@@ -306,6 +306,9 @@ export class Renderer {
 			this.computeLayout();
 		});
 
+		// Load project fonts
+		await this.loadProjectFonts();
+
 		(this.window as any).on('keyDown', (event: { key: string | null; repeat: number }) => {
 			if (this.onKey && event.key && !event.repeat) {
 				this.onKey(normalizeKeyName(event.key), true);
@@ -458,6 +461,25 @@ export class Renderer {
 
 	isOpen(): boolean {
 		return this.running && this.window !== null && !this.window.destroyed;
+	}
+
+	private async loadProjectFonts(): Promise<void> {
+		try {
+			const { readdir } = await import('node:fs/promises');
+			const { resolve, extname } = await import('node:path');
+			const fontsDir = resolve(this.projectDir, 'assets', 'fonts');
+			const entries = await readdir(fontsDir);
+			const { GlobalFonts } = await import('@napi-rs/canvas');
+			for (const entry of entries) {
+				if (extname(entry).toLowerCase() === '.ttf') {
+					const fontPath = resolve(fontsDir, entry);
+					const family = entry.replace(/\.ttf$/i, '').replace(/-Regular|-Bold|-Italic/, '');
+					try {
+						GlobalFonts.registerFromPath(fontPath, family);
+					} catch { /* font already registered or invalid */ }
+				}
+			}
+		} catch { /* no fonts dir or no fonts */ }
 	}
 
 	close(): void {
