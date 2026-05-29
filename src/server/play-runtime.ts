@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { SceneTree } from '../engine/scene-tree.js';
 import { Node } from '../engine/node.js';
+import { createNodeByType } from '../engine/node-types.js';
 import { Instance } from './instance.js';
 import { SyncClient } from './sync-client.js';
 import { ScriptEngine } from '../engine/script-engine.js';
@@ -143,23 +144,14 @@ export class PlayRuntime {
     const audio = new AudioManager(dir, loadWav);
     const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name), dir);
     const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
-    if ((cfg.profiling as boolean) ?? false) {
+    // Profiler node always exists as feature interface
+    const profilingEnabled = (cfg.profiling as boolean) ?? false;
+    if (profilingEnabled) {
       physics.setProfiler(loop.profiler);
-      const rt_ref = { tree: loop.getTree(), physics };
-      loop.profiler.setReportCallback((samples) => {
-        const { bodyCount } = rt_ref.physics;
-        const { nodeCount } = rt_ref.tree;
-        console.log(`\n=== Profiler Report (bodies=${bodyCount} nodes=${nodeCount}) ===`);
-        for (const s of samples) {
-          console.log(
-            `  ${s.name}: total=${s.totalMs.toFixed(1)}ms ` +
-            `avg=${s.avgMs.toFixed(3)}ms max=${s.maxMs.toFixed(3)}ms ` +
-            `count=${s.count}`,
-          );
-        }
-        console.log('');
-      });
     }
+    const profilerNode = createNodeByType('Profiler', 'profiler', { enabled: profilingEnabled });
+    tree.root.addChild(profilerNode);
+    loop.profiler.setTargetNode(profilerNode);
 
     setGameLoop(loop);
     setSceneName(instance.sceneName);

@@ -184,6 +184,14 @@ export const createBlock = factory('Block', {
   visible: true,
 });
 
+export const createProfiler = factory('Profiler', {
+  enabled: false,
+  interval_ms: 5000,
+  samples: [] as unknown[],
+  body_count: 0,
+  node_count: 0,
+});
+
 const factories: Record<string, NodeFactory> = {
   Node: createNode,
   Node2D: createNode2D,
@@ -203,6 +211,7 @@ const factories: Record<string, NodeFactory> = {
   Button: createButton,
   ImageRect: createImageRect,
   ScrollView: createScrollView,
+  Profiler: createProfiler,
 };
 
 export function createNodeByType(type: string, id: string, overrides?: Partial<PropertyMap>): Node {

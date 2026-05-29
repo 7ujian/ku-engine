@@ -161,10 +161,6 @@ export class GameLoop {
     return this.physics.getCollisions();
   }
 
-  getBodyCount(): number {
-    return this.physics.bodyCount;
-  }
-
   getLogs(): string[] {
     const logs = this.scripts.getLogs();
     if (this.jsScripts) logs.push(...this.jsScripts.getLogs());
@@ -237,6 +233,8 @@ export class GameLoop {
       }
       this.renderer.draw(this.tree);
     }
+
+    this.profiler.syncToNode(this.physics.bodyCount, this.tree.nodeCount);
 
     this.scheduleFrame();
   }

@@ -1,3 +1,5 @@
+import type { Node } from './node.js';
+
 export interface ProfileSample {
   name: string;
   totalMs: number;
@@ -14,29 +16,23 @@ export class Profiler {
   private samples = new Map<string, SampleData>();
   private startTime = 0;
   private reportIntervalMs: number;
-  private lastReport = 0;
-  private reportCallback: ((samples: ProfileSample[]) => void) | null = null;
+  private lastSync = 0;
+  private targetNode: Node | null = null;
 
   constructor(reportIntervalMs = 5000) {
     this.reportIntervalMs = reportIntervalMs;
   }
 
-  setReportCallback(cb: (samples: ProfileSample[]) => void): void {
-    this.reportCallback = cb;
+  setTargetNode(node: Node): void {
+    this.targetNode = node;
   }
 
-  begin(name: string): void {
-    this.startTime = performance.now();
-    void name;
-  }
-
-  end(name: string): void {
-    const elapsed = performance.now() - this.startTime;
-    this.record(name, elapsed);
+  get enabled(): boolean {
+    return this.targetNode !== null && (this.targetNode.getProperty('enabled') as boolean) === true;
   }
 
   measure<T>(name: string, fn: () => T): T {
-    if (!this.reportCallback) return fn();
+    if (!this.enabled) return fn();
     const t0 = performance.now();
     const result = fn();
     this.record(name, performance.now() - t0);
@@ -54,22 +50,25 @@ export class Profiler {
     s.last = elapsed;
     if (elapsed > s.max) s.max = elapsed;
     if (elapsed < s.min) s.min = elapsed;
-
-    const now = performance.now();
-    if (now - this.lastReport >= this.reportIntervalMs) {
-      this.lastReport = now;
-      this.emitReport();
-    }
   }
 
-  private emitReport(): void {
-    if (!this.reportCallback) return;
-    this.reportCallback(this.getSamples());
+  syncToNode(bodyCount: number, nodeCount: number): void {
+    const node = this.targetNode;
+    if (!node) return;
+
+    const now = performance.now();
+    if (now - this.lastSync < this.reportIntervalMs) return;
+    this.lastSync = now;
+
+    node.setProperty('enabled', true);
+    node.setProperty('body_count', bodyCount);
+    node.setProperty('node_count', nodeCount);
+    node.setProperty('samples', this.getSamples());
   }
 
   reset(): void {
     this.samples.clear();
-    this.lastReport = performance.now();
+    this.lastSync = performance.now();
   }
 
   getSamples(): ProfileSample[] {
