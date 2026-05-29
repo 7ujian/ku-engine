@@ -451,6 +451,7 @@ export class PhysicsWorld {
     if (node.type === 'RigidBody') this.syncBody(node);
     else if (node.type === 'CollisionShape') this.syncShape(node);
     else if (node.type === 'Area') this.syncArea(node);
+    else if (node.type === 'TileMap') this.syncTileCollisions(node);
   }
 
   destroy(): void {
