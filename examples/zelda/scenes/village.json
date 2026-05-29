@@ -42,7 +42,7 @@
           },
           "gravity_scale": 0,
           "collision_layer": 1,
-          "collision_mask": 8,
+          "collision_mask": 24,
           "atlas": "assets/player.atlas.json",
           "region": "idle_down_0",
           "animations": {
@@ -303,7 +303,23 @@
             "slime"
           ]
         },
-        "js_script": "scripts/enemy.js"
+        "js_script": "scripts/enemy.js",
+        "children": [
+          {
+            "id": "enemy_hitbox",
+            "type": "Area",
+            "properties": {
+              "width": 24,
+              "height": 24,
+              "collision_layer": 16,
+              "collision_mask": 1,
+              "color": "rgba(255,0,0,0.3)"
+            },
+            "children": [],
+            "scripts": [],
+            "js_script": "handlers.on_area_enter = function(ctx) {\n  var otherTags = ctx.data.otherTags || [];\n  if (otherTags.indexOf('player') === -1) return;\n  try {\n    var hp = ctx.scene.get('/player', 'hp');\n    var inv = ctx.scene.get('/player', 'invincible_timer') || 0;\n    if (hp && hp > 0 && inv <= 0) {\n      ctx.scene.set('/player', 'hp', hp - 1);\n      ctx.scene.set('/player', 'invincible_timer', 1000);\n      if (hp - 1 <= 0) {\n        ctx.scene.set('/player', 'hp', 0);\n        ctx.scene.set('/player', 'velocity', {x:0, y:0});\n        ctx.emit('player_died', {});\n      }\n    }\n  } catch(e) {}\n};"
+          }
+        ]
       },
       {
         "id": "slime_1",
@@ -379,7 +395,23 @@
             "slime"
           ]
         },
-        "js_script": "scripts/enemy.js"
+        "js_script": "scripts/enemy.js",
+        "children": [
+          {
+            "id": "enemy_hitbox",
+            "type": "Area",
+            "properties": {
+              "width": 24,
+              "height": 24,
+              "collision_layer": 16,
+              "collision_mask": 1,
+              "color": "rgba(255,0,0,0.3)"
+            },
+            "children": [],
+            "scripts": [],
+            "js_script": "handlers.on_area_enter = function(ctx) {\n  var otherTags = ctx.data.otherTags || [];\n  if (otherTags.indexOf('player') === -1) return;\n  try {\n    var hp = ctx.scene.get('/player', 'hp');\n    var inv = ctx.scene.get('/player', 'invincible_timer') || 0;\n    if (hp && hp > 0 && inv <= 0) {\n      ctx.scene.set('/player', 'hp', hp - 1);\n      ctx.scene.set('/player', 'invincible_timer', 1000);\n      if (hp - 1 <= 0) {\n        ctx.scene.set('/player', 'hp', 0);\n        ctx.scene.set('/player', 'velocity', {x:0, y:0});\n        ctx.emit('player_died', {});\n      }\n    }\n  } catch(e) {}\n};"
+          }
+        ]
       }
     ],
     "scripts": []

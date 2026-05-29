@@ -106,3 +106,23 @@ function handleDeath(ctx, dt) {
     ctx.node.set('death_timer', timer);
   }
 }
+
+handlers.on_area_enter = function (ctx) {
+  if (dead) return;
+  var otherTags = ctx.data.otherTags || [];
+  if (otherTags.indexOf('player') === -1) return;
+  // Deal contact damage to player
+  try {
+    var hp = ctx.scene.get('/player', 'hp');
+    var inv = ctx.scene.get('/player', 'invincible_timer') || 0;
+    if (hp !== undefined && hp > 0 && inv <= 0) {
+      ctx.scene.set('/player', 'hp', hp - 1);
+      ctx.scene.set('/player', 'invincible_timer', 1000);
+      if (hp - 1 <= 0) {
+        ctx.scene.set('/player', 'hp', 0);
+        ctx.scene.set('/player', 'velocity', { x: 0, y: 0 });
+        ctx.emit('player_died', {});
+      }
+    }
+  } catch (e) {}
+};
