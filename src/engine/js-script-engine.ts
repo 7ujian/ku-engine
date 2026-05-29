@@ -222,16 +222,21 @@ export class JsScriptEngine {
         try {
           const rootData = await self.loadSceneFile(sceneFile);
           const container = self.tree.get(containerPath);
-          // Add children from loaded scene (skip if id already exists)
+          const loadedIds: string[] = [];
           if (rootData.children) {
             for (const childData of rootData.children) {
               if (container.findChild(childData.id)) continue;
               const childNode = Node.fromJSON(childData);
               container.addChild(childNode);
               self.notifySpawnRecursive(childNode);
+              loadedIds.push(childNode.id);
             }
           }
           await self.registerTree();
+          // Fire on_enter per loaded node (not all scripts, to avoid load_scene loop)
+          for (const id of loadedIds) {
+            self.evaluateEvent('on_enter', { node: id });
+          }
         } catch { /* ignore */ }
       },
       find: (path: string) => {

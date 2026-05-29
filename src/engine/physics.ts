@@ -442,23 +442,30 @@ export class PhysicsWorld {
     }
   }
 
+  // Physics types — closed set with plugin extensibility.
+  // Plugins register custom types that inherit base physics: PhysicsWorld.registerPhysicsType('Enemy', 'RigidBody')
+  private static baseSync = new Map<string, (pw: PhysicsWorld, node: Node) => void>([
+    ['RigidBody', (pw, n) => pw.syncBody(n)],
+    ['CollisionShape', (pw, n) => pw.syncShape(n)],
+    ['Area', (pw, n) => pw.syncArea(n)],
+    ['TileMap', (pw, n) => pw.syncTileCollisions(n)],
+  ]);
+  private static customTypes = new Map<string, string>();  // customType → baseType
+
+  /** Register a custom node type that inherits physics from a base type. E.g. registerPhysicsType('Enemy', 'RigidBody') */
+  static registerPhysicsType(customType: string, baseType: string): void {
+    if (PhysicsWorld.baseSync.has(baseType)) {
+      PhysicsWorld.customTypes.set(customType, baseType);
+    }
+  }
+
   syncNode(node: Node): void {
-    // Property-driven: any node type can have physics if it sets the right properties.
-    // Plugin-defined types (Enemy, Bullet, etc.) work without engine changes.
-    if (node.getProperty('tiled_layers') != null) {
-      this.syncTileCollisions(node);
+    let handler = PhysicsWorld.baseSync.get(node.type);
+    if (!handler) {
+      const baseType = PhysicsWorld.customTypes.get(node.type);
+      if (baseType) handler = PhysicsWorld.baseSync.get(baseType);
     }
-    if (node.getProperty('is_sensor') === true) {
-      this.syncArea(node);
-      return;
-    }
-    if (node.getProperty('shape') != null) {
-      this.syncShape(node);
-      return;
-    }
-    if (node.getProperty('mass') != null) {
-      this.syncBody(node);
-    }
+    if (handler) handler(this, node);
   }
 
   destroy(): void {
