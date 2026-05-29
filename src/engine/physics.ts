@@ -129,12 +129,7 @@ export class PhysicsWorld {
   syncFromTree(): void {
     this.entries.clear();
     this.childShapeIds.clear();
-    this.tree.traverse((node, _path) => {
-      if (node.type === 'RigidBody') this.syncBody(node);
-      else if (node.type === 'CollisionShape') this.syncShape(node);
-      else if (node.type === 'Area') this.syncArea(node);
-      else if (node.type === 'TileMap') this.syncTileCollisions(node);
-    });
+    this.tree.traverse((node, _path) => this.syncNode(node));
   }
 
   step(dt: number): void {
