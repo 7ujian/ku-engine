@@ -317,7 +317,7 @@
             },
             "children": [],
             "scripts": [],
-            "js_script": "handlers.on_area_enter = function(ctx) {\n  var otherTags = ctx.data.otherTags || [];\n  if (otherTags.indexOf('player') === -1) return;\n  try {\n    var hp = ctx.scene.get('/player', 'hp');\n    var inv = ctx.scene.get('/player', 'invincible_timer') || 0;\n    if (hp && hp > 0 && inv <= 0) {\n      ctx.scene.set('/player', 'hp', hp - 1);\n      ctx.scene.set('/player', 'invincible_timer', 1000);\n      if (hp - 1 <= 0) {\n        ctx.scene.set('/player', 'hp', 0);\n        ctx.scene.set('/player', 'velocity', {x:0, y:0});\n        ctx.emit('player_died', {});\n      }\n    }\n  } catch(e) {}\n};"
+            "js_script": "scripts/enemy_contact.js"
           }
         ]
       },
@@ -409,7 +409,7 @@
             },
             "children": [],
             "scripts": [],
-            "js_script": "handlers.on_area_enter = function(ctx) {\n  var otherTags = ctx.data.otherTags || [];\n  if (otherTags.indexOf('player') === -1) return;\n  try {\n    var hp = ctx.scene.get('/player', 'hp');\n    var inv = ctx.scene.get('/player', 'invincible_timer') || 0;\n    if (hp && hp > 0 && inv <= 0) {\n      ctx.scene.set('/player', 'hp', hp - 1);\n      ctx.scene.set('/player', 'invincible_timer', 1000);\n      if (hp - 1 <= 0) {\n        ctx.scene.set('/player', 'hp', 0);\n        ctx.scene.set('/player', 'velocity', {x:0, y:0});\n        ctx.emit('player_died', {});\n      }\n    }\n  } catch(e) {}\n};"
+            "js_script": "scripts/enemy_contact.js"
           }
         ]
       }
