@@ -14,7 +14,7 @@ import { InputManager } from './input-manager.js';
 import { hitTest } from '../engine/hit-test.js';
 import { findCamera } from '../renderer/camera.js';
 import { AudioManager } from '../engine/audio.js';
-import { loadScene, sceneFilePath, saveSceneSync } from '../persistence/scene-io.js';
+import { loadScene, loadSceneRootSync, sceneFilePath, saveSceneSync } from '../persistence/scene-io.js';
 import { invalidateTiledCache } from '../persistence/tiled-cache.js';
 import { loadWav } from '../persistence/audio-loader.js';
 import { loadScriptSource } from '../persistence/script-loader.js';
@@ -116,7 +116,6 @@ export class PlayRuntime {
         return loadSceneRoot(sceneFilePath(resolve(dir, 'scenes'), scenePath), dir);
       },
       loadSceneFileSync: (scenePath) => {
-        const { loadSceneRootSync } = require('../persistence/scene-io.js');
         return loadSceneRootSync(sceneFilePath(resolve(dir, 'scenes'), scenePath), dir);
       },
     });
