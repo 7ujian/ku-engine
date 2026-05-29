@@ -169,6 +169,13 @@ export class JsScriptEngine {
   setDestroyCallback(cb: (nodeId: string) => void): void { this.onDestroy = cb; }
   setEmitCallback(cb: (event: string, data: Record<string, unknown>) => void): void { this.onEmit = cb; }
 
+  notifySpawnRecursive(node: Node): void {
+    this.onSpawn?.(node);
+    for (const child of node.children) {
+      this.notifySpawnRecursive(child);
+    }
+  }
+
   private pushLog(msg: string): void {
     if (this.logs.length >= MAX_LOGS) this.logs.shift();
     this.logs.push(msg);
@@ -217,7 +224,9 @@ export class JsScriptEngine {
           if (rootData.children) {
             for (const childData of rootData.children) {
               if (container.findChild(childData.id)) continue;
-              container.addChild(Node.fromJSON(childData));
+              const childNode = Node.fromJSON(childData);
+              container.addChild(childNode);
+              self.notifySpawnRecursive(childNode);
             }
           }
           await self.registerTree();
