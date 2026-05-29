@@ -232,7 +232,7 @@ export class JsScriptEngine {
               loadedIds.push(childNode.id);
             }
           }
-          // Register scripts only for newly loaded nodes (don't clear existing)
+          // Register scripts only for newly loaded nodes
           const loadPromises: Promise<void>[] = [];
           (function collect(node: Node): void {
             if ((node as any).js_script) {
@@ -241,11 +241,13 @@ export class JsScriptEngine {
             for (const child of node.children) collect(child);
           })(container);
           await Promise.all(loadPromises);
-          // Fire on_enter per loaded node (not all scripts, to avoid load_scene loop)
+          // Fire on_enter per loaded top-level node
           for (const id of loadedIds) {
             self.evaluateEvent('on_enter', { node: id });
           }
-        } catch { /* ignore */ }
+        } catch (e) {
+          console.error('[load_scene] failed:', (e as Error).message);
+        }
       },
       find: (path: string) => {
         try {
