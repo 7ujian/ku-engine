@@ -127,7 +127,7 @@ const path = payload.path as string;
         gameLoop.unregisterNode(ids);
       }
       return {
-        result: { removed: path },
+        result: { removed: path, _object_id: node._object_id },
         syncOps: [{ op: 'remove', path }],
       };
     }
