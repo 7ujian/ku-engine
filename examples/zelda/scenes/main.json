@@ -4,7 +4,8 @@
     "id": "root",
     "type": "Node",
     "properties": {
-      "y_sort_enabled": true
+      "y_sort_enabled": true,
+      "pixel_perfect_enabled": true
     },
     "children": [
       {

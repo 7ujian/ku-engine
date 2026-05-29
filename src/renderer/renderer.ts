@@ -682,8 +682,10 @@ export class Renderer {
 				return ay - by;
 			});
 		}
+		// Pixel-perfect: force integer positions for children
+		const pixelSnap = node.getProperty('pixel_perfect_enabled') ? { x: Math.round(snapped.x), y: Math.round(snapped.y), rotation: snapped.rotation, scaleX: snapped.scaleX, scaleY: snapped.scaleY } : null;
 		for (const child of children) {
-			this._drawNodeRecursive(child, snapped, dt, labels);
+			this._drawNodeRecursive(child, pixelSnap ?? snapped, dt, labels);
 		}
 
 		// Draw collected labels last (HUD always on top)

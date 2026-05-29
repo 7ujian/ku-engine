@@ -30,6 +30,7 @@ export const createNode2D = factory('Node2D', {
   scale_y: 1,
   visible: true,
   y_sort_enabled: false,
+  pixel_perfect_enabled: false,
 });
 
 export const createSprite = factory('Sprite', {
