@@ -4,7 +4,7 @@ import type { Node } from '../engine/node.js';
 
 type Ctx = ReturnType<Canvas['getContext']>;
 
-const GUI_TYPES = new Set(['Panel', 'Button', 'ImageRect', 'ScrollView']);
+const GUI_TYPES = new Set(['Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui']);
 
 export function isGuiType(type: string): boolean {
   return GUI_TYPES.has(type);

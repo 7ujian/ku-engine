@@ -644,8 +644,67 @@ export class Renderer {
 	private drawGuiPass(tree: SceneTree, dt: number): void {
 		for (const child of tree.root.children) {
 			if (!isGuiType(child.type)) continue;
-			this.drawGuiRecursive(child, IDENTITY, dt);
+			if (child.type === 'ProfilerGui') {
+				this.drawProfilerGui(child, tree);
+			} else {
+				this.drawGuiRecursive(child, IDENTITY, dt);
+			}
 		}
+	}
+
+	private drawProfilerGui(node: Node, tree: SceneTree): void {
+		const visible = node.getProperty('visible');
+		if (!visible) return;
+
+		const x = (node.getProperty('x') as number) ?? 8;
+		const y = (node.getProperty('y') as number) ?? 8;
+		const targetPath = (node.getProperty('target') as string) ?? '/profiler';
+
+		let profilerNode: Node | undefined;
+		try { profilerNode = tree.get(targetPath); } catch { /* not found */ }
+		if (!profilerNode || profilerNode.type !== 'Profiler') return;
+
+		const bodyCount = (profilerNode.getProperty('body_count') as number) ?? 0;
+		const nodeCount = (profilerNode.getProperty('node_count') as number) ?? 0;
+		const samples = (profilerNode.getProperty('samples') as Array<{
+			name: string; totalMs: number; count: number; avgMs: number; maxMs: number;
+		}>) ?? [];
+
+		const ctx = this.ctx;
+		const lineH = 14;
+		const pad = 6;
+		const h = pad * 2 + lineH * (samples.length + 3);
+		const w = 280;
+
+		// Background panel
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+		ctx.fillRect(x, y, w, h);
+		ctx.strokeStyle = '#555';
+		ctx.lineWidth = 1;
+		ctx.strokeRect(x, y, w, h);
+
+		// Header
+		ctx.fillStyle = '#0f0';
+		ctx.font = '12px monospace';
+		ctx.textBaseline = 'top';
+		ctx.fillText(`Profiler  bodies=${bodyCount}  nodes=${nodeCount}`, x + pad, y + pad);
+
+		// Column headers
+		ctx.fillStyle = '#aaa';
+		ctx.fillText(`  name                         total     avg    max   count`, x + pad, y + pad + lineH);
+
+		// Samples
+		for (let i = 0; i < samples.length; i++) {
+			const s = samples[i];
+			const ly = y + pad + lineH * (i + 2);
+			ctx.fillStyle = '#fff';
+			ctx.fillText(
+				`  ${s.name.padEnd(25).slice(0, 25)}  ${String(s.totalMs).padStart(7)}  ${String(s.avgMs).padStart(5)}  ${String(s.maxMs).padStart(5)}  ${String(s.count).padStart(5)}`,
+				x + pad, ly,
+			);
+		}
+
+		ctx.textBaseline = 'alphabetic';
 	}
 
 	private drawGuiRecursive(node: Node, parentWorld: Transform2D, dt: number): void {

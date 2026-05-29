@@ -192,6 +192,15 @@ export const createProfiler = factory('Profiler', {
   node_count: 0,
 });
 
+export const createProfilerGui = factory('ProfilerGui', {
+  visible: false,
+  target: '/profiler',
+  x: 8,
+  y: 8,
+  width: 300,
+  height: 200,
+});
+
 const factories: Record<string, NodeFactory> = {
   Node: createNode,
   Node2D: createNode2D,
@@ -212,6 +221,7 @@ const factories: Record<string, NodeFactory> = {
   ImageRect: createImageRect,
   ScrollView: createScrollView,
   Profiler: createProfiler,
+  ProfilerGui: createProfilerGui,
 };
 
 export function createNodeByType(type: string, id: string, overrides?: Partial<PropertyMap>): Node {

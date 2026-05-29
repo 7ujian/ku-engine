@@ -131,8 +131,19 @@ export class PlayRuntime {
       (cfg.debug_physics as boolean) ?? false,
     );
     renderer.setKeyHandler((key, down) => {
-      if (down) input.keyDown(key);
-      else input.keyUp(key);
+      if (down) {
+        input.keyDown(key);
+        // F1 toggles ProfilerGui visibility
+        if (key === 'F1') {
+          try {
+            const gui = tree.get('/profiler_gui');
+            const vis = gui.getProperty('visible');
+            gui.setProperty('visible', !vis);
+          } catch { /* no-op */ }
+        }
+      } else {
+        input.keyUp(key);
+      }
     });
     renderer.setTouchHandler((phase, x, y, pointerId) => {
       if (phase === 'start') input.touchStart(x, y, pointerId);
@@ -152,6 +163,10 @@ export class PlayRuntime {
     const profilerNode = createNodeByType('Profiler', 'profiler', { enabled: profilingEnabled });
     tree.root.addChild(profilerNode);
     loop.profiler.setTargetNode(profilerNode);
+
+    // ProfilerGui overlay (F1 to toggle)
+    const profilerGuiNode = createNodeByType('ProfilerGui', 'profiler_gui', { visible: profilingEnabled });
+    tree.root.addChild(profilerGuiNode);
 
     setGameLoop(loop);
     setSceneName(instance.sceneName);
