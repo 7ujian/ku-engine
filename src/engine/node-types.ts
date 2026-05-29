@@ -62,6 +62,7 @@ export const createRigidBody = factory('RigidBody', {
 
 export const createArea = factory('Area', {
   monitorable: true,
+  is_sensor: true,
 });
 
 export const createCollisionShape = factory('CollisionShape', {

@@ -443,10 +443,22 @@ export class PhysicsWorld {
   }
 
   syncNode(node: Node): void {
-    if (node.type === 'RigidBody') this.syncBody(node);
-    else if (node.type === 'CollisionShape') this.syncShape(node);
-    else if (node.type === 'Area') this.syncArea(node);
-    else if (node.type === 'TileMap') this.syncTileCollisions(node);
+    // Property-driven: any node type can have physics if it sets the right properties.
+    // Plugin-defined types (Enemy, Bullet, etc.) work without engine changes.
+    if (node.getProperty('tiled_layers') != null) {
+      this.syncTileCollisions(node);
+    }
+    if (node.getProperty('is_sensor') === true) {
+      this.syncArea(node);
+      return;
+    }
+    if (node.getProperty('shape') != null) {
+      this.syncShape(node);
+      return;
+    }
+    if (node.getProperty('mass') != null) {
+      this.syncBody(node);
+    }
   }
 
   destroy(): void {
