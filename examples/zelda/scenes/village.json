@@ -1,0 +1,387 @@
+{
+  "scene": "village",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "village_map",
+        "type": "TileMap",
+        "properties": {
+          "tiled_map": "assets/tiled/village.tmj",
+          "tile_collisions_enabled": true
+        }
+      },
+      {
+        "id": "chest",
+        "type": "Sprite",
+        "properties": {
+          "texture": "assets/Cute_Fantasy_Free/Outdoor decoration/Chest.png",
+          "x": 300,
+          "y": 460,
+          "hframes": 2,
+          "frame": 0,
+          "tags": [
+            "chest"
+          ]
+        }
+      },
+      {
+        "id": "player",
+        "type": "RigidBody",
+        "properties": {
+          "x": 379,
+          "y": 492,
+          "width": 20,
+          "height": 24,
+          "mass": 1,
+          "velocity": {
+            "x": 0,
+            "y": 0
+          },
+          "gravity_scale": 0,
+          "collision_layer": 1,
+          "collision_mask": 10,
+          "atlas": "assets/player.atlas.json",
+          "region": "idle_down_0",
+          "animations": {
+            "idle_down": {
+              "frames": [
+                "idle_down_0",
+                "idle_down_1",
+                "idle_down_2",
+                "idle_down_3",
+                "idle_down_4",
+                "idle_down_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_right": {
+              "frames": [
+                "idle_right_0",
+                "idle_right_1",
+                "idle_right_2",
+                "idle_right_3",
+                "idle_right_4",
+                "idle_right_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_left": {
+              "frames": [
+                "idle_right_0",
+                "idle_right_1",
+                "idle_right_2",
+                "idle_right_3",
+                "idle_right_4",
+                "idle_right_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "idle_up": {
+              "frames": [
+                "idle_up_0",
+                "idle_up_1",
+                "idle_up_2",
+                "idle_up_3",
+                "idle_up_4",
+                "idle_up_5"
+              ],
+              "speed": 4,
+              "loop": true
+            },
+            "walk_down": {
+              "frames": [
+                "walk_down_0",
+                "walk_down_1",
+                "walk_down_2",
+                "walk_down_3",
+                "walk_down_4",
+                "walk_down_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_right": {
+              "frames": [
+                "walk_right_0",
+                "walk_right_1",
+                "walk_right_2",
+                "walk_right_3",
+                "walk_right_4",
+                "walk_right_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_left": {
+              "frames": [
+                "walk_right_0",
+                "walk_right_1",
+                "walk_right_2",
+                "walk_right_3",
+                "walk_right_4",
+                "walk_right_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "walk_up": {
+              "frames": [
+                "walk_up_0",
+                "walk_up_1",
+                "walk_up_2",
+                "walk_up_3",
+                "walk_up_4",
+                "walk_up_5"
+              ],
+              "speed": 8,
+              "loop": true
+            },
+            "attack_down": {
+              "frames": [
+                "attack_down_0",
+                "attack_down_1",
+                "attack_down_2",
+                "attack_down_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "attack_right": {
+              "frames": [
+                "attack_right_0",
+                "attack_right_1",
+                "attack_right_2",
+                "attack_right_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "attack_left": {
+              "frames": [
+                "attack_right_0",
+                "attack_right_1",
+                "attack_right_2",
+                "attack_right_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "attack_up": {
+              "frames": [
+                "attack_up_0",
+                "attack_up_1",
+                "attack_up_2",
+                "attack_up_3"
+              ],
+              "speed": 12,
+              "loop": false
+            },
+            "die": {
+              "frames": [
+                "die_0",
+                "die_1",
+                "die_2",
+                "die_3"
+              ],
+              "speed": 10,
+              "loop": false
+            }
+          },
+          "animation": "idle_down",
+          "playing": true,
+          "direction": "down",
+          "moving": false,
+          "attacking": false,
+          "attack_timer": 0,
+          "attack_cooldown": 0,
+          "hp": 5,
+          "max_hp": 5,
+          "invincible_timer": 0,
+          "score": 0,
+          "tags": [
+            "player"
+          ],
+          "flip_h": false
+        },
+        "children": [
+          {
+            "id": "sword_hitbox",
+            "type": "CollisionShape",
+            "properties": {
+              "shape": "rect",
+              "width": 24,
+              "height": 24,
+              "x": 0,
+              "y": 22,
+              "collision_layer": 4,
+              "collision_mask": 0,
+              "tags": [
+                "sword"
+              ]
+            }
+          }
+        ],
+        "js_script": "scripts/player.js"
+      },
+      {
+        "id": "slime_0",
+        "type": "RigidBody",
+        "properties": {
+          "x": 340,
+          "y": 440,
+          "width": 28,
+          "height": 24,
+          "mass": 1,
+          "velocity": {
+            "x": 0,
+            "y": 0
+          },
+          "gravity_scale": 0,
+          "linear_damping": 0.6,
+          "collision_layer": 2,
+          "collision_mask": 11,
+          "atlas": "assets/slime.atlas.json",
+          "region": "idle_0",
+          "animations": {
+            "idle": {
+              "frames": [
+                "idle_0",
+                "idle_1",
+                "idle_2",
+                "idle_3"
+              ],
+              "speed": 6,
+              "loop": true,
+              "ping_pong": true
+            },
+            "move": {
+              "frames": [
+                "move_0",
+                "move_1",
+                "move_2",
+                "move_3",
+                "move_4",
+                "move_5",
+                "move_6",
+                "move_7"
+              ],
+              "speed": 8,
+              "loop": true,
+              "ping_pong": true
+            },
+            "death": {
+              "frames": [
+                "death_0",
+                "death_1",
+                "death_2",
+                "death_3",
+                "death_4",
+                "death_5",
+                "death_6",
+                "death_7"
+              ],
+              "speed": 10,
+              "loop": false
+            }
+          },
+          "animation": "idle",
+          "playing": true,
+          "hp": 2,
+          "max_hp": 2,
+          "alive": true,
+          "death_timer": 0,
+          "patrol_dir": 0,
+          "patrol_timer": 0,
+          "tags": [
+            "enemy",
+            "slime"
+          ]
+        },
+        "js_script": "scripts/enemy.js"
+      },
+      {
+        "id": "slime_1",
+        "type": "RigidBody",
+        "properties": {
+          "x": 420,
+          "y": 520,
+          "width": 28,
+          "height": 24,
+          "mass": 1,
+          "velocity": {
+            "x": 0,
+            "y": 0
+          },
+          "gravity_scale": 0,
+          "linear_damping": 0.6,
+          "collision_layer": 2,
+          "collision_mask": 11,
+          "atlas": "assets/slime.atlas.json",
+          "region": "idle_0",
+          "animations": {
+            "idle": {
+              "frames": [
+                "idle_0",
+                "idle_1",
+                "idle_2",
+                "idle_3"
+              ],
+              "speed": 6,
+              "loop": true,
+              "ping_pong": true
+            },
+            "move": {
+              "frames": [
+                "move_0",
+                "move_1",
+                "move_2",
+                "move_3",
+                "move_4",
+                "move_5",
+                "move_6",
+                "move_7"
+              ],
+              "speed": 8,
+              "loop": true,
+              "ping_pong": true
+            },
+            "death": {
+              "frames": [
+                "death_0",
+                "death_1",
+                "death_2",
+                "death_3",
+                "death_4",
+                "death_5",
+                "death_6",
+                "death_7"
+              ],
+              "speed": 10,
+              "loop": false
+            }
+          },
+          "animation": "idle",
+          "playing": true,
+          "hp": 2,
+          "max_hp": 2,
+          "alive": true,
+          "death_timer": 0,
+          "patrol_dir": 1,
+          "patrol_timer": 1000,
+          "tags": [
+            "enemy",
+            "slime"
+          ]
+        },
+        "js_script": "scripts/enemy.js"
+      }
+    ],
+    "scripts": []
+  }
+}

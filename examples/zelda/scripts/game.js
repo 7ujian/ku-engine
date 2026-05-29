@@ -1,5 +1,12 @@
 // game.js — Camera follow, HUD update, game state management
 var SMOOTH = 0.08;
+var LEVEL_FILE = 'village';
+var LEVEL_NODES = ['village_map', 'spawn_point', 'chest', 'player', 'slime_0', 'slime_1'];
+
+handlers.on_enter = function (ctx) {
+  // Load level content into root (app nodes like camera, HUD stay untouched)
+  ctx.scene.load_scene('/', LEVEL_FILE);
+};
 
 handlers.on_frame = function (ctx) {
   updateCamera(ctx);
@@ -38,10 +45,10 @@ function updateHUD(ctx) {
       ctx.scene.set(path, 'x', hudLeft + (i - 1) * 24);
       ctx.scene.set(path, 'y', hudTop + 12);
       if (i <= hp) {
-        ctx.scene.set(path, 'text', '\u2764');
+        ctx.scene.set(path, 'text', '❤');
         ctx.scene.set(path, 'color', '#ff3333');
       } else if (i <= maxHp) {
-        ctx.scene.set(path, 'text', '\u2661');
+        ctx.scene.set(path, 'text', '♡');
         ctx.scene.set(path, 'color', '#666666');
       }
     } catch (e) {}
@@ -74,7 +81,14 @@ handlers.on_key = function (ctx) {
 };
 
 handlers.restart_game = function (ctx) {
-  ctx.emit('change_scene', { scene: 'main' });
+  // Destroy level nodes without touching app nodes (camera, HUD, profiler)
+  for (var i = 0; i < LEVEL_NODES.length; i++) {
+    try { ctx.scene.destroy('/' + LEVEL_NODES[i]); } catch (e) {}
+  }
+  // Reload level content into root
+  ctx.scene.load_scene('/', LEVEL_FILE);
+  // Hide gameover panel
+  try { ctx.scene.set('/gameover_panel', 'visible', false); } catch (e) {}
 };
 
 handlers.player_died = function (ctx) {

@@ -3,6 +3,7 @@ import { Node } from './node.js';
 import { SceneTree } from './scene-tree.js';
 import { EventBus } from './event-bus.js';
 import { createNodeByType } from './node-types.js';
+import type { NodeData } from './types.js';
 
 const MAX_LOGS = 1000;
 
@@ -13,6 +14,7 @@ export interface JsScriptEngineOptions {
   onSpawn?: (node: Node) => void;
   onDestroy?: (nodeId: string) => void;
   loadSource?: (scriptPath: string) => Promise<string>;
+  loadSceneFile?: (scenePath: string) => Promise<import('./types.js').NodeData>;
 }
 
 interface RegisteredScript {
@@ -34,6 +36,7 @@ export class JsScriptEngine {
   private onDestroy: ((nodeId: string) => void) | null;
   private onEmit: ((event: string, data: Record<string, unknown>) => void) | null = null;
   private loadSource: (scriptPath: string) => Promise<string>;
+  private loadSceneFile: ((scenePath: string) => Promise<NodeData>) | null;
 
   constructor(opts: JsScriptEngineOptions) {
     this.tree = opts.tree;
@@ -42,6 +45,7 @@ export class JsScriptEngine {
     this.onSpawn = opts.onSpawn ?? null;
     this.onDestroy = opts.onDestroy ?? null;
     this.loadSource = opts.loadSource ?? (async () => { throw new Error('no script loader provided'); });
+    this.loadSceneFile = opts.loadSceneFile ?? null;
   }
 
   async registerTree(): Promise<void> {
@@ -180,33 +184,49 @@ export class JsScriptEngine {
   }
 
   private createSceneApi() {
+    const self = this;
     return {
       get: (path: string, prop: string) => {
-        try { return this.tree.get(path).getPropertyByPath(prop); }
+        try { return self.tree.get(path).getPropertyByPath(prop); }
         catch { return undefined; }
       },
       set: (path: string, prop: string, value: unknown) => {
-        try { this.tree.get(path).setPropertyByPath(prop, value); }
+        try { self.tree.get(path).setPropertyByPath(prop, value); }
         catch { /* node not found */ }
       },
       spawn: (type: string, id: string, props?: Record<string, unknown>, parent?: string) => {
         try {
           const node = createNodeByType(type, id, props as any);
-          this.tree.add(parent ?? '/', node);
-          this.onSpawn?.(node);
+          self.tree.add(parent ?? '/', node);
+          self.onSpawn?.(node);
         } catch { /* ignore */ }
       },
       destroy: (path: string) => {
         try {
-          const node = this.tree.get(path);
-          this.tree.remove(path);
-          this.onDestroy?.(node.id);
+          const node = self.tree.get(path);
+          self.tree.remove(path);
+          self.onDestroy?.(node.id);
+        } catch { /* ignore */ }
+      },
+      load_scene: async (containerPath: string, sceneFile: string) => {
+        if (!self.loadSceneFile) return;
+        try {
+          const rootData = await self.loadSceneFile(sceneFile);
+          const container = self.tree.get(containerPath);
+          // Add children from loaded scene (skip if id already exists)
+          if (rootData.children) {
+            for (const childData of rootData.children) {
+              if (container.findChild(childData.id)) continue;
+              container.addChild(Node.fromJSON(childData));
+            }
+          }
+          await self.registerTree();
         } catch { /* ignore */ }
       },
       find: (path: string) => {
         try {
-          const node = this.tree.get(path);
-          return this.createNodeApi(node);
+          const node = self.tree.get(path);
+          return self.createNodeApi(node);
         } catch { return null; }
       },
     };

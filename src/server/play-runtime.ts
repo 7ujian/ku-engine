@@ -107,7 +107,15 @@ export class PlayRuntime {
     const scripts = new ScriptEngine(tree);
     scripts.registerTree();
 
-    const jsScripts = new JsScriptEngine({ tree, projectDir: dir, loadSource: (path) => loadScriptSource(dir, path) });
+    const jsScripts = new JsScriptEngine({
+      tree,
+      projectDir: dir,
+      loadSource: (path) => loadScriptSource(dir, path),
+      loadSceneFile: async (scenePath) => {
+        const { loadSceneRoot } = await import('../persistence/scene-io.js');
+        return loadSceneRoot(sceneFilePath(resolve(dir, 'scenes'), scenePath), dir);
+      },
+    });
     await jsScripts.registerTree();
 
     const physics = new PhysicsWorld(tree);

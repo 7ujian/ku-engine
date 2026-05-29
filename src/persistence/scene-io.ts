@@ -17,6 +17,14 @@ export async function loadScene(filePath: string, projectDir?: string): Promise<
   return new SceneTree(root);
 }
 
+export async function loadSceneRoot(filePath: string, projectDir?: string): Promise<NodeData> {
+  const content = await readFile(filePath, 'utf-8');
+  const data: SceneFile = JSON.parse(content);
+  const scenesDir = dirname(filePath);
+  const resolved = await resolveInstances(data.root, scenesDir, new Set());
+  return resolveTiledMaps(resolved, projectDir ?? dirname(filePath));
+}
+
 async function loadSceneFile(filePath: string): Promise<NodeData> {
   const content = await readFile(filePath, 'utf-8');
   const data: SceneFile = JSON.parse(content);
