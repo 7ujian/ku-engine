@@ -354,6 +354,8 @@ export class PhysicsWorld {
       this.entries.delete(nodeId);
     }
     this.childShapeIds.delete(nodeId);
+    // Also remove compound tile collision body
+    this.removeTileCollisions(nodeId);
   }
 
   addTileCollisions(
