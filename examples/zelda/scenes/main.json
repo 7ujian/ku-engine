@@ -24,7 +24,7 @@
           "x": 30,
           "y": 16,
           "text": "\u2764",
-          "font_size": 24,
+          "font_size": 16,
           "color": "#ff3333",
           "font": "Silkscreen"
         }
@@ -36,7 +36,7 @@
           "x": 54,
           "y": 16,
           "text": "\u2764",
-          "font_size": 24,
+          "font_size": 16,
           "color": "#ff3333",
           "font": "Silkscreen"
         }
@@ -48,7 +48,7 @@
           "x": 78,
           "y": 16,
           "text": "\u2764",
-          "font_size": 24,
+          "font_size": 16,
           "color": "#ff3333",
           "font": "Silkscreen"
         }
@@ -60,7 +60,7 @@
           "x": 102,
           "y": 16,
           "text": "\u2764",
-          "font_size": 24,
+          "font_size": 16,
           "color": "#ff3333",
           "font": "Silkscreen"
         }
@@ -72,7 +72,7 @@
           "x": 126,
           "y": 16,
           "text": "\u2764",
-          "font_size": 24,
+          "font_size": 16,
           "color": "#ff3333",
           "font": "Silkscreen"
         }
@@ -84,7 +84,7 @@
           "x": 360,
           "y": 16,
           "text": "Score: 0",
-          "font_size": 18,
+          "font_size": 16,
           "color": "#ffffff",
           "font": "Silkscreen"
         }
