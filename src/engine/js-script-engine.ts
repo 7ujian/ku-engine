@@ -15,6 +15,7 @@ export interface JsScriptEngineOptions {
   onDestroy?: (nodeId: string) => void;
   loadSource?: (scriptPath: string) => Promise<string>;
   loadSceneFile?: (scenePath: string) => Promise<import('./types.js').NodeData>;
+  loadSceneFileSync?: (scenePath: string) => import('./types.js').NodeData;
 }
 
 interface RegisteredScript {
@@ -37,6 +38,7 @@ export class JsScriptEngine {
   private onEmit: ((event: string, data: Record<string, unknown>) => void) | null = null;
   private loadSource: (scriptPath: string) => Promise<string>;
   private loadSceneFile: ((scenePath: string) => Promise<NodeData>) | null;
+  private loadSceneFileSync: ((scenePath: string) => NodeData) | null;
 
   constructor(opts: JsScriptEngineOptions) {
     this.tree = opts.tree;
@@ -46,6 +48,7 @@ export class JsScriptEngine {
     this.onDestroy = opts.onDestroy ?? null;
     this.loadSource = opts.loadSource ?? (async () => { throw new Error('no script loader provided'); });
     this.loadSceneFile = opts.loadSceneFile ?? null;
+    this.loadSceneFileSync = opts.loadSceneFileSync ?? null;
   }
 
   async registerTree(): Promise<void> {
@@ -217,10 +220,10 @@ export class JsScriptEngine {
           for (const id of ids) self.onDestroy?.(id);
         } catch { /* ignore */ }
       },
-      load_scene: async (containerPath: string, sceneFile: string) => {
-        if (!self.loadSceneFile) return;
+      load_scene: (containerPath: string, sceneFile: string) => {
+        if (!self.loadSceneFileSync) return;
         try {
-          const rootData = await self.loadSceneFile(sceneFile);
+          const rootData = self.loadSceneFileSync(sceneFile);
           const container = self.tree.get(containerPath);
           const loadedIds: string[] = [];
           if (rootData.children) {
@@ -240,7 +243,7 @@ export class JsScriptEngine {
             }
             for (const child of node.children) collect(child);
           })(container);
-          await Promise.all(loadPromises);
+          Promise.all(loadPromises).catch(() => {});  // fire-and-forget registration
           // Fire on_enter per loaded top-level node
           for (const id of loadedIds) {
             self.evaluateEvent('on_enter', { node: id });

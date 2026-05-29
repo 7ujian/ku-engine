@@ -115,6 +115,10 @@ export class PlayRuntime {
         const { loadSceneRoot } = await import('../persistence/scene-io.js');
         return loadSceneRoot(sceneFilePath(resolve(dir, 'scenes'), scenePath), dir);
       },
+      loadSceneFileSync: (scenePath) => {
+        const { loadSceneRootSync } = require('../persistence/scene-io.js');
+        return loadSceneRootSync(sceneFilePath(resolve(dir, 'scenes'), scenePath), dir);
+      },
     });
     await jsScripts.registerTree();
 

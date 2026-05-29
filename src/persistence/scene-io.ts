@@ -4,7 +4,7 @@ import { join, dirname, resolve } from 'node:path';
 import { Node } from '../engine/node.js';
 import { SceneTree } from '../engine/scene-tree.js';
 import type { SceneFile, NodeData } from '../engine/types.js';
-import { loadTiledMapCached } from './tiled-cache.js';
+import { loadTiledMapCached, loadTiledMapCachedSync } from './tiled-cache.js';
 import { importTiledMapMerged } from './tiled-importer.js';
 
 export async function loadScene(filePath: string, projectDir?: string): Promise<SceneTree> {
@@ -23,6 +23,40 @@ export async function loadSceneRoot(filePath: string, projectDir?: string): Prom
   const scenesDir = dirname(filePath);
   const resolved = await resolveInstances(data.root, scenesDir, new Set());
   return resolveTiledMaps(resolved, projectDir ?? dirname(filePath));
+}
+
+/** Synchronous version for use in game scripts (avoids race with async load) */
+export function loadSceneRootSync(filePath: string, projectDir?: string): NodeData {
+  const content = readFileSync(filePath, 'utf-8');
+  const data: SceneFile = JSON.parse(content);
+  const scenesDir = dirname(filePath);
+  const resolved = resolveInstancesSync(data.root, scenesDir, new Set());
+  return resolveTiledMapsSync(resolved, projectDir ?? dirname(filePath));
+}
+
+function loadSceneFileSync(filePath: string): NodeData {
+  const content = readFileSync(filePath, 'utf-8');
+  const data: SceneFile = JSON.parse(content);
+  return data.root;
+}
+
+function resolveInstancesSync(nodeData: NodeData, scenesDir: string, stack: Set<string>): NodeData {
+  if (nodeData.node_path) {
+    const instancePath = join(scenesDir, nodeData.node_path);
+    if (stack.has(instancePath)) {
+      throw new Error(`circular instance reference: ${nodeData.node_path}`);
+    }
+    stack.add(instancePath);
+    const template = loadSceneFileSync(instancePath);
+    const resolvedTemplate = resolveInstancesSync(template, scenesDir, stack);
+    stack.delete(instancePath);
+    return mergeNodeData(resolvedTemplate, nodeData);
+  }
+  const resolvedChildren: NodeData[] = [];
+  for (const child of nodeData.children ?? []) {
+    resolvedChildren.push(resolveInstancesSync(child, scenesDir, stack));
+  }
+  return { ...nodeData, children: resolvedChildren };
 }
 
 async function loadSceneFile(filePath: string): Promise<NodeData> {
@@ -90,6 +124,26 @@ async function resolveTiledMaps(nodeData: NodeData, projectDir: string): Promise
 
   const absPath = resolve(projectDir, mapRef);
   const tiledMap = await loadTiledMapCached(absPath);
+  const merged = importTiledMapMerged(tiledMap, projectDir);
+
+  const newProps = { ...nodeData.properties, tiled_layers: merged.tiled_layers };
+  delete (newProps as Record<string, unknown>).tiled_map;
+
+  return {
+    ...nodeData,
+    properties: newProps,
+    children: [...merged.children, ...children],
+  };
+}
+
+function resolveTiledMapsSync(nodeData: NodeData, projectDir: string): NodeData {
+  const children = (nodeData.children ?? []).map(c => resolveTiledMapsSync(c, projectDir));
+
+  const mapRef = (nodeData.properties?.tiled_map as string) ?? '';
+  if (!mapRef) return { ...nodeData, children };
+
+  const absPath = resolve(projectDir, mapRef);
+  const tiledMap = loadTiledMapCachedSync(absPath);
   const merged = importTiledMapMerged(tiledMap, projectDir);
 
   const newProps = { ...nodeData.properties, tiled_layers: merged.tiled_layers };
