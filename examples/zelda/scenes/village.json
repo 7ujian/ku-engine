@@ -304,22 +304,7 @@
           ]
         },
         "js_script": "scripts/enemy.js",
-        "children": [
-          {
-            "id": "enemy_hitbox",
-            "type": "Area",
-            "properties": {
-              "width": 24,
-              "height": 24,
-              "collision_layer": 16,
-              "collision_mask": 1,
-              "color": "rgba(255,0,0,0.3)"
-            },
-            "children": [],
-            "scripts": [],
-            "js_script": "scripts/enemy_contact.js"
-          }
-        ]
+        "children": []
       },
       {
         "id": "slime_1",
@@ -396,22 +381,7 @@
           ]
         },
         "js_script": "scripts/enemy.js",
-        "children": [
-          {
-            "id": "enemy_hitbox",
-            "type": "Area",
-            "properties": {
-              "width": 24,
-              "height": 24,
-              "collision_layer": 16,
-              "collision_mask": 1,
-              "color": "rgba(255,0,0,0.3)"
-            },
-            "children": [],
-            "scripts": [],
-            "js_script": "scripts/enemy_contact.js"
-          }
-        ]
+        "children": []
       }
     ],
     "scripts": []

@@ -2,18 +2,22 @@
 var PATROL_SPEED = 0.4;
 var CHASE_SPEED = 1.2;
 var CHASE_RANGE = 140;
+var ATTACK_RANGE = 28;
+var ATTACK_COOLDOWN = 800;
 var PATROL_INTERVAL = 2000;
 var FLASH_TIME = 150;
 
 var patrolDir = 0;
 var patrolTimer = 0;
 var flashTimer = 0;
+var attackTimer = 0;
 var dead = false;
 
 handlers.on_enter = function (ctx) {
   patrolDir = Math.floor(Math.random() * 4);
   patrolTimer = PATROL_INTERVAL * (0.5 + Math.random());
   flashTimer = 0;
+  attackTimer = ATTACK_COOLDOWN * Math.random();
   dead = false;
 };
 
@@ -39,6 +43,7 @@ handlers.on_frame = function (ctx) {
   var vx = 0, vy = 0;
   var speed = PATROL_SPEED;
   var chasing = false;
+  var attacking = false;
 
   if (px !== undefined) {
     var dx = px - ex;
@@ -47,9 +52,33 @@ handlers.on_frame = function (ctx) {
 
     if (dist < CHASE_RANGE && dist > 0) {
       chasing = true;
-      speed = CHASE_SPEED;
-      vx = (dx / dist) * speed;
-      vy = (dy / dist) * speed;
+      if (dist > ATTACK_RANGE) {
+        // Move toward player
+        speed = CHASE_SPEED;
+        vx = (dx / dist) * speed;
+        vy = (dy / dist) * speed;
+      } else {
+        // Stop and attack
+        attacking = true;
+        vx = 0; vy = 0;
+        attackTimer -= dt;
+        if (attackTimer <= 0) {
+          attackTimer = ATTACK_COOLDOWN;
+          try {
+            var playerHp = ctx.scene.get('/player', 'hp');
+            var inv = ctx.scene.get('/player', 'invincible_timer') || 0;
+            if (playerHp > 0 && inv <= 0) {
+              ctx.scene.set('/player', 'hp', playerHp - 1);
+              ctx.scene.set('/player', 'invincible_timer', 1000);
+              if (playerHp - 1 <= 0) {
+                ctx.scene.set('/player', 'hp', 0);
+                ctx.scene.set('/player', 'velocity', { x: 0, y: 0 });
+                ctx.emit('player_died', {});
+              }
+            }
+          } catch (e) {}
+        }
+      }
     }
   }
 
@@ -68,12 +97,13 @@ handlers.on_frame = function (ctx) {
   }
 
   ctx.node.set('velocity', { x: vx, y: vy });
-  ctx.node.set('animation', chasing ? 'move' : 'idle');
+  ctx.node.set('animation', attacking ? 'attack' : chasing ? 'move' : 'idle');
   ctx.node.set('playing', true);
 
   // Damage flash
   if (flashTimer > 0) {
     flashTimer -= dt;
+    ctx.node.set('visible', Math.floor(flashTimer / 50) % 2 === 0);
   }
 };
 
