@@ -100,9 +100,9 @@ const parentPath = payload.path as string;
       const node = createNodeByType(nodeType, nodeId, overrides);
       // Lift instance/js_script from properties to top-level fields
       if (overrides) {
-        if (typeof overrides.instance === 'string') {
-          node.instance = overrides.instance;
-          delete node.properties.instance;
+        if (typeof overrides.node_path === 'string') {
+          node.node_path = overrides.node_path;
+          delete node.properties.node_path;
         }
         if (typeof overrides.js_script === 'string') {
           node.js_script = overrides.js_script;

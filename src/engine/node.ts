@@ -6,7 +6,7 @@ export class Node {
   properties: PropertyMap;
   children: Node[];
   scripts: ScriptRule[];
-  instance?: string;
+  node_path?: string;
   js_script?: string;
   parent: Node | null = null;
   readonly _object_id: number;
@@ -83,7 +83,7 @@ export class Node {
       properties: { ...this.properties },
       ...(this.children.length > 0 ? { children: this.children.map(c => c.toJSON()) } : {}),
       scripts: this.scripts.map(s => ({ ...s, filter: s.filter ? { ...s.filter } : undefined, actions: [...s.actions] })),
-      ...(this.instance ? { instance: this.instance } : {}),
+      ...(this.node_path ? { node_path: this.node_path } : {}),
       ...(this.js_script ? { js_script: this.js_script } : {}),
       _object_id: this._object_id,
     };
@@ -97,7 +97,7 @@ export class Node {
       return child;
     });
     node.scripts = data.scripts ?? [];
-    if (data.instance) node.instance = data.instance;
+    if (data.node_path) node.node_path = data.node_path;
     if (data.js_script) node.js_script = data.js_script;
     return node;
   }

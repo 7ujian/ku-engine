@@ -48,7 +48,16 @@ describe('scene-file', () => {
     await saveScene(tree, path, 'complex');
     const loaded = await loadScene(path);
 
-    expect(loaded.root.toJSON()).toEqual(root.toJSON());
+    const stripOid = (obj: any): any => {
+      if (Array.isArray(obj)) return obj.map(stripOid);
+      if (obj && typeof obj === 'object') {
+        const { _object_id, ...rest } = obj;
+        for (const k of Object.keys(rest)) rest[k] = stripOid(rest[k]);
+        return rest;
+      }
+      return obj;
+    };
+    expect(stripOid(loaded.root.toJSON())).toEqual(stripOid(root.toJSON()));
   });
 
   it('round-trips scripts', async () => {

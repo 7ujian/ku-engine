@@ -36,10 +36,10 @@ async function resolveInstances(
   scenesDir: string,
   stack: Set<string>,
 ): Promise<NodeData> {
-  if (nodeData.instance) {
-    const instancePath = join(scenesDir, nodeData.instance);
+  if (nodeData.node_path) {
+    const instancePath = join(scenesDir, nodeData.node_path);
     if (stack.has(instancePath)) {
-      throw new Error(`circular instance reference: ${nodeData.instance}`);
+      throw new Error(`circular instance reference: ${nodeData.node_path}`);
     }
     stack.add(instancePath);
 

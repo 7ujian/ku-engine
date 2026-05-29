@@ -1151,7 +1151,7 @@ export class ShellSession {
         }
         break;
       }
-      case 'node.instance': {
+      case 'node.node_path': {
         // Usage: node instance <scene> [parent] [id] [props]
         if (args.length < 1) {
           console.error('Usage: node instance <scene> [parent] [id] [props]');
@@ -1437,7 +1437,7 @@ export class ShellSession {
 
     p.register('node instance', (args) => {
       if (args.length < 1) return err('Usage: node instance <scene> [parent] [id] [props]');
-      return blt('node.instance', args);
+      return blt('node.node_path', args);
     });
 
     p.register('node duplicate', (args) => {

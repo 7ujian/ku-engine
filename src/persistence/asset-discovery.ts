@@ -148,8 +148,8 @@ function collectInstances(
   add: (list: string[], path: string) => void,
   sceneList: string[],
 ): void {
-  if (typeof (node as any).instance === 'string' && (node as any).instance) {
-    add(sceneList, resolve(projectDir, 'scenes', (node as any).instance));
+  if (typeof (node as any).node_path === 'string' && (node as any).node_path) {
+    add(sceneList, resolve(projectDir, 'scenes', (node as any).node_path));
   }
   for (const child of node.children ?? []) {
     collectInstances(child, projectDir, add, sceneList);
