@@ -225,6 +225,12 @@ export class JsScriptEngine {
         try {
           const rootData = self.loadSceneFileSync(sceneFile);
           const container = self.tree.get(containerPath);
+          // Merge scene root properties into container (e.g. y_sort_enabled)
+          for (const key of Object.keys(rootData.properties)) {
+            if (!(key in container.properties)) {
+              container.setProperty(key, rootData.properties[key]);
+            }
+          }
           const loadedIds: string[] = [];
           if (rootData.children) {
             for (const childData of rootData.children) {

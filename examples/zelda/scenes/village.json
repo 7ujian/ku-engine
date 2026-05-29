@@ -303,7 +303,7 @@
             "slime"
           ]
         },
-        "js_script": "scripts/enemy.js",
+        "js_script": "enemy.js",
         "children": []
       },
       {
@@ -380,7 +380,7 @@
             "slime"
           ]
         },
-        "js_script": "scripts/enemy.js",
+        "js_script": "enemy.js",
         "children": []
       }
     ],

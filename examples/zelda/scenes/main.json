@@ -3,7 +3,9 @@
   "root": {
     "id": "root",
     "type": "Node",
-    "properties": {},
+    "properties": {
+      "y_sort_enabled": true
+    },
     "children": [
       {
         "id": "camera",
