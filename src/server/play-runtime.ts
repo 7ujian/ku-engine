@@ -130,15 +130,42 @@ export class PlayRuntime {
       dir,
       (cfg.debug_physics as boolean) ?? false,
     );
+    await renderer.open('ku');
+
+    const audio = new AudioManager(dir, loadWav);
+    const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name), dir);
+    const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
+    const profilingEnabled = (cfg.profiling as boolean) ?? false;
+    if (profilingEnabled) {
+      physics.setProfiler(loop.profiler);
+    }
+
+    // System nodes: Profiler + ProfilerGui — re-added on every scene change
+    const setupSystemNodes = () => {
+      const t = loop.getTree();
+      // Profiler node
+      const pn = createNodeByType('Profiler', 'profiler', { enabled: profilingEnabled });
+      t.root.addChild(pn);
+      loop.profiler.setTargetNode(pn);
+      // ProfilerGui overlay
+      const gn = createNodeByType('ProfilerGui', 'profiler_gui', { visible: profilingEnabled });
+      t.root.addChild(gn);
+      // Re-wire physics profiler after scene change creates new PhysicsWorld
+      if (profilingEnabled) {
+        loop.getPhysics().setProfiler(loop.profiler);
+      }
+    };
+    setupSystemNodes();
+    loop.setSystemNodeSetup(setupSystemNodes);
+
+    // F1 toggles ProfilerGui — uses loop.getTree() so it survives scene changes
     renderer.setKeyHandler((key, down) => {
       if (down) {
         input.keyDown(key);
-        // F1 toggles ProfilerGui visibility
         if (key === 'F1') {
           try {
-            const gui = tree.get('/profiler_gui');
-            const vis = gui.getProperty('visible');
-            gui.setProperty('visible', !vis);
+            const gui = loop.getTree().get('/profiler_gui');
+            gui.setProperty('visible', !gui.getProperty('visible'));
           } catch { /* no-op */ }
         }
       } else {
@@ -150,23 +177,6 @@ export class PlayRuntime {
       else if (phase === 'move') input.touchMove(x, y, pointerId);
       else if (phase === 'end') input.touchEnd(x, y, pointerId);
     });
-    await renderer.open('ku');
-
-    const audio = new AudioManager(dir, loadWav);
-    const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name), dir);
-    const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
-    // Profiler node always exists as feature interface
-    const profilingEnabled = (cfg.profiling as boolean) ?? false;
-    if (profilingEnabled) {
-      physics.setProfiler(loop.profiler);
-    }
-    const profilerNode = createNodeByType('Profiler', 'profiler', { enabled: profilingEnabled });
-    tree.root.addChild(profilerNode);
-    loop.profiler.setTargetNode(profilerNode);
-
-    // ProfilerGui overlay (F1 to toggle)
-    const profilerGuiNode = createNodeByType('ProfilerGui', 'profiler_gui', { visible: profilingEnabled });
-    tree.root.addChild(profilerGuiNode);
 
     setGameLoop(loop);
     setSceneName(instance.sceneName);

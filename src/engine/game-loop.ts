@@ -33,6 +33,7 @@ export class GameLoop {
   private audio: AudioManager | null = null;
   private pendingScene: { name: string } | null = null;
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
+  private systemNodeSetup: (() => void) | null = null;
   readonly profiler = new Profiler(5000);
 
   constructor(
@@ -96,6 +97,10 @@ export class GameLoop {
     this.onExit = cb;
   }
 
+  setSystemNodeSetup(cb: () => void): void {
+    this.systemNodeSetup = cb;
+  }
+
   start(): void {
     if (this.running) return;
     this.running = true;
@@ -150,6 +155,10 @@ export class GameLoop {
 
   getTree(): SceneTree {
     return this.tree;
+  }
+
+  getPhysics(): PhysicsWorld {
+    return this.physics;
   }
 
   syncNodeProperty(path: string): void {
@@ -336,6 +345,8 @@ export class GameLoop {
         this.jsScripts.setTree(newTree);
         await this.jsScripts.registerTree();
       }
+      // Re-add system nodes (Profiler, ProfilerGui, etc.) before on_enter
+      this.systemNodeSetup?.();
       this.scripts.evaluateEvent('on_enter', {});
       this.jsScripts?.evaluateEvent('on_enter', {});
       // Re-wire spawn/destroy for new tree
