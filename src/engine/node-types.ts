@@ -29,6 +29,7 @@ export const createNode2D = factory('Node2D', {
   scale_x: 1,
   scale_y: 1,
   visible: true,
+  y_sort_enabled: false,
 });
 
 export const createSprite = factory('Sprite', {

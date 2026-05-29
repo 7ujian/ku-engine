@@ -672,7 +672,16 @@ export class Renderer {
 			this.drawNode(node, snapped.x, snapped.y, world.scaleX, world.scaleY, dt);
 		}
 
-		for (const child of node.children) {
+		// Y-sort: children with larger Y render later (on top)
+		let children = node.children;
+		if (node.getProperty('y_sort_enabled')) {
+			children = [...node.children].sort((a, b) => {
+				const ay = snapped.y + ((a.getProperty('y') as number) ?? 0) * snapped.scaleY;
+				const by = snapped.y + ((b.getProperty('y') as number) ?? 0) * snapped.scaleY;
+				return ay - by;
+			});
+		}
+		for (const child of children) {
 			this._drawNodeRecursive(child, snapped, dt, labels);
 		}
 
