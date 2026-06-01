@@ -4,7 +4,12 @@ import type { Node } from '../engine/node.js';
 
 type Ctx = ReturnType<Canvas['getContext']>;
 
-const GUI_TYPES = new Set(['Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui']);
+const GUI_TYPES = new Set([
+  'Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui',
+  'Slider', 'Toggle',
+  'VBoxContainer', 'HBoxContainer', 'MarginContainer', 'CenterContainer',
+  'Control', 'Label',
+]);
 
 export function isGuiType(type: string): boolean {
   return GUI_TYPES.has(type);
@@ -201,6 +206,92 @@ export class GuiRenderer {
 
   endScrollView(): void {
     this.ctx.restore();
+  }
+
+  drawSlider(node: Node, wx: number, wy: number): void {
+    const w = (node.getProperty('width') as number) ?? 200;
+    const h = (node.getProperty('height') as number) ?? 20;
+    const minVal = (node.getProperty('min_value') as number) ?? 0;
+    const maxVal = (node.getProperty('max_value') as number) ?? 100;
+    const value = (node.getProperty('value') as number) ?? 0;
+    const trackColor = (node.getProperty('track_color') as string) ?? '#3a3a5e';
+    const fillColor = (node.getProperty('fill_color') as string) ?? '#6a6aff';
+    const handleColor = (node.getProperty('handle_color') as string) ?? '#ffffff';
+    const handleSize = (node.getProperty('handle_size') as number) ?? 12;
+    const orientation = (node.getProperty('orientation') as string) ?? 'horizontal';
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    const trackH = orientation === 'horizontal' ? 4 : w;
+    const trackW = orientation === 'horizontal' ? w : 4;
+    const trackX = orientation === 'horizontal' ? wx : wx + (w - 4) / 2;
+    const trackY = orientation === 'horizontal' ? wy + (h - 4) / 2 : wy;
+
+    // Track
+    ctx.fillStyle = trackColor;
+    ctx.fillRect(trackX, trackY, trackW, trackH);
+
+    // Fill
+    const t = maxVal > minVal ? (value - minVal) / (maxVal - minVal) : 0;
+    ctx.fillStyle = fillColor;
+    if (orientation === 'horizontal') {
+      ctx.fillRect(trackX, trackY, trackW * t, trackH);
+    } else {
+      ctx.fillRect(trackX, trackY + trackH * (1 - t), trackW, trackH * t);
+    }
+
+    // Handle
+    ctx.fillStyle = handleColor;
+    if (orientation === 'horizontal') {
+      const hx = wx + w * t - handleSize / 2;
+      const hy = wy + h / 2 - handleSize / 2;
+      ctx.fillRect(hx, hy, handleSize, handleSize);
+    } else {
+      const hx = wx + w / 2 - handleSize / 2;
+      const hy = wy + h * (1 - t) - handleSize / 2;
+      ctx.fillRect(hx, hy, handleSize, handleSize);
+    }
+
+    ctx.restore();
+  }
+
+  drawToggle(node: Node, wx: number, wy: number): void {
+    const w = (node.getProperty('width') as number) ?? 24;
+    const h = (node.getProperty('height') as number) ?? 24;
+    const pressed = node.getProperty('pressed') === true;
+    const onColor = (node.getProperty('on_color') as string) ?? '#6a6aff';
+    const offColor = (node.getProperty('off_color') as string) ?? '#3a3a5e';
+    const label = (node.getProperty('label') as string) ?? '';
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Background
+    ctx.fillStyle = pressed ? onColor : offColor;
+    ctx.fillRect(wx, wy, w, h);
+
+    // Check mark when pressed
+    if (pressed) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(wx + w * 0.2, wy + h * 0.5);
+      ctx.lineTo(wx + w * 0.4, wy + h * 0.7);
+      ctx.lineTo(wx + w * 0.8, wy + h * 0.3);
+      ctx.stroke();
+    }
+
+    // Label
+    if (label) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, wx + w + 4, wy + h / 2);
+    }
+
+    ctx.restore();
   }
 
   private roundedRect(x: number, y: number, w: number, h: number, r: number): void {
