@@ -1,4 +1,4 @@
-import type { NodeData, PropertyMap, ScriptRule } from './types.js';
+import type { NodeData, PropertyMap, ScriptRule, ComputedRect } from './types.js';
 
 export class Node {
   id: string;
@@ -10,6 +10,8 @@ export class Node {
   js_script?: string;
   parent: Node | null = null;
   readonly _object_id: number;
+  /** @internal Computed rect for Control nodes, set by layout resolver */
+  _computed: ComputedRect | null = null;
 
   private static _nextObjectId = 1;
 
