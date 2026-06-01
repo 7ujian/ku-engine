@@ -9,6 +9,8 @@ import { SpriteRenderer } from './sprite-renderer.js';
 import { TilemapRenderer } from './tilemap-renderer.js';
 import { LabelRenderer } from './label-renderer.js';
 import { GuiRenderer, isGuiType } from './gui-renderer.js';
+import { computeControlRect, resolveLayout, isContainerType } from '../engine/layout.js';
+import { isControlType } from '../engine/anchor.js';
 import type { PropertyMap } from '../engine/types.js';
 import { type Transform2D, IDENTITY, getLocalTransform, composeTransform } from '../engine/transform.js';
 import { pluginRegistry } from '../engine/plugin-registry.js';
@@ -646,6 +648,11 @@ export class Renderer {
 			return;
 		}
 
+		// Skip CanvasLayer nodes in game pass — they render in the canvas layer pass
+		if (node.type === 'CanvasLayer' && node.parent?.type === 'Node' && node.parent?.parent === null) {
+			return;
+		}
+
 		const local = getLocalTransform(node);
 		const world = composeTransform(parentWorld, local);
 		// Snap world position for pixel-perfect rendering
@@ -698,13 +705,30 @@ export class Renderer {
 
 	/** Draw GUI nodes in screen space (after camera transform is restored) */
 	private drawGuiPass(tree: SceneTree, dt: number): void {
+		const screenRect = { x: 0, y: 0, width: this.designWidth, height: this.designHeight };
+
+		// Pass 1: CanvasLayer nodes (sorted by layer property)
+		const canvasLayers: Node[] = [];
 		for (const child of tree.root.children) {
-			if (!isGuiType(child.type)) continue;
+			if (child.type === 'CanvasLayer') canvasLayers.push(child);
+		}
+		canvasLayers.sort((a, b) => {
+			return ((a.getProperty('layer') as number) ?? 0) - ((b.getProperty('layer') as number) ?? 0);
+		});
+
+		for (const layer of canvasLayers) {
+			if (layer.getProperty('visible') === false) continue;
+			this.drawCanvasLayer(layer, screenRect, dt);
+		}
+
+		// Pass 2: Root-level Control nodes (screen space)
+		for (const child of tree.root.children) {
+			if (!isControlType(child.type)) continue;
 			if (child.type === 'ProfilerGui') {
 				this.drawProfilerGui(child, tree);
-			} else {
-				this.drawGuiRecursive(child, IDENTITY, dt);
+				continue;
 			}
+			this.drawControlTree(child, screenRect, dt);
 		}
 	}
 
@@ -763,33 +787,90 @@ export class Renderer {
 		ctx.textBaseline = 'alphabetic';
 	}
 
-	private drawGuiRecursive(node: Node, parentWorld: Transform2D, dt: number): void {
-		const visible = node.getProperty('visible');
-		if (visible === false) return;
+	private drawCanvasLayer(layer: Node, screenRect: { x: number; y: number; width: number; height: number }, dt: number): void {
+		const ctx = this.ctx;
+		const offsetX = (layer.getProperty('offset_x') as number) ?? 0;
+		const offsetY = (layer.getProperty('offset_y') as number) ?? 0;
+		const scale = (layer.getProperty('scale') as number) ?? 1;
+		const followViewport = layer.getProperty('follow_viewport') !== false;
 
-		const local = getLocalTransform(node);
-		const world = composeTransform(parentWorld, local);
-		const snapped: Transform2D = {
-			...world,
-			x: snapToGrid(world.x, this.snapGrid),
-			y: snapToGrid(world.y, this.snapGrid),
-		};
+		ctx.save();
 
-		// ScrollView: clip + scroll offset for children
-		if (node.type === 'ScrollView') {
-			this.drawNode(node, snapped.x, snapped.y, world.scaleX, world.scaleY, dt);
-			this.guiRenderer.beginScrollView(node, snapped.x, snapped.y);
-			for (const child of node.children) {
-				this.drawGuiRecursive(child, IDENTITY, dt);
-			}
-			this.guiRenderer.endScrollView();
-			return;
+		if (followViewport && this.cameraCache) {
+			const cam = this.cameraCache.cam;
+			ctx.translate(this.designWidth / 2 + offsetX, this.designHeight / 2 + offsetY);
+			ctx.scale(cam.zoom * scale, cam.zoom * scale);
+			ctx.translate(-cam.x, -cam.y);
+		} else {
+			ctx.translate(offsetX, offsetY);
+			if (scale !== 1) ctx.scale(scale, scale);
 		}
 
-		this.drawNode(node, snapped.x, snapped.y, world.scaleX, world.scaleY, dt);
+		for (const child of layer.children) {
+			if (isControlType(child.type)) {
+				this.drawControlTree(child, screenRect, dt);
+			} else {
+				this.drawNodeRecursive(child, IDENTITY, dt);
+			}
+		}
 
-		for (const child of node.children) {
-			this.drawGuiRecursive(child, snapped, dt);
+		ctx.restore();
+	}
+
+	private drawControlTree(node: Node, parentRect: { x: number; y: number; width: number; height: number }, dt: number): void {
+		if (node.getProperty('visible') === false) return;
+
+		// Compute rect for this Control
+		const rect = computeControlRect(node, parentRect);
+		node._computed = rect;
+
+		// Resolve container layout for children
+		if (isContainerType(node.type)) {
+			resolveLayout(node, parentRect);
+		}
+
+		// Draw this node
+		this.drawGuiNode(node, rect.x, rect.y, dt);
+
+		// Draw children
+		if (node.type === 'ScrollView') {
+			this.guiRenderer.beginScrollView(node, rect.x, rect.y);
+			for (const child of node.children) {
+				if (isControlType(child.type)) {
+					this.drawControlTree(child, { x: 0, y: 0, width: rect.width, height: rect.height }, dt);
+				}
+			}
+			this.guiRenderer.endScrollView();
+		} else {
+			for (const child of node.children) {
+				if (isControlType(child.type)) {
+					this.drawControlTree(child, rect, dt);
+				}
+			}
+		}
+	}
+
+	/** Dispatch GUI node to appropriate renderer */
+	private drawGuiNode(node: Node, wx: number, wy: number, dt: number): void {
+		switch (node.type) {
+			case 'Panel': this.guiRenderer.drawPanel(node, wx, wy); break;
+			case 'Button': this.guiRenderer.drawButton(node, wx, wy); break;
+			case 'ImageRect': this.guiRenderer.drawImageRect(node, wx, wy); break;
+			case 'ScrollView': this.guiRenderer.drawPanel(node, wx, wy); break;
+			case 'Slider': this.guiRenderer.drawSlider(node, wx, wy); break;
+			case 'Toggle': this.guiRenderer.drawToggle(node, wx, wy); break;
+			case 'Label':
+				if (this.labelRenderer) {
+					this.labelRenderer.drawLabel(node, wx, wy);
+				}
+				break;
+			case 'VBoxContainer':
+			case 'HBoxContainer':
+			case 'MarginContainer':
+			case 'CenterContainer':
+			case 'Control':
+				// Containers have no visual by default
+				break;
 		}
 	}
 
