@@ -2,6 +2,7 @@ import { Node } from './node.js';
 import { SceneTree } from './scene-tree.js';
 import { getLocalTransform, composeTransform, IDENTITY, type Transform2D } from './transform.js';
 import type { CameraState } from '../renderer/camera.js';
+import { isControlType } from './anchor.js';
 
 export interface HitResult {
   node: Node;
@@ -9,7 +10,12 @@ export interface HitResult {
   localY: number;
 }
 
-const GUI_TYPES = new Set(['Panel', 'Button', 'ImageRect', 'ScrollView']);
+const GUI_TYPES = new Set([
+  'Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui',
+  'Slider', 'Toggle',
+  'VBoxContainer', 'HBoxContainer', 'MarginContainer', 'CenterContainer',
+  'Control',
+]);
 const DIMENSIONED_TYPES = new Set(['Block', 'RigidBody', 'CollisionShape', 'Area']);
 
 function screenToWorld(
@@ -42,15 +48,30 @@ function hitTestNode(
   worldY: number,
   world: Transform2D,
 ): { hit: boolean; localX: number; localY: number } {
+  // Control nodes: use _computed rect if available
+  if (isControlType(node.type) && node._computed) {
+    const r = node._computed;
+    const hit = pointInRect(worldX, worldY, r.x, r.y, r.width, r.height);
+    return {
+      hit,
+      localX: hit ? worldX - r.x : 0,
+      localY: hit ? worldY - r.y : 0,
+    };
+  }
+
+  // Legacy path: dimension-based hit test
   const w = (node.getProperty('width') as number) ?? 0;
   const h = (node.getProperty('height') as number) ?? 0;
-  if (w <= 0 || h <= 0) return { hit: false, localX: 0, localY: 0 };
+  const scaleX = world.scaleX;
+  const scaleY = world.scaleY;
+
+  if (w === 0 || h === 0) return { hit: false, localX: 0, localY: 0 };
 
   if (GUI_TYPES.has(node.type)) {
     const localX = worldX - world.x;
     const localY = worldY - world.y;
     return {
-      hit: pointInRect(worldX, worldY, world.x, world.y, w * world.scaleX, h * world.scaleY),
+      hit: pointInRect(worldX, worldY, world.x, world.y, w * scaleX, h * scaleY),
       localX,
       localY,
     };
@@ -62,10 +83,10 @@ function hitTestNode(
     return {
       hit: pointInRect(
         worldX, worldY,
-        world.x - (w * world.scaleX) / 2,
-        world.y - (h * world.scaleY) / 2,
-        w * world.scaleX,
-        h * world.scaleY,
+        world.x - (w * scaleX) / 2,
+        world.y - (h * scaleY) / 2,
+        w * scaleX,
+        h * scaleY,
       ),
       localX,
       localY,
