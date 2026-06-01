@@ -53,14 +53,11 @@ export function getAnchors(node: import('./node.js').Node): AnchorDef {
 /**
  * Read margin values from a node's properties.
  * Falls back to computing from x, y, width, height for backward compat.
+ * A node is considered "anchored" only when at least one anchor value is
+ * non-zero — all-zero anchors (the default) indicates legacy x/y positioning.
  */
 export function getMargins(node: import('./node.js').Node): MarginDef {
-  const hasAnchors = node.getProperty('anchor_left') !== undefined
-    || node.getProperty('anchor_right') !== undefined
-    || node.getProperty('anchor_top') !== undefined
-    || node.getProperty('anchor_bottom') !== undefined;
-
-  if (hasAnchors) {
+  if (hasAnchors(node)) {
     return {
       left:   (node.getProperty('margin_left')   as number) ?? 0,
       right:  (node.getProperty('margin_right')  as number) ?? 0,
@@ -83,13 +80,20 @@ export function getMargins(node: import('./node.js').Node): MarginDef {
 }
 
 /**
- * Check if a node has any anchor properties set (vs legacy x/y positioning).
+ * Check if a node has meaningful anchor configuration (vs legacy x/y positioning).
+ * Returns true only when at least one anchor value is defined AND non-zero.
+ * Undefined or all-zero anchors are treated as legacy mode.
  */
 export function hasAnchors(node: import('./node.js').Node): boolean {
-  return node.getProperty('anchor_left') !== undefined
-    || node.getProperty('anchor_right') !== undefined
-    || node.getProperty('anchor_top') !== undefined
-    || node.getProperty('anchor_bottom') !== undefined;
+  const al = node.getProperty('anchor_left');
+  const ar = node.getProperty('anchor_right');
+  const at = node.getProperty('anchor_top');
+  const ab = node.getProperty('anchor_bottom');
+  // Defined means the property exists (even if 0); we need at least one non-zero
+  return (typeof al === 'number' && al !== 0)
+    || (typeof ar === 'number' && ar !== 0)
+    || (typeof at === 'number' && at !== 0)
+    || (typeof ab === 'number' && ab !== 0);
 }
 
 /**
