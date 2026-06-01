@@ -17,6 +17,8 @@ export class InputManager {
   private focusManager = new FocusManager();
   private sceneTree: SceneTree | null = null;
   private lastHoveredControl: Node | null = null;
+  private draggingSlider: Node | null = null;
+  private draggingPointerId: number | null = null;
 
   constructor(scripts: ScriptEngine, jsScripts?: JsScriptEngine) {
     this.scripts = scripts;
@@ -99,6 +101,8 @@ export class InputManager {
           this.focusManager.setFocus(node);
         } else if (node.type === 'Slider') {
           this.updateSliderValue(node, hit.localX, hit.localY);
+          this.draggingSlider = node;
+          this.draggingPointerId = pointerId;
           this.focusManager.setFocus(node);
         } else {
           this.focusManager.setFocus(node);
@@ -111,6 +115,16 @@ export class InputManager {
   }
 
   touchMove(x: number, y: number, pointerId: number): void {
+    // Handle slider drag
+    if (this.draggingSlider && this.draggingPointerId === pointerId) {
+      const rect = this.draggingSlider._computed;
+      if (rect) {
+        const localX = x - rect.x;
+        const localY = y - rect.y;
+        this.updateSliderValue(this.draggingSlider, localX, localY);
+      }
+    }
+
     this.scripts.evaluateEvent('on_touch_move', { x, y, pointerId });
     this.jsScripts?.evaluateEvent('on_touch_move', { x, y, pointerId });
     this.updateButtonHover(x, y);
@@ -118,6 +132,12 @@ export class InputManager {
   }
 
   touchEnd(x: number, y: number, pointerId: number): void {
+    // Clear slider drag state
+    if (this.draggingPointerId === pointerId) {
+      this.draggingSlider = null;
+      this.draggingPointerId = null;
+    }
+
     this.scripts.evaluateEvent('on_touch_end', { x, y, pointerId });
     this.jsScripts?.evaluateEvent('on_touch_end', { x, y, pointerId });
 
