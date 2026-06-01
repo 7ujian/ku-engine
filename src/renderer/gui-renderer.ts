@@ -52,8 +52,8 @@ export class GuiRenderer {
   }
 
   drawPanel(node: Node, wx: number, wy: number): void {
-    const w = (node.getProperty('width') as number) ?? 100;
-    const h = (node.getProperty('height') as number) ?? 100;
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 100;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 100;
     const color = (node.getProperty('color') as string) ?? '#1a1a2e';
     const borderColor = (node.getProperty('border_color') as string) ?? '#ffffff';
     const borderWidth = (node.getProperty('border_width') as number) ?? 0;
@@ -85,8 +85,8 @@ export class GuiRenderer {
   }
 
   drawButton(node: Node, wx: number, wy: number): void {
-    const w = (node.getProperty('width') as number) ?? 120;
-    const h = (node.getProperty('height') as number) ?? 40;
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 120;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 40;
     const text = (node.getProperty('text') as string) ?? '';
     const state = (node.getProperty('state') as string) ?? 'normal';
     const textColor = (node.getProperty('text_color') as string) ?? '#ffffff';
@@ -129,8 +129,8 @@ export class GuiRenderer {
   }
 
   drawImageRect(node: Node, wx: number, wy: number): void {
-    const w = (node.getProperty('width') as number) ?? 100;
-    const h = (node.getProperty('height') as number) ?? 100;
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 100;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 100;
     const texture = (node.getProperty('texture') as string) ?? '';
     const rw = (node.getProperty('region_w') as number) ?? 0;
     const rh = (node.getProperty('region_h') as number) ?? 0;
@@ -180,8 +180,8 @@ export class GuiRenderer {
   }
 
   beginScrollView(node: Node, wx: number, wy: number): void {
-    const w = (node.getProperty('width') as number) ?? 400;
-    const h = (node.getProperty('height') as number) ?? 300;
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 400;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 300;
     const scrollX = (node.getProperty('scroll_x') as number) ?? 0;
     const scrollY = (node.getProperty('scroll_y') as number) ?? 0;
     const zoom = (node.getProperty('zoom') as number) ?? 1;
@@ -209,8 +209,8 @@ export class GuiRenderer {
   }
 
   drawSlider(node: Node, wx: number, wy: number): void {
-    const w = (node.getProperty('width') as number) ?? 200;
-    const h = (node.getProperty('height') as number) ?? 20;
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 200;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 20;
     const minVal = (node.getProperty('min_value') as number) ?? 0;
     const maxVal = (node.getProperty('max_value') as number) ?? 100;
     const value = (node.getProperty('value') as number) ?? 0;
@@ -257,8 +257,8 @@ export class GuiRenderer {
   }
 
   drawToggle(node: Node, wx: number, wy: number): void {
-    const w = (node.getProperty('width') as number) ?? 24;
-    const h = (node.getProperty('height') as number) ?? 24;
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 24;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 24;
     const pressed = node.getProperty('pressed') === true;
     const onColor = (node.getProperty('on_color') as string) ?? '#6a6aff';
     const offColor = (node.getProperty('off_color') as string) ?? '#3a3a5e';
