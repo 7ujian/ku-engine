@@ -141,3 +141,39 @@ export interface TiledLayerData {
   /** Tile collision shapes extracted from tileset objectgroups (local tile ID → shapes) */
   tile_collisions?: TileCollisionMap;
 }
+
+/** Anchor preset definition: 4 anchor fractions (0-1) */
+export interface AnchorDef {
+  anchor_left: number;
+  anchor_right: number;
+  anchor_top: number;
+  anchor_bottom: number;
+}
+
+/** Pixel margins relative to anchor positions */
+export interface MarginDef {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** Computed absolute rect for a Control node */
+export interface ComputedRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Size flags for layout hints */
+export type SizeFlag = 'fill' | 'expand' | 'shrink';
+
+/** Growth direction when parent allocates more space than min */
+export type GrowDirection = 'begin' | 'center' | 'end';
+
+/** Focus mode for Control nodes */
+export type FocusMode = 'none' | 'click' | 'all';
+
+/** Container type names */
+export type ContainerType = 'VBoxContainer' | 'HBoxContainer' | 'MarginContainer' | 'CenterContainer';
