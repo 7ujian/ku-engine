@@ -1,0 +1,634 @@
+{
+  "scene": "ui_samples",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {},
+    "children": [
+      {
+        "id": "bg",
+        "type": "Panel",
+        "properties": {
+          "anchor_left": 0, "anchor_right": 1,
+          "anchor_top": 0, "anchor_bottom": 1,
+          "margin_left": 0, "margin_right": 0,
+          "margin_top": 0, "margin_bottom": 0,
+          "color": "#0d0d1a",
+          "visible": true
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "title",
+        "type": "Label",
+        "properties": {
+          "anchor_left": 0, "anchor_right": 1,
+          "anchor_top": 0, "anchor_bottom": 0,
+          "margin_left": 0, "margin_right": 0,
+          "margin_top": 12, "margin_bottom": 48,
+          "text": "UI WIDGETS DEMO",
+          "font_size": 24,
+          "color": "#6a6aff",
+          "align": "center",
+          "visible": true
+        },
+        "children": [],
+        "scripts": []
+      },
+      {
+        "id": "subtitle",
+        "type": "Label",
+        "properties": {
+          "anchor_left": 0, "anchor_right": 1,
+          "anchor_top": 0, "anchor_bottom": 0,
+          "margin_left": 0, "margin_right": 0,
+          "margin_top": 42, "margin_bottom": 62,
+          "text": "Click buttons, drag sliders, toggle checkboxes",
+          "font_size": 12,
+          "color": "#888888",
+          "align": "center",
+          "visible": true
+        },
+        "children": [],
+        "scripts": []
+      },
+
+      {
+        "id": "left_column",
+        "type": "Panel",
+        "properties": {
+          "anchor_left": 0, "anchor_right": 0.48,
+          "anchor_top": 0, "anchor_bottom": 1,
+          "margin_left": 16, "margin_right": -8,
+          "margin_top": 68, "margin_bottom": -16,
+          "color": "#14142a",
+          "border_color": "#2a2a4a",
+          "border_width": 1,
+          "corner_radius": 6,
+          "visible": true
+        },
+        "children": [
+          {
+            "id": "left_title",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 12,
+              "text": "Buttons & Toggles",
+              "font_size": 16,
+              "color": "#ffffff",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "btn_primary",
+            "type": "Button",
+            "properties": {
+              "x": 16, "y": 44,
+              "width": 260, "height": 36,
+              "text": "Primary Button",
+              "color": "#3a3a5e",
+              "hover_color": "#4a4a7e",
+              "pressed_color": "#2a2a4e",
+              "text_color": "#ffffff",
+              "font_size": 14,
+              "corner_radius": 4,
+              "state": "normal",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": [
+              {
+                "event": "on_gui_click",
+                "actions": [
+                  { "set_on": "/click_count_label", "key": "text", "to": "Clicked!" }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "btn_danger",
+            "type": "Button",
+            "properties": {
+              "x": 16, "y": 90,
+              "width": 260, "height": 36,
+              "text": "Danger Button",
+              "color": "#5e1a1a",
+              "hover_color": "#7e2a2a",
+              "pressed_color": "#4e0a0a",
+              "text_color": "#ff8888",
+              "font_size": 14,
+              "corner_radius": 4,
+              "state": "normal",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "btn_disabled",
+            "type": "Button",
+            "properties": {
+              "x": 16, "y": 136,
+              "width": 260, "height": 36,
+              "text": "Disabled Button",
+              "color": "#2a2a3a",
+              "hover_color": "#2a2a3a",
+              "pressed_color": "#2a2a3a",
+              "text_color": "#555555",
+              "font_size": 14,
+              "corner_radius": 4,
+              "state": "normal",
+              "clickable": true,
+              "disabled": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "click_count_label",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 184,
+              "text": "No clicks yet",
+              "font_size": 12,
+              "color": "#888888",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+
+          {
+            "id": "toggles_title",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 216,
+              "text": "Toggles",
+              "font_size": 16,
+              "color": "#ffffff",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "toggle_music",
+            "type": "Toggle",
+            "properties": {
+              "x": 16, "y": 244,
+              "width": 20, "height": 20,
+              "pressed": true,
+              "group": "",
+              "on_color": "#6a6aff",
+              "off_color": "#3a3a5e",
+              "label": "Music Enabled",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "toggle_sfx",
+            "type": "Toggle",
+            "properties": {
+              "x": 16, "y": 274,
+              "width": 20, "height": 20,
+              "pressed": true,
+              "group": "",
+              "on_color": "#6a6aff",
+              "off_color": "#3a3a5e",
+              "label": "SFX Enabled",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "toggle_fullscreen",
+            "type": "Toggle",
+            "properties": {
+              "x": 16, "y": 304,
+              "width": 20, "height": 20,
+              "pressed": false,
+              "group": "",
+              "on_color": "#6a6aff",
+              "off_color": "#3a3a5e",
+              "label": "Fullscreen",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+
+          {
+            "id": "radio_title",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 340,
+              "text": "Difficulty (Radio Group)",
+              "font_size": 14,
+              "color": "#aaaaaa",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "radio_easy",
+            "type": "Toggle",
+            "properties": {
+              "x": 16, "y": 364,
+              "width": 20, "height": 20,
+              "pressed": true,
+              "group": "difficulty",
+              "on_color": "#6aff6a",
+              "off_color": "#3a3a5e",
+              "label": "Easy",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "radio_medium",
+            "type": "Toggle",
+            "properties": {
+              "x": 16, "y": 390,
+              "width": 20, "height": 20,
+              "pressed": false,
+              "group": "difficulty",
+              "on_color": "#ffff6a",
+              "off_color": "#3a3a5e",
+              "label": "Medium",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "radio_hard",
+            "type": "Toggle",
+            "properties": {
+              "x": 16, "y": 416,
+              "width": 20, "height": 20,
+              "pressed": false,
+              "group": "difficulty",
+              "on_color": "#ff6a6a",
+              "off_color": "#3a3a5e",
+              "label": "Hard",
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          }
+        ],
+        "scripts": []
+      },
+
+      {
+        "id": "right_column",
+        "type": "Panel",
+        "properties": {
+          "anchor_left": 0.52, "anchor_right": 1,
+          "anchor_top": 0, "anchor_bottom": 1,
+          "margin_left": 0, "margin_right": -16,
+          "margin_top": 68, "margin_bottom": -16,
+          "color": "#14142a",
+          "border_color": "#2a2a4a",
+          "border_width": 1,
+          "corner_radius": 6,
+          "visible": true
+        },
+        "children": [
+          {
+            "id": "sliders_title",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 12,
+              "text": "Sliders",
+              "font_size": 16,
+              "color": "#ffffff",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "volume_label",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 40,
+              "text": "Volume: 70%",
+              "font_size": 12,
+              "color": "#aaaaaa",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "volume_slider",
+            "type": "Slider",
+            "properties": {
+              "x": 16, "y": 60,
+              "width": 260, "height": 20,
+              "min_value": 0, "max_value": 100,
+              "value": 70, "step": 1,
+              "orientation": "horizontal",
+              "direction": "left_to_right",
+              "track_color": "#2a2a4a",
+              "fill_color": "#6a6aff",
+              "handle_color": "#ffffff",
+              "handle_size": 12,
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": [
+              {
+                "event": "on_gui_click",
+                "actions": [
+                  { "set_on": "/right_column/volume_label", "key": "text", "to": "Volume: clicked!" }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "brightness_label",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 90,
+              "text": "Brightness: 50%",
+              "font_size": 12,
+              "color": "#aaaaaa",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "brightness_slider",
+            "type": "Slider",
+            "properties": {
+              "x": 16, "y": 110,
+              "width": 260, "height": 20,
+              "min_value": 0, "max_value": 100,
+              "value": 50, "step": 5,
+              "orientation": "horizontal",
+              "direction": "left_to_right",
+              "track_color": "#2a2a4a",
+              "fill_color": "#ffff6a",
+              "handle_color": "#ffffff",
+              "handle_size": 12,
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "speed_label",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 140,
+              "text": "Game Speed: 1.0x",
+              "font_size": 12,
+              "color": "#aaaaaa",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "speed_slider",
+            "type": "Slider",
+            "properties": {
+              "x": 16, "y": 160,
+              "width": 260, "height": 20,
+              "min_value": 0.5, "max_value": 3.0,
+              "value": 1.0, "step": 0.1,
+              "orientation": "horizontal",
+              "direction": "left_to_right",
+              "track_color": "#2a2a4a",
+              "fill_color": "#6aff6a",
+              "handle_color": "#ffffff",
+              "handle_size": 12,
+              "clickable": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+
+          {
+            "id": "panels_title",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 200,
+              "text": "Panels & ImageRect",
+              "font_size": 16,
+              "color": "#ffffff",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "card",
+            "type": "Panel",
+            "properties": {
+              "x": 16, "y": 228,
+              "width": 260, "height": 80,
+              "color": "#1e1e3a",
+              "border_color": "#4a4a7e",
+              "border_width": 1,
+              "corner_radius": 8,
+              "visible": true
+            },
+            "children": [
+              {
+                "id": "card_title",
+                "type": "Label",
+                "properties": {
+                  "x": 12, "y": 10,
+                  "text": "Player Stats",
+                  "font_size": 14,
+                  "color": "#6a6aff",
+                  "visible": true
+                },
+                "children": [],
+                "scripts": []
+              },
+              {
+                "id": "card_hp",
+                "type": "Label",
+                "properties": {
+                  "x": 12, "y": 32,
+                  "text": "HP: 100/100",
+                  "font_size": 12,
+                  "color": "#6aff6a",
+                  "visible": true
+                },
+                "children": [],
+                "scripts": []
+              },
+              {
+                "id": "card_mana",
+                "type": "Label",
+                "properties": {
+                  "x": 12, "y": 50,
+                  "text": "MP: 75/100",
+                  "font_size": 12,
+                  "color": "#6a6aff",
+                  "visible": true
+                },
+                "children": [],
+                "scripts": []
+              },
+              {
+                "id": "hp_bar",
+                "type": "Slider",
+                "properties": {
+                  "x": 80, "y": 34,
+                  "width": 168, "height": 10,
+                  "min_value": 0, "max_value": 100,
+                  "value": 100, "step": 1,
+                  "orientation": "horizontal",
+                  "track_color": "#3a1a1a",
+                  "fill_color": "#6aff6a",
+                  "handle_color": "#00000000",
+                  "handle_size": 0,
+                  "clickable": false,
+                  "visible": true
+                },
+                "children": [],
+                "scripts": []
+              },
+              {
+                "id": "mana_bar",
+                "type": "Slider",
+                "properties": {
+                  "x": 80, "y": 52,
+                  "width": 168, "height": 10,
+                  "min_value": 0, "max_value": 100,
+                  "value": 75, "step": 1,
+                  "orientation": "horizontal",
+                  "track_color": "#1a1a3a",
+                  "fill_color": "#6a6aff",
+                  "handle_color": "#00000000",
+                  "handle_size": 0,
+                  "clickable": false,
+                  "visible": true
+                },
+                "children": [],
+                "scripts": []
+              }
+            ],
+            "scripts": []
+          },
+
+          {
+            "id": "placeholder_img",
+            "type": "ImageRect",
+            "properties": {
+              "x": 16, "y": 322,
+              "width": 80, "height": 80,
+              "texture": "",
+              "preserve_aspect": true,
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "img_label",
+            "type": "Label",
+            "properties": {
+              "x": 104, "y": 330,
+              "text": "ImageRect\n(no texture\n= placeholder)",
+              "font_size": 11,
+              "color": "#888888",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+
+          {
+            "id": "scroll_title",
+            "type": "Label",
+            "properties": {
+              "x": 16, "y": 414,
+              "text": "ScrollView",
+              "font_size": 16,
+              "color": "#ffffff",
+              "visible": true
+            },
+            "children": [],
+            "scripts": []
+          },
+          {
+            "id": "scroll_view",
+            "type": "ScrollView",
+            "properties": {
+              "x": 16, "y": 440,
+              "width": 260, "height": 48,
+              "scroll_x": 0, "scroll_y": 0,
+              "zoom": 1,
+              "clip": true,
+              "visible": true
+            },
+            "children": [
+              {
+                "id": "scroll_content",
+                "type": "Label",
+                "properties": {
+                  "x": 0, "y": 0,
+                  "text": "This is a ScrollView with clipped content. It can contain any child nodes that extend beyond its visible area. Scroll to see more...",
+                  "font_size": 11,
+                  "color": "#aaaaaa",
+                  "visible": true
+                },
+                "children": [],
+                "scripts": []
+              }
+            ],
+            "scripts": []
+          }
+        ],
+        "scripts": []
+      },
+
+      {
+        "id": "footer",
+        "type": "Label",
+        "properties": {
+          "anchor_left": 0, "anchor_right": 1,
+          "anchor_top": 1, "anchor_bottom": 1,
+          "margin_left": 0, "margin_right": 0,
+          "margin_top": -28, "margin_bottom": -8,
+          "text": "ku engine — UI Widgets Demo | Panel, Button, Toggle, Slider, Label, ScrollView, ImageRect",
+          "font_size": 10,
+          "color": "#444444",
+          "align": "center",
+          "visible": true
+        },
+        "children": [],
+        "scripts": []
+      }
+    ],
+    "scripts": []
+  }
+}

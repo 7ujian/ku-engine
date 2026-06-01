@@ -1,0 +1,6 @@
+{
+  "name": "ui_samples",
+  "entry": "scenes/main.json",
+  "width": 640,
+  "height": 480
+}
