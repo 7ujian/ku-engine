@@ -294,6 +294,66 @@ export class GuiRenderer {
     ctx.restore();
   }
 
+  drawScrollbar(node: Node, wx: number, wy: number): void {
+    const vpW = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 400;
+    const vpH = node._computed?.height ?? (node.getProperty('height') as number) ?? 300;
+    const scrollX = (node.getProperty('scroll_x') as number) ?? 0;
+    const scrollY = (node.getProperty('scroll_y') as number) ?? 0;
+    const trackColor = (node.getProperty('scrollbar_color') as string) ?? '#2a2a4a';
+    const thumbColor = (node.getProperty('scrollbar_thumb_color') as string) ?? '#5a5a8e';
+    const barWidth = 8;
+    const minThumbSize = 20;
+
+    // Estimate content size from children
+    let contentW = 0;
+    let contentH = 0;
+    for (const child of node.children) {
+      const cw = child._computed?.width  ?? (child.getProperty('width') as number)  ?? 0;
+      const ch = child._computed?.height ?? (child.getProperty('height') as number) ?? 0;
+      const cx = child._computed?.x ?? (child.getProperty('x') as number) ?? 0;
+      const cy = child._computed?.y ?? (child.getProperty('y') as number) ?? 0;
+      contentW = Math.max(contentW, cx + cw);
+      contentH = Math.max(contentH, cy + ch);
+    }
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Vertical scrollbar
+    if (contentH > vpH) {
+      const trackX = wx + vpW - barWidth;
+      const trackY = wy;
+      const trackH = vpH;
+      const thumbH = Math.max(minThumbSize, (vpH / contentH) * trackH);
+      const maxScroll = contentH - vpH;
+      const thumbY = trackY + (scrollY / maxScroll) * (trackH - thumbH);
+
+      // Track
+      ctx.fillStyle = trackColor;
+      ctx.fillRect(trackX, trackY, barWidth, trackH);
+      // Thumb
+      ctx.fillStyle = thumbColor;
+      ctx.fillRect(trackX, thumbY, barWidth, thumbH);
+    }
+
+    // Horizontal scrollbar
+    if (contentW > vpW) {
+      const trackX = wx;
+      const trackY = wy + vpH - barWidth;
+      const trackW = vpW;
+      const thumbW = Math.max(minThumbSize, (vpW / contentW) * trackW);
+      const maxScroll = contentW - vpW;
+      const thumbX = trackX + (scrollX / maxScroll) * (trackW - thumbW);
+
+      ctx.fillStyle = trackColor;
+      ctx.fillRect(trackX, trackY, trackW, barWidth);
+      ctx.fillStyle = thumbColor;
+      ctx.fillRect(thumbX, trackY, thumbW, barWidth);
+    }
+
+    ctx.restore();
+  }
+
   private roundedRect(x: number, y: number, w: number, h: number, r: number): void {
     const ctx = this.ctx;
     ctx.beginPath();

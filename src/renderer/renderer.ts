@@ -670,6 +670,7 @@ export class Renderer {
 				this._drawNodeRecursive(child, IDENTITY, dt, labels);
 			}
 			this.guiRenderer.endScrollView();
+			this.guiRenderer.drawScrollbar(node, snapped.x, snapped.y);
 			return;
 		}
 
@@ -841,6 +842,7 @@ export class Renderer {
 				}
 			}
 			this.guiRenderer.endScrollView();
+			this.guiRenderer.drawScrollbar(node, rect.x, rect.y);
 		} else {
 			for (const child of node.children) {
 				if (isControlType(child.type)) {
