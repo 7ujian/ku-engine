@@ -140,6 +140,7 @@ export class PlayRuntime {
       windowConfig,
       dir,
       (cfg.debug_physics as boolean) ?? false,
+      (cfg.debug_ui as boolean) ?? false,
     );
     await renderer.open('ku');
 
@@ -187,6 +188,10 @@ export class PlayRuntime {
       if (phase === 'start') input.touchStart(x, y, pointerId);
       else if (phase === 'move') input.touchMove(x, y, pointerId);
       else if (phase === 'end') input.touchEnd(x, y, pointerId);
+    });
+
+    renderer.setWheelHandler((x, y, deltaY) => {
+      input.mouseWheel(x, y, deltaY);
     });
 
     setGameLoop(loop);

@@ -293,6 +293,26 @@ export const createToggle = controlFactory('Toggle', {
   focus_mode: 'click',
 });
 
+export const createGrid = controlFactory('Grid', {
+  columns: 1,
+  column_spacing: 4,
+  row_spacing: 4,
+  column_min_width: 0,
+  width: 200,
+  height: 200,
+});
+
+export const createListItem = controlFactory('ListItem', {
+  text: '',
+  icon: '',
+  selected: false,
+  selectable: true,
+  width: 200,
+  height: 28,
+  clickable: true,
+  focus_mode: 'click',
+});
+
 export const createTheme = factory('Theme', {
   colors: {
     bg_color: '#1a1a2e',
@@ -345,6 +365,8 @@ const factories: Record<string, NodeFactory> = {
   CenterContainer: createCenterContainer,
   Slider: createSlider,
   Toggle: createToggle,
+  Grid: createGrid,
+  ListItem: createListItem,
   Theme: createTheme,
 };
 

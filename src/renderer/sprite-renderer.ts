@@ -12,6 +12,7 @@ export class SpriteRenderer {
   ctx: Ctx;
   private projectDir: string;
   private textureCache = new Map<string, Image>();
+  private failedTextures = new Set<string>();
   private atlasCache = new Map<string, AtlasDef>();
   private animTimers = new Map<string, { elapsed: number; frame: number }>();
   private atlasAnimState = new Map<string, AnimState>();
@@ -235,12 +236,14 @@ export class SpriteRenderer {
   async loadTexture(path: string): Promise<Image | null> {
     const abs = this.resolvePath(path);
     if (this.textureCache.has(abs)) return this.textureCache.get(abs)!;
+    if (this.failedTextures.has(abs)) return null;
     try {
       const img = await loadImage(abs);
       this.textureCache.set(abs, img);
       return img;
     } catch (err) {
       console.error(`[renderer] failed to load texture: ${abs}`, err instanceof Error ? err.message : err);
+      this.failedTextures.add(abs);
       return null;
     }
   }

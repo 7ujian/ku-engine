@@ -103,6 +103,7 @@ export const CONTROL_TYPES = new Set([
   'Panel', 'Button', 'ImageRect', 'ScrollView', 'Label',
   'Slider', 'Toggle',
   'VBoxContainer', 'HBoxContainer', 'MarginContainer', 'CenterContainer',
+  'Grid', 'ListItem',
   'ProfilerGui',
 ]);
 

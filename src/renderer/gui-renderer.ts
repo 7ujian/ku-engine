@@ -8,6 +8,7 @@ const GUI_TYPES = new Set([
   'Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui',
   'Slider', 'Toggle',
   'VBoxContainer', 'HBoxContainer', 'MarginContainer', 'CenterContainer',
+  'Grid', 'ListItem',
   'Control', 'Label',
 ]);
 
@@ -257,7 +258,7 @@ export class GuiRenderer {
   }
 
   drawToggle(node: Node, wx: number, wy: number): void {
-    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 24;
+    const boxSize = (node.getProperty('width') as number)  ?? 24;
     const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 24;
     const pressed = node.getProperty('pressed') === true;
     const onColor = (node.getProperty('on_color') as string) ?? '#6a6aff';
@@ -269,16 +270,16 @@ export class GuiRenderer {
 
     // Background
     ctx.fillStyle = pressed ? onColor : offColor;
-    ctx.fillRect(wx, wy, w, h);
+    ctx.fillRect(wx, wy, boxSize, h);
 
     // Check mark when pressed
     if (pressed) {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(wx + w * 0.2, wy + h * 0.5);
-      ctx.lineTo(wx + w * 0.4, wy + h * 0.7);
-      ctx.lineTo(wx + w * 0.8, wy + h * 0.3);
+      ctx.moveTo(wx + boxSize * 0.2, wy + h * 0.5);
+      ctx.lineTo(wx + boxSize * 0.4, wy + h * 0.7);
+      ctx.lineTo(wx + boxSize * 0.8, wy + h * 0.3);
       ctx.stroke();
     }
 
@@ -288,7 +289,7 @@ export class GuiRenderer {
       ctx.font = '12px monospace';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, wx + w + 4, wy + h / 2);
+      ctx.fillText(label, wx + boxSize + 4, wy + h / 2);
     }
 
     ctx.restore();
@@ -349,6 +350,70 @@ export class GuiRenderer {
       ctx.fillRect(trackX, trackY, trackW, barWidth);
       ctx.fillStyle = thumbColor;
       ctx.fillRect(thumbX, trackY, thumbW, barWidth);
+    }
+
+    ctx.restore();
+  }
+
+  drawGrid(node: Node, wx: number, wy: number): void {
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 200;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 200;
+    const bgColor = (node.getProperty('bg_color') as string) ?? 'transparent';
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    if (bgColor && bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(wx, wy, w, h);
+    }
+
+    ctx.restore();
+  }
+
+  drawListItem(node: Node, wx: number, wy: number): void {
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 200;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 28;
+    const text = (node.getProperty('text') as string) ?? '';
+    const selected = (node.getProperty('selected') as boolean) ?? false;
+    const selectable = (node.getProperty('selectable') as boolean) ?? true;
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Background
+    if (selected && selectable) {
+      ctx.fillStyle = '#4a4a7e';
+      ctx.fillRect(wx, wy, w, h);
+    } else {
+      ctx.fillStyle = '#2a2a4a';
+      ctx.fillRect(wx, wy, w, h);
+    }
+
+    // Hover/selection border
+    if (selected && selectable) {
+      ctx.strokeStyle = '#6a6aff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(wx, wy, w, h);
+    }
+
+    // Icon (if set)
+    const icon = node.getProperty('icon') as string;
+    let textOffset = 8;
+    if (icon) {
+      textOffset = 36;
+      // Icon placeholder: small square
+      ctx.fillStyle = '#555';
+      ctx.fillRect(wx + 6, wy + (h - 16) / 2, 16, 16);
+    }
+
+    // Text
+    if (text) {
+      const fontSize = 13;
+      ctx.fillStyle = selected ? '#ffffff' : '#cccccc';
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, wx + textOffset, wy + h / 2);
     }
 
     ctx.restore();

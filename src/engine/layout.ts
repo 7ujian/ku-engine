@@ -35,13 +35,19 @@ export function computeControlRect(node: Node, parentRect: ComputedRect): Comput
   };
 }
 
+/** Get container rect: prefer _computed from parent layout over re-computing */
+function getContainerRect(container: Node, parentRect: ComputedRect): ComputedRect {
+  if (container._computed) return container._computed;
+  return computeControlRect(container, parentRect);
+}
+
 /** Layout resolver for VBoxContainer */
 function layoutVBox(container: Node, parentRect: ComputedRect): void {
   const separation = (container.getProperty('separation') as number) ?? 4;
   const children = container.children;
   if (children.length === 0) return;
 
-  const containerRect = computeControlRect(container, parentRect);
+  const containerRect = getContainerRect(container, parentRect);
 
   // Calculate total min height and count expand children
   let totalMinHeight = 0;
@@ -82,7 +88,7 @@ function layoutHBox(container: Node, parentRect: ComputedRect): void {
   const children = container.children;
   if (children.length === 0) return;
 
-  const containerRect = computeControlRect(container, parentRect);
+  const containerRect = getContainerRect(container, parentRect);
 
   let totalMinWidth = 0;
   let expandCount = 0;
@@ -118,7 +124,7 @@ function layoutHBox(container: Node, parentRect: ComputedRect): void {
 
 /** Layout resolver for MarginContainer */
 function layoutMargin(container: Node, parentRect: ComputedRect): void {
-  const containerRect = computeControlRect(container, parentRect);
+  const containerRect = getContainerRect(container, parentRect);
   const pl = (container.getProperty('padding_left') as number) ?? 0;
   const pr = (container.getProperty('padding_right') as number) ?? 0;
   const pt = (container.getProperty('padding_top') as number) ?? 0;
@@ -137,7 +143,7 @@ function layoutMargin(container: Node, parentRect: ComputedRect): void {
 
 /** Layout resolver for CenterContainer */
 function layoutCenter(container: Node, parentRect: ComputedRect): void {
-  const containerRect = computeControlRect(container, parentRect);
+  const containerRect = getContainerRect(container, parentRect);
 
   if (container.children.length > 0) {
     const child = container.children[0];
@@ -151,12 +157,70 @@ function layoutCenter(container: Node, parentRect: ComputedRect): void {
   }
 }
 
+/** Layout resolver for Grid */
+function layoutGrid(container: Node, parentRect: ComputedRect): void {
+  const cols = Math.max(1, (container.getProperty('columns') as number) ?? 1);
+  const colSpacing = (container.getProperty('column_spacing') as number) ?? 4;
+  const rowSpacing = (container.getProperty('row_spacing') as number) ?? 4;
+  const colMinWidth = (container.getProperty('column_min_width') as number) ?? 0;
+  const children = container.children;
+  if (children.length === 0) return;
+
+  const containerRect = getContainerRect(container, parentRect);
+
+  // Calculate column width (uniform, based on container width / cols)
+  const totalColSpacing = colSpacing * (cols - 1);
+  const colWidth = colMinWidth > 0
+    ? Math.max(colMinWidth, (containerRect.width - totalColSpacing) / cols)
+    : (containerRect.width - totalColSpacing) / cols;
+
+  // Compute rows needed
+  const rows = Math.ceil(children.length / cols);
+
+  // Calculate row heights — max child height per row
+  const rowHeights: number[] = [];
+  for (let r = 0; r < rows; r++) {
+    let maxH = 0;
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      if (idx < children.length) {
+        const min = getMinSize(children[idx]);
+        maxH = Math.max(maxH, min.height);
+      }
+    }
+    rowHeights.push(maxH);
+  }
+
+  // Assign computed rects
+  let y = containerRect.y;
+  for (let r = 0; r < rows; r++) {
+    let x = containerRect.x;
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      if (idx < children.length) {
+        const child = children[idx];
+        const vFlag = getSizeFlag(child, 'vertical');
+        const h = vFlag === 'expand' ? rowHeights[r] : getMinSize(child).height;
+        child._computed = {
+          x,
+          y,
+          width: colWidth,
+          height: h,
+        };
+      }
+      x += colWidth + colSpacing;
+    }
+    y += rowHeights[r] + rowSpacing;
+  }
+}
+
 /** Container layout dispatch */
 const CONTAINER_LAYOUTS: Record<string, (node: Node, parentRect: ComputedRect) => void> = {
   VBoxContainer: layoutVBox,
   HBoxContainer: layoutHBox,
   MarginContainer: layoutMargin,
   CenterContainer: layoutCenter,
+  Grid: layoutGrid,
 };
 
 /** Check if a node type is a container */

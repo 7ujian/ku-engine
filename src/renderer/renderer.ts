@@ -34,6 +34,7 @@ export interface WindowConfig {
 
 type KeyHandler = (key: string, down: boolean) => void;
 type TouchHandler = (phase: 'start' | 'move' | 'end', x: number, y: number, pointerId: number) => void;
+type WheelHandler = (x: number, y: number, deltaY: number) => void;
 
 /** Snap a coordinate to the nearest grid unit (defaults to 1 = design pixel). */
 function snapToGrid(v: number, grid: number): number {
@@ -174,8 +175,10 @@ export class Renderer {
 	private lastTime = 0;
 	private onKey: KeyHandler | null = null;
 	private onTouch: TouchHandler | null = null;
+	private onWheel: WheelHandler | null = null;
 	private projectDir: string;
 	private debugPhysics: boolean;
+	private debugUi: boolean;
 	private debugBodies: Array<{
 		x: number; y: number;
 		width: number; height: number;
@@ -222,12 +225,13 @@ export class Renderer {
 	private guiRenderer: GuiRenderer;
 	private cameraCache: { node: Node | null; cam: CameraState } = { node: null, cam: { x: 0, y: 0, zoom: 1 } };
 
-	constructor(config: WindowConfig, projectDir = '.', debugPhysics = false) {
+	constructor(config: WindowConfig, projectDir = '.', debugPhysics = false, debugUi = false) {
 		this.config = config;
 		this.designWidth = config.width;
 		this.designHeight = config.height;
 		this.projectDir = resolve(projectDir);
 		this.debugPhysics = debugPhysics;
+		this.debugUi = debugUi;
 		this.canvasW = config.width;
 		this.canvasH = config.height;
 		this.targetW = config.width;
@@ -276,6 +280,10 @@ export class Renderer {
 
 	setTouchHandler(handler: TouchHandler): void {
 		this.onTouch = handler;
+	}
+
+	setWheelHandler(handler: WheelHandler): void {
+		this.onWheel = handler;
 	}
 
 	async open(title = 'ku'): Promise<void> {
@@ -364,6 +372,13 @@ export class Renderer {
 			if (this.onTouch) {
 				const p = this.mapMouse(event.x, event.y);
 				this.onTouch('end', p.x, p.y, 0);
+			}
+		});
+
+		(this.window as any).on('mouseWheel', (event: { x: number; y: number; dy: number }) => {
+			if (this.onWheel) {
+				const p = this.mapMouse(event.x, event.y);
+				this.onWheel(p.x, p.y, event.dy);
 			}
 		});
 	}
@@ -818,11 +833,13 @@ export class Renderer {
 		ctx.restore();
 	}
 
-	private drawControlTree(node: Node, parentRect: { x: number; y: number; width: number; height: number }, dt: number): void {
+	private drawControlTree(node: Node, parentRect: { x: number; y: number; width: number; height: number }, dt: number, useLayoutRect = false): void {
 		if (node.getProperty('visible') === false) return;
 
-		// Compute rect for this Control
-		const rect = computeControlRect(node, parentRect);
+		// Use layout-computed rect when available (set by parent container's resolveLayout)
+		const rect = useLayoutRect && node._computed
+			? node._computed
+			: computeControlRect(node, parentRect);
 		node._computed = rect;
 
 		// Resolve container layout for children
@@ -833,20 +850,37 @@ export class Renderer {
 		// Draw this node
 		this.drawGuiNode(node, rect.x, rect.y, dt);
 
+			// Debug: draw widget bounds
+			if (this.debugUi) {
+				const ctx = this.ctx;
+				if (ctx) {
+					ctx.strokeStyle = '#00ff0044';
+					ctx.lineWidth = 1;
+					ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+				}
+			}
+
 		// Draw children
 		if (node.type === 'ScrollView') {
 			this.guiRenderer.beginScrollView(node, rect.x, rect.y);
 			for (const child of node.children) {
 				if (isControlType(child.type)) {
-					this.drawControlTree(child, { x: 0, y: 0, width: rect.width, height: rect.height }, dt);
+					this.drawControlTree(child, { x: 0, y: 0, width: rect.width, height: rect.height }, dt, false);
 				}
 			}
 			this.guiRenderer.endScrollView();
 			this.guiRenderer.drawScrollbar(node, rect.x, rect.y);
+		} else if (isContainerType(node.type)) {
+			// Container children: use layout-computed rects (resolveLayout already set _computed)
+			for (const child of node.children) {
+				if (isControlType(child.type)) {
+					this.drawControlTree(child, rect, dt, true);
+				}
+			}
 		} else {
 			for (const child of node.children) {
 				if (isControlType(child.type)) {
-					this.drawControlTree(child, rect, dt);
+					this.drawControlTree(child, rect, dt, false);
 				}
 			}
 		}
@@ -872,6 +906,12 @@ export class Renderer {
 			case 'CenterContainer':
 			case 'Control':
 				// Containers have no visual by default
+				break;
+			case 'Grid':
+				this.guiRenderer.drawGrid(node, wx, wy);
+				break;
+			case 'ListItem':
+				this.guiRenderer.drawListItem(node, wx, wy);
 				break;
 		}
 	}

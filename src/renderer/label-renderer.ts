@@ -18,6 +18,7 @@ export class LabelRenderer {
     const valign = (node.getProperty('valign') as string) ?? 'top';
     const maxWidth = (node.getProperty('max_width') as number) ?? 0;
     const font = (node.getProperty('font') as string) ?? 'monospace';
+    const w = node._computed?.width ?? (node.getProperty('width') as number) ?? 0;
 
     if (!text) return;
 
@@ -42,13 +43,13 @@ export class LabelRenderer {
 
       if (align === 'center') {
         const metrics = ctx.measureText(lines[i]);
-        lineX = x - metrics.width / 2;
+        lineX = x + (w - metrics.width) / 2;
       } else if (align === 'right') {
         const metrics = ctx.measureText(lines[i]);
-        lineX = x - metrics.width;
+        lineX = x + w - metrics.width;
       }
 
-      ctx.fillText(lines[i], lineX, y + yOffset + i * lineHeight);
+      ctx.fillText(lines[i], lineX, y + yOffset + i * lineHeight + 2);
     }
 
     ctx.restore();

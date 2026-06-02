@@ -8,25 +8,32 @@ export interface ResolverContext {
 }
 
 export function resolveSymbol(ref: string, ctx: ResolverContext): unknown {
-  // Cross-node reference: /player/x or /player/velocity.x
+  // Cross-node reference: /path/to/node/prop or /path/to/node/prop.nested
   if (ref.startsWith('/')) {
-    const slashIdx = ref.indexOf('/', 1);
-    if (slashIdx === -1) return undefined;
-    const nodeId = ref.slice(1, slashIdx);
-    const propPath = ref.slice(slashIdx + 1);
-    if (!ctx.tree) return undefined;
-    try {
-      const node = ctx.tree.get(nodeId);
-      const parts = propPath.split('.');
-      let current: unknown = node.properties;
-      for (const part of parts) {
-        if (current == null || typeof current !== 'object') return undefined;
-        current = (current as PropertyMap)[part];
+    // Find the last segment — it could be a property or part of the node path
+    // Split on / then try resolving from longest path to shortest
+    const segments = ref.slice(1).split('/');
+    if (segments.length < 2 || !ctx.tree) return undefined;
+    // Try: last segment is property, rest is node path
+    // Then: last two are property (if single-char fail), rest is node path
+    for (let propCount = 1; propCount < segments.length; propCount++) {
+      const nodePath = '/' + segments.slice(0, segments.length - propCount).join('/');
+      const propPath = segments.slice(segments.length - propCount).join('.');
+      try {
+        const node = ctx.tree.get(nodePath);
+        if (!node) continue;
+        const parts = propPath.split('.');
+        let current: unknown = node.properties;
+        for (const part of parts) {
+          if (current == null || typeof current !== 'object') return undefined;
+          current = (current as PropertyMap)[part];
+        }
+        return current;
+      } catch {
+        continue;
       }
-      return current;
-    } catch {
-      return undefined;
     }
+    return undefined;
   }
 
   // Context references

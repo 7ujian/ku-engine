@@ -50,6 +50,7 @@ export interface NodeData {
   node_path?: string;
   js_script?: string;
   _object_id?: number;
+  _computed?: ComputedRect | null;
 }
 
 export interface SceneFile {

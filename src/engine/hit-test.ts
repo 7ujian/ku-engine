@@ -14,6 +14,7 @@ const GUI_TYPES = new Set([
   'Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui',
   'Slider', 'Toggle',
   'VBoxContainer', 'HBoxContainer', 'MarginContainer', 'CenterContainer',
+  'Grid', 'ListItem',
   'Control',
 ]);
 const DIMENSIONED_TYPES = new Set(['Block', 'RigidBody', 'CollisionShape', 'Area']);

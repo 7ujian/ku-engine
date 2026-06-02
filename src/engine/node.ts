@@ -88,6 +88,7 @@ export class Node {
       ...(this.node_path ? { node_path: this.node_path } : {}),
       ...(this.js_script ? { js_script: this.js_script } : {}),
       _object_id: this._object_id,
+      ...(this._computed ? { _computed: { ...this._computed } } : {}),
     };
   }
 

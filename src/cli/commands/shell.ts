@@ -1324,26 +1324,31 @@ export class ShellSession {
 
   // Tab completion for FS commands
   private async complete(line: string): Promise<[string[], string]> {
-    const tokens = line.trim().split(/\s+/);
+    const tokens = line.split(/\s+/).filter(Boolean);
     const cmd = tokens[0] ?? '';
-    const pathCommands = new Set(['cd', 'ls', 'cat', 'get', 'rm', 'mv', 'stat', 'tree']);
+    const pathCommands = new Set(['cd', 'ls', 'cat', 'get', 'set', 'rm', 'mv', 'stat', 'tree']);
     const nonFlags = tokens.filter(t => !t.startsWith('-'));
     const lastArg = nonFlags[nonFlags.length - 1] ?? '';
+    // Detect if cursor is past command (trailing space means we're on next arg)
+    const hasTrailingSpace = line.endsWith(' ') && line.trim().length > 0;
 
-    // Complete FS command names when no command typed yet or only first token
-    if (tokens.length <= 1) {
+    // Complete FS command names when no command typed yet or only first token (no trailing space)
+    if (tokens.length <= 1 && !hasTrailingSpace) {
       const fsCommands = ['cd', 'pwd', 'ls', 'cat', 'get', 'set', 'touch', 'rm', 'mv', 'mkdir', 'tree', 'find', 'stat', 'help', 'exit'];
       const hits = fsCommands.filter(c => c.startsWith(cmd));
       if (hits.length > 0) return [hits, cmd];
       return [[], line];
     }
 
+    // Trailing space after path command → fall through to path completion with empty partial
+
     if (!pathCommands.has(cmd)) return [[], line];
 
     // Only complete up to second path argument
     if (nonFlags.length > 2) return [[], line];
 
-    const partial = nonFlags.length <= 1 ? '' : lastArg;
+    // partial = empty when trailing space after command (no path arg typed yet)
+    const partial = (hasTrailingSpace && nonFlags.length <= 1) ? '' : lastArg;
     const dir = partial.includes('/') ? partial.slice(0, partial.lastIndexOf('/') + 1) : '';
     const prefix = partial.includes('/') ? partial.slice(partial.lastIndexOf('/') + 1) : partial;
     const baseDir = dir ? resolvePath(this.cwd, dir) : this.cwd;
@@ -1351,8 +1356,8 @@ export class ShellSession {
     const dotIdx = baseDir.indexOf('.');
     const nodePath = dotIdx > 0 ? baseDir.slice(0, dotIdx) : baseDir;
 
-    // Property completion for cat/get
-    const propCommands = new Set(['cat', 'get']);
+    // Property completion for cat/get/set
+    const propCommands = new Set(['cat', 'get', 'set']);
     if (propCommands.has(cmd) && partial.includes('.')) {
       const propDot = partial.lastIndexOf('.');
       const nodePart = partial.slice(0, propDot) || '.';
@@ -1387,12 +1392,14 @@ export class ShellSession {
     try {
       const resp = await this.send('node.list', { path: nodePath }) as any;
       if (resp?.error || !resp?.data) return [[], line];
-      const children: Array<{ id: string }> = resp.data;
+      const children: Array<{ id: string; childCount?: number }> = resp.data;
       const hits: string[] = [];
       const lcPrefix = prefix.toLowerCase();
       for (const child of children) {
         if (child.id.toLowerCase().startsWith(lcPrefix)) {
-          hits.push(dir + child.id + '/');
+          const cc = child.childCount ?? 0;
+          const suffix = cc > 0 ? '/' : '';
+          hits.push(dir + child.id + suffix);
         }
       }
       if (hits.length === 0) return [[], line];

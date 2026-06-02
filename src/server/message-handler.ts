@@ -153,8 +153,10 @@ const setPath = payload.path as string;
       const property = payload.property as string | undefined;
       const node = tree.get(getPath);
       if (property) {
-        // _object_id is on the Node, not in properties
-        const value = property === '_object_id' ? node._object_id : node.getPropertyByPath(property);
+        // _object_id and _computed are on the Node, not in properties
+        const value = property === '_object_id' ? node._object_id
+          : property === '_computed' ? (node._computed ?? null)
+          : node.getPropertyByPath(property);
         return { result: { property, value: value ?? null } };
       }
       return { result: node.toJSON() };

@@ -1,6 +1,14 @@
 {
   "name": "ui_samples",
   "entry": "scenes/main.json",
-  "width": 640,
-  "height": 480
+  "debug_ui": true,
+  "window": {
+    "width": 640,
+    "height": 480,
+    "resizable": true,
+    "stretch_mode": "canvas_items",
+    "stretch_aspect": "expand",
+    "scale_mode": "fractional",
+    "hidpi": true
+  }
 }

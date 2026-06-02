@@ -37,6 +37,7 @@ async function main(): Promise<void> {
     migrateWindowConfig((config.window ?? {}) as Record<string, unknown>),
     projectDir,
     config.debug_physics ?? false,
+    config.debug_ui ?? false,
   );
   renderer.setKeyHandler((key, down) => {
     if (down) input.keyDown(key);
