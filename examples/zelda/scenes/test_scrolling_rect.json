@@ -1,0 +1,68 @@
+{
+  "scene": "test_scrolling_rect",
+  "root": {
+    "id": "root",
+    "type": "Node",
+    "properties": {
+      "pixel_perfect_enabled": true
+    },
+    "children": [
+      {
+        "id": "camera",
+        "type": "Camera2D",
+        "properties": {
+          "zoom": 1,
+          "offset_x": 320,
+          "offset_y": 240
+        }
+      },
+      {
+        "id": "bg",
+        "type": "Block",
+        "properties": { "x": 512, "y": 240, "width": 1200, "height": 480, "color": "#ffffff" }
+      },
+      {
+        "id": "rect1",
+        "type": "Block",
+        "properties": {
+          "x": 100,
+          "y": 100,
+          "width": 200,
+          "height": 200,
+          "color": "#cc8888"
+        }
+      },
+      {
+        "id": "rect2",
+        "type": "Block",
+        "properties": {
+          "x": 400,
+          "y": 300,
+          "width": 200,
+          "height": 200,
+          "color": "#8888cc"
+        }
+      },
+      {
+        "id": "grid_layer",
+        "type": "CanvasLayer",
+        "properties": {
+          "follow_viewport": false
+        },
+        "children": [
+          {
+            "id": "grid_container",
+            "type": "Node2D",
+            "properties": {}
+          }
+        ]
+      },
+      {
+        "id": "scroll_controller",
+        "type": "Node",
+        "properties": {},
+        "js_script": "scripts/test_scroll_rect.js"
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Ku Play (debug)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/dist/bin/ku.js",
+      "args": ["play", "test_map_scrolling"],
+      "cwd": "${workspaceFolder}/examples/zelda",
+      "preLaunchTask": "npm: build",
+      "console": "integratedTerminal",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "resolveSourceMapLocations": ["${workspaceFolder}/**"]
+    },
+    {
+      "name": "Ku Play (attach)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "resolveSourceMapLocations": ["${workspaceFolder}/**"],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    }
+  ]
+}

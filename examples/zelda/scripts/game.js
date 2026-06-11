@@ -1,5 +1,5 @@
 // game.js — Camera follow, HUD update, game state management
-var SMOOTH = 0.08;
+var SMOOTH = 1.0;
 var LEVEL_FILE = 'village';
 var LEVEL_NODES = ['village_map', 'spawn_point', 'chest', 'player', 'slime_0', 'slime_1'];
 
@@ -21,8 +21,10 @@ function updateCamera(ctx) {
   var cx = ctx.scene.get('/camera', 'offset_x') || px;
   var cy = ctx.scene.get('/camera', 'offset_y') || py;
 
-  var nx = cx + (px - cx) * SMOOTH;
-  var ny = cy + (py - cy) * SMOOTH;
+  // Frame-rate independent lerp
+  var factor = 1 - Math.pow(1 - SMOOTH, ctx.dt / 16.667);
+  var nx = cx + (px - cx) * factor;
+  var ny = cy + (py - cy) * factor;
 
   ctx.scene.set('/camera', 'offset_x', nx);
   ctx.scene.set('/camera', 'offset_y', ny);
@@ -34,16 +36,11 @@ function updateHUD(ctx) {
   var maxHp = ctx.scene.get('/player', 'max_hp') || 5;
   if (hp === undefined) return;
 
-  var camX = ctx.scene.get('/camera', 'offset_x') || 400;
-  var camY = ctx.scene.get('/camera', 'offset_y') || 320;
-  var hudLeft = camX - 285;
-  var hudTop = camY - 205;
-
   for (var i = 1; i <= 5; i++) {
-    var path = '/heart_' + i;
+    var path = '/hud/heart_' + i;
     try {
-      ctx.scene.set(path, 'x', hudLeft + (i - 1) * 24);
-      ctx.scene.set(path, 'y', hudTop + 12);
+      ctx.scene.set(path, 'x', 30 + (i - 1) * 24);
+      ctx.scene.set(path, 'y', 16);
       ctx.scene.set(path, 'font', 'Silkscreen');
       ctx.scene.set(path, 'font_size', 16);
       if (i <= hp) {
@@ -57,22 +54,12 @@ function updateHUD(ctx) {
   }
 
   try {
-    ctx.scene.set('/hud_score', 'x', hudLeft + 400);
-    ctx.scene.set('/hud_score', 'y', hudTop + 14);
-    ctx.scene.set('/hud_score', 'font', 'Silkscreen');
-    ctx.scene.set('/hud_score', 'font_size', 16);
-    ctx.scene.set('/hud_score', 'text', 'Score: ' + score);
+    ctx.scene.set('/hud/hud_score', 'x', 440);
+    ctx.scene.set('/hud/hud_score', 'y', 16);
+    ctx.scene.set('/hud/hud_score', 'font', 'Silkscreen');
+    ctx.scene.set('/hud/hud_score', 'font_size', 16);
+    ctx.scene.set('/hud/hud_score', 'text', 'Score: ' + score);
   } catch (e) {}
-
-  // Gameover panel follows camera
-  var dead = hp <= 0;
-  if (dead) {
-    try {
-      ctx.scene.set('/gameover_panel', 'visible', true);
-      ctx.scene.set('/gameover_panel', 'x', camX);
-      ctx.scene.set('/gameover_panel', 'y', camY);
-    } catch (e) {}
-  }
 }
 
 handlers.on_key = function (ctx) {
@@ -92,14 +79,14 @@ handlers.restart_game = function (ctx) {
       try { ctx.scene.destroy('/' + LEVEL_NODES[i]); } catch (e) {}
     }
     ctx.scene.load_scene('/', LEVEL_FILE);
-    try { ctx.scene.set('/gameover_panel', 'visible', false); } catch (e) {}
+    try { ctx.scene.set('/hud/gameover_panel', 'visible', false); } catch (e) {}
   } else {
     ctx.emit('change_scene', { scene: 'house' });
   }
 };
 
 handlers.player_died = function (ctx) {
-  try { ctx.scene.set('/gameover_panel', 'visible', true); } catch (e) {}
+  try { ctx.scene.set('/hud/gameover_panel', 'visible', true); } catch (e) {}
 };
 
 handlers.chest_opened = function (ctx) {

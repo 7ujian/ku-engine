@@ -134,7 +134,9 @@ export class PlayRuntime {
     });
 
     const cfg = projectConfig as Record<string, unknown>;
-    const win = (cfg.window ?? {}) as Record<string, unknown>;
+    const win = { ...(cfg.window ?? {}) as Record<string, unknown> };
+    // vsync can live at project root or inside window
+    if (cfg.vsync !== undefined && win.vsync === undefined) win.vsync = cfg.vsync;
     const windowConfig = migrateWindowConfig(win);
     const renderer = new Renderer(
       windowConfig,
@@ -147,21 +149,107 @@ export class PlayRuntime {
     const audio = new AudioManager(dir, loadWav);
     const sceneLoader = async (name: string) => loadScene(sceneFilePath(resolve(dir, 'scenes'), name), dir);
     const loop = new GameLoop(tree, scripts, physics, renderer, 60, true, jsScripts, audio, sceneLoader);
+    loop.setVsync(windowConfig.vsync);
     const profilingEnabled = (cfg.profiling as boolean) ?? false;
     if (profilingEnabled) {
       physics.setProfiler(loop.profiler);
     }
 
     // System nodes: Profiler + ProfilerGui — re-added on every scene change
+    const profilerLabels: Node[] = [];
+    let graphNode: Node | null = null;
+
     const setupSystemNodes = () => {
       const t = loop.getTree();
       // Profiler node
       const pn = createNodeByType('Profiler', 'profiler', { enabled: profilingEnabled });
       t.root.addChild(pn);
       loop.profiler.setTargetNode(pn);
-      // ProfilerGui overlay
-      const gn = createNodeByType('ProfilerGui', 'profiler_gui', { visible: profilingEnabled });
-      t.root.addChild(gn);
+
+      // ProfilerGui using widgets
+      const gui = createNodeByType('Panel', 'profiler_gui', {
+        visible: profilingEnabled,
+        x: 8, y: 8,
+        width: 290, height: 260,
+        color: 'rgba(0, 0, 0, 0.75)',
+        border_color: '#555',
+        border_width: 1,
+      });
+      t.root.addChild(gui);
+
+      const vbox = createNodeByType('VBoxContainer', 'profiler_vbox', {
+        separation: 2,
+        width: 280, height: 250,
+        margin_left: 6, margin_right: 6,
+        margin_top: 6, margin_bottom: 6,
+      });
+      gui.addChild(vbox);
+
+      // Header label
+      const header = createNodeByType('Label', 'profiler_header', {
+        text: 'Profiler',
+        font_size: 12,
+        height: 15,
+        color: '#0f0',
+        font: 'Silkscreen',
+      });
+      vbox.addChild(header);
+
+      // FPS label
+      const fpsLabel = createNodeByType('Label', 'profiler_fps', {
+        text: 'FPS: 0',
+        font_size: 12,
+        height: 15,
+        color: '#0f0',
+        font: 'Silkscreen',
+      });
+      vbox.addChild(fpsLabel);
+
+      // Frame time label
+      const frametimeLabel = createNodeByType('Label', 'profiler_frametime', {
+        text: 'Frame: 0.00ms',
+        font_size: 12,
+        height: 15,
+        color: '#0f0',
+        font: 'Silkscreen',
+      });
+      vbox.addChild(frametimeLabel);
+
+      // Column headers
+      const colHeader = createNodeByType('Label', 'profiler_cols', {
+        text: '  name                   total   avg   max count',
+        font_size: 12,
+        height: 15,
+        color: '#aaa',
+        font: 'Silkscreen',
+      });
+      vbox.addChild(colHeader);
+
+      // Sample labels (pre-create 8 slots)
+      profilerLabels.length = 0;
+      for (let i = 0; i < 8; i++) {
+        const lbl = createNodeByType('Label', `profiler_sample_${i}`, {
+          text: '',
+          font_size: 12,
+          height: 15,
+          color: '#fff',
+          font: 'Silkscreen',
+        });
+        vbox.addChild(lbl);
+        profilerLabels.push(lbl);
+      }
+
+      // Frame time graph
+      graphNode = createNodeByType('LineGraph', 'profiler_graph', {
+        width: 268, height: 50,
+        max_value: 33.33,
+        line_color: '#0af',
+        fill_color: 'rgba(0, 170, 255, 0.1)',
+        grid_values: [16.67],
+        grid_colors: ['rgba(0, 255, 0, 0.3)'],
+      });
+      vbox.addChild(graphNode);
+
       // Re-wire physics profiler after scene change creates new PhysicsWorld
       if (profilingEnabled) {
         loop.getPhysics().setProfiler(loop.profiler);
@@ -183,6 +271,60 @@ export class PlayRuntime {
       } else {
         input.keyUp(key);
       }
+    });
+
+    // Update profiler GUI widgets
+    loop.setProfilerSyncCallback(() => {
+      try {
+        const profilerNode = loop.getTree().get('/profiler');
+        if (!profilerNode || !profilerNode.getProperty('enabled')) return;
+
+        const samples = (profilerNode.getProperty('samples') as Array<{
+          name: string; totalMs: number; avgMs: number; maxMs: number; count: number;
+        }>) ?? [];
+        const fps = (profilerNode.getProperty('fps') as number) ?? 0;
+        const bodyCount = (profilerNode.getProperty('body_count') as number) ?? 0;
+        const nodeCount = (profilerNode.getProperty('node_count') as number) ?? 0;
+        const frameTimeHistory = (profilerNode.getProperty('frame_time_history') as {
+          data: number[]; filled: boolean;
+        }) ?? { data: [], filled: false };
+
+        // Update header
+        const header = loop.getTree().get('/profiler_gui/profiler_vbox/profiler_header');
+        if (header) header.setProperty('text', `Profiler  bodies=${bodyCount}  nodes=${nodeCount}`);
+
+        // Update FPS
+        const fpsLabel = loop.getTree().get('/profiler_gui/profiler_vbox/profiler_fps');
+        if (fpsLabel) {
+          fpsLabel.setProperty('text', `FPS: ${fps}`);
+          fpsLabel.setProperty('color', fps >= 55 ? '#0f0' : fps >= 30 ? '#ff0' : '#f00');
+        }
+
+        // Update frame time (every frame)
+        const lastFrameTime = (profilerNode.getProperty('last_frame_time') as number) ?? 0;
+        const frametimeLabel = loop.getTree().get('/profiler_gui/profiler_vbox/profiler_frametime');
+        if (frametimeLabel) {
+          frametimeLabel.setProperty('text', `Frame: ${lastFrameTime.toFixed(2)}ms`);
+        }
+
+        // Update sample labels
+        for (let i = 0; i < profilerLabels.length; i++) {
+          const lbl = profilerLabels[i];
+          if (i < samples.length) {
+            const s = samples[i];
+            lbl.setProperty('text',
+              `  ${s.name.padEnd(20).slice(0, 20)}  ${String(s.totalMs).padStart(7)}  ${String(s.avgMs).padStart(5)}  ${String(s.maxMs).padStart(5)}  ${String(s.count).padStart(5)}`
+            );
+          } else {
+            lbl.setProperty('text', '');
+          }
+        }
+
+        // Update graph
+        if (graphNode) {
+          graphNode.setProperty('data', frameTimeHistory.data);
+        }
+      } catch { /* no-op */ }
     });
     renderer.setTouchHandler((phase, x, y, pointerId) => {
       if (phase === 'start') input.touchStart(x, y, pointerId);

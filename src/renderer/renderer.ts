@@ -26,6 +26,7 @@ export interface WindowConfig {
 	height: number;
 	resizable: boolean;
 	hidpi: boolean;
+	vsync: boolean;
 	stretch_mode: StretchMode;
 	stretch_aspect: StretchAspect;
 	scale_mode: ScaleRounding;
@@ -158,6 +159,7 @@ export function migrateWindowConfig(raw: Record<string, unknown>): WindowConfig 
 		height: (raw.height as number) ?? 600,
 		resizable: (raw.resizable as boolean) ?? true,
 		hidpi: (raw.hidpi as boolean) ?? true,
+		vsync: (raw.vsync as boolean) ?? false,
 		stretch_mode: (raw.stretch_mode as StretchMode) ?? 'disabled',
 		stretch_aspect: (raw.stretch_aspect as StretchAspect) ?? 'keep',
 		scale_mode: (raw.scale_mode as ScaleRounding) ?? 'fractional',
@@ -219,6 +221,9 @@ export class Renderer {
 	// viewport/disabled: 1 (canvas = design resolution).
 	// canvas_items: 1/drawScaleX (canvas = screen resolution, snap to screen pixels).
 	private snapGrid = 1;
+	/** Snapped camera origin for camera-relative pixel snapping. */
+	private _camSnapX = 0;
+	private _camSnapY = 0;
 	private spriteRenderer: SpriteRenderer;
 	private tilemapRenderer: TilemapRenderer;
 	private labelRenderer: LabelRenderer;
@@ -294,7 +299,7 @@ export class Renderer {
 			title,
 			width: initW,
 			height: initH,
-			vsync: false,
+			vsync: this.config.vsync ?? false,
 			resizable: this.config.resizable,
 		});
 		this.running = true;
@@ -541,10 +546,14 @@ export class Renderer {
 		ctx.save();
 		ctx.translate(this.designWidth / 2, this.designHeight / 2);
 		ctx.scale(cam.zoom, cam.zoom);
-		// Snap camera to integer pixels at 1x zoom for pixel-perfect movement
-		const camX = cam.zoom === 1 ? snapToGrid(cam.x, this.snapGrid) : cam.x;
-		const camY = cam.zoom === 1 ? snapToGrid(cam.y, this.snapGrid) : cam.y;
-		ctx.translate(-camX, -camY);
+		// Snap camera to integer pixels at 1x zoom for pixel-perfect tilemap rendering.
+		// Store raw camera offset for relative snapping below (prevents jitter from
+		// independent rounding of camera vs node positions).
+		const camSnapX = cam.zoom === 1 ? Math.floor(cam.x) : cam.x;
+		const camSnapY = cam.zoom === 1 ? Math.floor(cam.y) : cam.y;
+		this._camSnapX = camSnapX;
+		this._camSnapY = camSnapY;
+		ctx.translate(-camSnapX, -camSnapY);
 
 		// Pre-load textures for visible sprites/tilemaps/atlas nodes
 		const loadPromises: Promise<void>[] = [];
@@ -647,6 +656,9 @@ export class Renderer {
 			ctx.restore(); // stretch transform
 		}
 
+		// Draw profiler in screen space (after stretch transform) for pixel-perfect text
+		this.drawProfilerOverlay(tree);
+
 		this.present();
 	}
 
@@ -670,11 +682,13 @@ export class Renderer {
 
 		const local = getLocalTransform(node);
 		const world = composeTransform(parentWorld, local);
-		// Snap world position for pixel-perfect rendering
+		// Snap world position for pixel-perfect rendering.
+		// Snap relative to camera origin so screen-space positions stay stable
+		// (prevents jitter from independent rounding of camera vs node coords).
 		const snapped: Transform2D = {
 			...world,
-			x: snapToGrid(world.x, this.snapGrid),
-			y: snapToGrid(world.y, this.snapGrid),
+			x: this._camSnapX + snapToGrid(world.x - this._camSnapX, this.snapGrid),
+			y: this._camSnapY + snapToGrid(world.y - this._camSnapY, this.snapGrid),
 		};
 
 		// ScrollView: clip + scroll offset for children
@@ -740,67 +754,13 @@ export class Renderer {
 		// Pass 2: Root-level Control nodes (screen space)
 		for (const child of tree.root.children) {
 			if (!isControlType(child.type)) continue;
-			if (child.type === 'ProfilerGui') {
-				this.drawProfilerGui(child, tree);
-				continue;
-			}
+			if (child.type === 'ProfilerGui') continue; // Drawn in screen space by drawProfilerOverlay
 			this.drawControlTree(child, screenRect, dt);
 		}
 	}
 
-	private drawProfilerGui(node: Node, tree: SceneTree): void {
-		const visible = node.getProperty('visible');
-		if (!visible) return;
-
-		const x = (node.getProperty('x') as number) ?? 8;
-		const y = (node.getProperty('y') as number) ?? 8;
-		const targetPath = (node.getProperty('target') as string) ?? '/profiler';
-
-		let profilerNode: Node | undefined;
-		try { profilerNode = tree.get(targetPath); } catch { /* not found */ }
-		if (!profilerNode || profilerNode.type !== 'Profiler') return;
-
-		const bodyCount = (profilerNode.getProperty('body_count') as number) ?? 0;
-		const nodeCount = (profilerNode.getProperty('node_count') as number) ?? 0;
-		const samples = (profilerNode.getProperty('samples') as Array<{
-			name: string; totalMs: number; count: number; avgMs: number; maxMs: number;
-		}>) ?? [];
-
-		const ctx = this.ctx;
-		const lineH = 14;
-		const pad = 6;
-		const h = pad * 2 + lineH * (samples.length + 3);
-		const w = 280;
-
-		// Background panel
-		ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-		ctx.fillRect(x, y, w, h);
-		ctx.strokeStyle = '#555';
-		ctx.lineWidth = 1;
-		ctx.strokeRect(x, y, w, h);
-
-		// Header
-		ctx.fillStyle = '#0f0';
-		ctx.font = '12px monospace';
-		ctx.textBaseline = 'top';
-		ctx.fillText(`Profiler  bodies=${bodyCount}  nodes=${nodeCount}`, x + pad, y + pad);
-
-		// Column headers
-		ctx.fillStyle = '#aaa';
-		ctx.fillText(`  name                         total     avg    max   count`, x + pad, y + pad + lineH);
-
-		// Samples
-		for (let i = 0; i < samples.length; i++) {
-			const s = samples[i];
-			const ly = y + pad + lineH * (i + 2);
-			ctx.fillStyle = '#fff';
-			ctx.fillText(
-				`  ${s.name.padEnd(25).slice(0, 25)}  ${String(s.totalMs).padStart(7)}  ${String(s.avgMs).padStart(5)}  ${String(s.maxMs).padStart(5)}  ${String(s.count).padStart(5)}`,
-				x + pad, ly,
-			);
-		}
-
-		ctx.textBaseline = 'alphabetic';
+	private drawProfilerOverlay(tree: SceneTree): void {
+		// ProfilerGui is now rendered as standard widgets in the GUI pass
 	}
 
 	private drawCanvasLayer(layer: Node, screenRect: { x: number; y: number; width: number; height: number }, dt: number): void {
@@ -834,13 +794,21 @@ export class Renderer {
 	}
 
 	private drawControlTree(node: Node, parentRect: { x: number; y: number; width: number; height: number }, dt: number, useLayoutRect = false): void {
-		if (node.getProperty('visible') === false) return;
-
 		// Use layout-computed rect when available (set by parent container's resolveLayout)
 		const rect = useLayoutRect && node._computed
 			? node._computed
 			: computeControlRect(node, parentRect);
 		node._computed = rect;
+
+		// Sync computed rect to queryable properties
+		node.properties['computed_x'] = rect.x;
+		node.properties['computed_y'] = rect.y;
+		node.properties['computed_width'] = rect.width;
+		node.properties['computed_height'] = rect.height;
+		node.properties['computed_local_x'] = rect.x - parentRect.x;
+		node.properties['computed_local_y'] = rect.y - parentRect.y;
+
+		if (node.getProperty('visible') === false) return;
 
 		// Resolve container layout for children
 		if (isContainerType(node.type)) {
@@ -910,18 +878,26 @@ export class Renderer {
 			case 'Grid':
 				this.guiRenderer.drawGrid(node, wx, wy);
 				break;
-			case 'ListItem':
-				this.guiRenderer.drawListItem(node, wx, wy);
-				break;
-		}
+		case 'ListItem':
+			this.guiRenderer.drawListItem(node, wx, wy);
+			break;
+		case 'LineGraph':
+			this.guiRenderer.drawLineGraph(node, wx, wy);
+			break;
+	}
 	}
 
 	private drawNode(node: Node, wx: number, wy: number, sx: number, sy: number, dt: number): void {
 		const ctx = this.ctx;
 		if (!ctx) return;
-		// Snap to integer pixels when scale is uniform (pixel-perfect rendering)
-		const px = (sx === 1 && sy === 1) ? snapToGrid(wx, this.snapGrid) : wx;
-		const py = (sx === 1 && sy === 1) ? snapToGrid(wy, this.snapGrid) : wy;
+		// Snap to integer pixels when scale is uniform (pixel-perfect rendering).
+		// Camera-relative to prevent jitter (see _drawNodeRecursive for details).
+		const px = (sx === 1 && sy === 1)
+			? this._camSnapX + snapToGrid(wx - this._camSnapX, this.snapGrid)
+			: wx;
+		const py = (sx === 1 && sy === 1)
+			? this._camSnapY + snapToGrid(wy - this._camSnapY, this.snapGrid)
+			: wy;
 		ctx.save();
 		ctx.translate(px, py);
 		ctx.scale(sx, sy);

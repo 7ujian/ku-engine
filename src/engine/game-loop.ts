@@ -22,7 +22,8 @@ export class GameLoop {
   private maxFrameTime = 250;
   private accumulator = 0;
   private lastTime = 0;
-  private loopHandle: ReturnType<typeof setTimeout> | null = null;
+  private loopHandle: ReturnType<typeof setTimeout> | ReturnType<typeof setImmediate> | null = null;
+  private vsync = false;
   private fps: number;
   private onExit: (() => void) | null = null;
   private physicsEnabled: boolean;
@@ -34,6 +35,7 @@ export class GameLoop {
   private pendingScene: { name: string } | null = null;
   private sceneLoader: ((name: string) => Promise<SceneTree>) | null = null;
   private systemNodeSetup: (() => void) | null = null;
+  private profilerSyncCallback: (() => void) | null = null;
   readonly profiler = new Profiler(5000);
 
   constructor(
@@ -97,8 +99,16 @@ export class GameLoop {
     this.onExit = cb;
   }
 
+  setVsync(enabled: boolean): void {
+    this.vsync = enabled;
+  }
+
   setSystemNodeSetup(cb: () => void): void {
     this.systemNodeSetup = cb;
+  }
+
+  setProfilerSyncCallback(cb: () => void): void {
+    this.profilerSyncCallback = cb;
   }
 
   start(): void {
@@ -116,7 +126,11 @@ export class GameLoop {
   stop(): void {
     this.running = false;
     if (this.loopHandle) {
-      clearTimeout(this.loopHandle);
+      if (this.vsync) {
+        clearImmediate(this.loopHandle as ReturnType<typeof setImmediate>);
+      } else {
+        clearTimeout(this.loopHandle as ReturnType<typeof setTimeout>);
+      }
       this.loopHandle = null;
     }
     if (this.renderer) {
@@ -213,9 +227,15 @@ export class GameLoop {
   }
 
   private scheduleFrame(): void {
-    const elapsed = performance.now() - this.lastTime;
-    const sleepMs = Math.max(1, this.fixedDt - elapsed);
-    this.loopHandle = setTimeout(() => this.frameLoop(), sleepMs);
+    if (this.vsync) {
+      // Vsync paces via present() blocking — use setImmediate to yield
+      // to event loop for SDL event processing, same as native test.
+      setImmediate(() => this.frameLoop());
+    } else {
+      const elapsed = performance.now() - this.lastTime;
+      const sleepMs = Math.max(1, this.fixedDt - elapsed);
+      this.loopHandle = setTimeout(() => this.frameLoop(), sleepMs);
+    }
   }
 
   private frameLoop(): void {
@@ -227,11 +247,24 @@ export class GameLoop {
 
     if (frameTime > this.maxFrameTime) frameTime = this.maxFrameTime;
 
+    // Record frame time for profiler
+    this.profiler.recordFrameTime(frameTime);
+
     this.accumulator += frameTime;
 
-    while (this.accumulator >= this.fixedDt) {
+    // With vsync, the display paces frames at fixedDt intervals.
+    // Capping to 1 tick per frame prevents double-tick jumps that cause
+    // visible jitter. The accumulator remainder carries over harmlessly.
+    const maxTicks = this.vsync ? 1 : 10;
+    let ticks = 0;
+    while (this.accumulator >= this.fixedDt && ticks < maxTicks) {
       this.tick(this.fixedDt);
       this.accumulator -= this.fixedDt;
+      ticks++;
+    }
+    // Discard excess accumulator to prevent spiral of death
+    if (this.accumulator > this.fixedDt) {
+      this.accumulator = 0;
     }
 
     // Process scene change between ticks (async, out of accumulator loop)
@@ -256,7 +289,7 @@ export class GameLoop {
       this.renderer.draw(this.tree);
     }
 
-    this.profiler.syncToNode(this.physics.bodyCount, this.tree.nodeCount);
+    this.profiler.syncToNode(this.physics.bodyCount, this.tree.nodeCount, this.profilerSyncCallback ?? undefined);
 
     this.scheduleFrame();
   }

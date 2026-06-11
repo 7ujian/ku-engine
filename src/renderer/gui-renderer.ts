@@ -8,7 +8,7 @@ const GUI_TYPES = new Set([
   'Panel', 'Button', 'ImageRect', 'ScrollView', 'ProfilerGui',
   'Slider', 'Toggle',
   'VBoxContainer', 'HBoxContainer', 'MarginContainer', 'CenterContainer',
-  'Grid', 'ListItem',
+  'Grid', 'ListItem', 'LineGraph',
   'Control', 'Label',
 ]);
 
@@ -78,7 +78,8 @@ export class GuiRenderer {
       if (borderWidth > 0) {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = borderWidth;
-        ctx.strokeRect(wx, wy, w, h);
+        // Offset by 0.5px for crisp 1px borders
+        ctx.strokeRect(wx + 0.5, wy + 0.5, w - 1, h - 1);
       }
     }
 
@@ -414,6 +415,79 @@ export class GuiRenderer {
       ctx.font = `${fontSize}px sans-serif`;
       ctx.textBaseline = 'middle';
       ctx.fillText(text, wx + textOffset, wy + h / 2);
+    }
+
+    ctx.restore();
+  }
+
+  drawLineGraph(node: Node, wx: number, wy: number): void {
+    const w = node._computed?.width  ?? (node.getProperty('width') as number)  ?? 200;
+    const h = node._computed?.height ?? (node.getProperty('height') as number) ?? 60;
+    const data = (node.getProperty('data') as number[]) ?? [];
+    const maxValue = (node.getProperty('max_value') as number) ?? 33.33;
+    const lineColor = (node.getProperty('line_color') as string) ?? '#0af';
+    const fillColor = (node.getProperty('fill_color') as string) ?? 'rgba(0, 170, 255, 0.1)';
+    const bgColor = (node.getProperty('background_color') as string) ?? 'rgba(0, 0, 0, 0.5)';
+    const gridValues = (node.getProperty('grid_values') as number[]) ?? [];
+    const gridColors = (node.getProperty('grid_colors') as string[]) ?? [];
+
+    // Pixel-perfect: snap to integer coords
+    const x = Math.floor(wx);
+    const y = Math.floor(wy);
+
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Background
+    if (bgColor && bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    // Grid lines
+    for (let i = 0; i < gridValues.length; i++) {
+      const val = gridValues[i];
+      const color = gridColors[i] ?? '#333';
+      const gy = y + h - Math.round((val / maxValue) * h);
+      ctx.strokeStyle = color;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x + w, gy);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Data line
+    if (data.length > 1) {
+      const step = w / (data.length - 1);
+
+      // Fill area under curve
+      if (fillColor && fillColor !== 'transparent') {
+        ctx.fillStyle = fillColor;
+        ctx.beginPath();
+        ctx.moveTo(x, y + h);
+        for (let i = 0; i < data.length; i++) {
+          const px = x + Math.round(i * step);
+          const py = y + h - Math.round((Math.min(data[i], maxValue) / maxValue) * h);
+          ctx.lineTo(px, py);
+        }
+        ctx.lineTo(x + w, y + h);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Line
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < data.length; i++) {
+        const px = x + Math.round(i * step);
+        const py = y + h - Math.round((Math.min(data[i], maxValue) / maxValue) * h);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
     }
 
     ctx.restore();
