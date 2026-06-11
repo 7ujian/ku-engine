@@ -4,3 +4,6 @@ dist/
 .ku.*.port
 .ku.attach
 .claude/
+.mimocode/
+.firecrawl/
+.agents/

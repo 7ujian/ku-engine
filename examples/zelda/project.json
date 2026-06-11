@@ -1,8 +1,0 @@
-{
-  "name": "zelda",
-  "entry": "main",
-  "window": { "width": 640, "height": 480, "scale": 2, "hidpi": true, "stretch_mode": "disabled", "stretch_aspect": "keep", "scale_mode": "fractional" },
-  "vsync": true,
-  "debug_physics": false,
-  "profiling": true
-}
