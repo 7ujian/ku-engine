@@ -386,70 +386,79 @@
         "js_script": "scripts/player.js"
       },
       {
-        "id": "heart_1",
-        "type": "Label",
+        "id": "hud",
+        "type": "CanvasLayer",
         "properties": {
-          "x": 30,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 24,
-          "color": "#ff3333"
-        }
-      },
-      {
-        "id": "heart_2",
-        "type": "Label",
-        "properties": {
-          "x": 54,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 24,
-          "color": "#ff3333"
-        }
-      },
-      {
-        "id": "heart_3",
-        "type": "Label",
-        "properties": {
-          "x": 78,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 24,
-          "color": "#ff3333"
-        }
-      },
-      {
-        "id": "heart_4",
-        "type": "Label",
-        "properties": {
-          "x": 102,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 24,
-          "color": "#ff3333"
-        }
-      },
-      {
-        "id": "heart_5",
-        "type": "Label",
-        "properties": {
-          "x": 126,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 24,
-          "color": "#ff3333"
-        }
-      },
-      {
-        "id": "hud_score",
-        "type": "Label",
-        "properties": {
-          "x": 300,
-          "y": 16,
-          "text": "Score: 0",
-          "font_size": 18,
-          "color": "#ffffff"
-        }
+          "follow_viewport": false
+        },
+        "children": [
+          {
+            "id": "heart_1",
+            "type": "Label",
+            "properties": {
+              "x": 30,
+              "y": 16,
+              "text": "\u2764",
+              "font_size": 24,
+              "color": "#ff3333"
+            }
+          },
+          {
+            "id": "heart_2",
+            "type": "Label",
+            "properties": {
+              "x": 54,
+              "y": 16,
+              "text": "\u2764",
+              "font_size": 24,
+              "color": "#ff3333"
+            }
+          },
+          {
+            "id": "heart_3",
+            "type": "Label",
+            "properties": {
+              "x": 78,
+              "y": 16,
+              "text": "\u2764",
+              "font_size": 24,
+              "color": "#ff3333"
+            }
+          },
+          {
+            "id": "heart_4",
+            "type": "Label",
+            "properties": {
+              "x": 102,
+              "y": 16,
+              "text": "\u2764",
+              "font_size": 24,
+              "color": "#ff3333"
+            }
+          },
+          {
+            "id": "heart_5",
+            "type": "Label",
+            "properties": {
+              "x": 126,
+              "y": 16,
+              "text": "\u2764",
+              "font_size": 24,
+              "color": "#ff3333"
+            }
+          },
+          {
+            "id": "hud_score",
+            "type": "Label",
+            "properties": {
+              "x": 300,
+              "y": 16,
+              "text": "Score: 0",
+              "font_size": 18,
+              "color": "#ffffff"
+            }
+          }
+        ]
       },
       {
         "id": "game_controller",

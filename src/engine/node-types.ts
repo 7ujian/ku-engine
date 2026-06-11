@@ -313,6 +313,19 @@ export const createListItem = controlFactory('ListItem', {
   focus_mode: 'click',
 });
 
+export const createLineGraph = controlFactory('LineGraph', {
+  width: 200,
+  height: 60,
+  data: [] as unknown[],
+  max_value: 33.33,
+  line_color: '#0af',
+  fill_color: 'rgba(0, 170, 255, 0.1)',
+  grid_color: '#333',
+  grid_values: [16.67] as unknown[],
+  grid_colors: ['rgba(0, 255, 0, 0.3)'] as unknown[],
+  background_color: 'rgba(0, 0, 0, 0.5)',
+});
+
 export const createTheme = factory('Theme', {
   colors: {
     bg_color: '#1a1a2e',
@@ -367,6 +380,7 @@ const factories: Record<string, NodeFactory> = {
   Toggle: createToggle,
   Grid: createGrid,
   ListItem: createListItem,
+  LineGraph: createLineGraph,
   Theme: createTheme,
 };
 

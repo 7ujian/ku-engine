@@ -36,28 +36,21 @@ function updateHUD(ctx) {
   var maxHp = ctx.scene.get('/player', 'max_hp') || 5;
   if (hp === undefined) return;
 
+  var fullTex = 'assets/heart_full.png';
+  var emptyTex = 'assets/heart_empty.png';
+
   for (var i = 1; i <= 5; i++) {
     var path = '/hud/heart_' + i;
     try {
-      ctx.scene.set(path, 'x', 30 + (i - 1) * 24);
-      ctx.scene.set(path, 'y', 16);
-      ctx.scene.set(path, 'font', 'Silkscreen');
-      ctx.scene.set(path, 'font_size', 16);
       if (i <= hp) {
-        ctx.scene.set(path, 'text', '❤');
-        ctx.scene.set(path, 'color', '#ff3333');
+        ctx.scene.set(path, 'texture', fullTex);
       } else if (i <= maxHp) {
-        ctx.scene.set(path, 'text', '♡');
-        ctx.scene.set(path, 'color', '#666666');
+        ctx.scene.set(path, 'texture', emptyTex);
       }
     } catch (e) {}
   }
 
   try {
-    ctx.scene.set('/hud/hud_score', 'x', 440);
-    ctx.scene.set('/hud/hud_score', 'y', 16);
-    ctx.scene.set('/hud/hud_score', 'font', 'Silkscreen');
-    ctx.scene.set('/hud/hud_score', 'font_size', 16);
     ctx.scene.set('/hud/hud_score', 'text', 'Score: ' + score);
   } catch (e) {}
 }

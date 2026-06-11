@@ -136,6 +136,9 @@ const path = payload.path as string;
 const setPath = payload.path as string;
       const property = payload.property as string;
       const value = payload.value;
+      if (property.startsWith('computed_')) {
+        throw new Error('computed_* properties are read-only');
+      }
       const node = tree.get(setPath);
       node.setPropertyByPath(property, value);
       // Sync back to physics body if in play mode

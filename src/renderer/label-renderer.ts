@@ -24,6 +24,7 @@ export class LabelRenderer {
 
     const ctx = this.ctx;
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.font = `${fontSize}px ${font}`;
     ctx.fillStyle = color;
     ctx.textBaseline = 'top';
@@ -49,7 +50,8 @@ export class LabelRenderer {
         lineX = x + w - metrics.width;
       }
 
-      ctx.fillText(lines[i], lineX, y + yOffset + i * lineHeight + 2);
+      // Floor to integer for pixel-perfect text (matches camera-relative floor snap)
+      ctx.fillText(lines[i], Math.floor(lineX), Math.floor(y + yOffset + i * lineHeight + 2));
     }
 
     ctx.restore();

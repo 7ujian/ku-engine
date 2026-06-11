@@ -18,120 +18,114 @@
         }
       },
       {
-        "id": "heart_1",
-        "type": "Label",
+        "id": "hud",
+        "type": "CanvasLayer",
         "properties": {
-          "x": 30,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 16,
-          "color": "#ff3333",
-          "font": "Silkscreen"
-        }
-      },
-      {
-        "id": "heart_2",
-        "type": "Label",
-        "properties": {
-          "x": 54,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 16,
-          "color": "#ff3333",
-          "font": "Silkscreen"
-        }
-      },
-      {
-        "id": "heart_3",
-        "type": "Label",
-        "properties": {
-          "x": 78,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 16,
-          "color": "#ff3333",
-          "font": "Silkscreen"
-        }
-      },
-      {
-        "id": "heart_4",
-        "type": "Label",
-        "properties": {
-          "x": 102,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 16,
-          "color": "#ff3333",
-          "font": "Silkscreen"
-        }
-      },
-      {
-        "id": "heart_5",
-        "type": "Label",
-        "properties": {
-          "x": 126,
-          "y": 16,
-          "text": "\u2764",
-          "font_size": 16,
-          "color": "#ff3333",
-          "font": "Silkscreen"
-        }
-      },
-      {
-        "id": "hud_score",
-        "type": "Label",
-        "properties": {
-          "x": 360,
-          "y": 16,
-          "text": "Score: 0",
-          "font_size": 16,
-          "color": "#ffffff",
-          "font": "Silkscreen"
-        }
-      },
-      {
-        "id": "gameover_panel",
-        "type": "Node2D",
-        "properties": {
-          "x": 240,
-          "y": 160,
-          "visible": false
+          "follow_viewport": false
         },
         "children": [
           {
-            "id": "gameover_bg",
-            "type": "Block",
+            "id": "heart_1",
+            "type": "Sprite",
             "properties": {
-              "x": 0,
-              "y": 0,
-              "width": 300,
-              "height": 120,
-              "color": "#000000"
+              "x": 30,
+              "y": 16,
+              "texture": "assets/heart_full.png"
             }
           },
           {
-            "id": "gameover_text",
+            "id": "heart_2",
+            "type": "Sprite",
+            "properties": {
+              "x": 42,
+              "y": 16,
+              "texture": "assets/heart_full.png"
+            }
+          },
+          {
+            "id": "heart_3",
+            "type": "Sprite",
+            "properties": {
+              "x": 54,
+              "y": 16,
+              "texture": "assets/heart_full.png"
+            }
+          },
+          {
+            "id": "heart_4",
+            "type": "Sprite",
+            "properties": {
+              "x": 66,
+              "y": 16,
+              "texture": "assets/heart_full.png"
+            }
+          },
+          {
+            "id": "heart_5",
+            "type": "Sprite",
+            "properties": {
+              "x": 78,
+              "y": 16,
+              "texture": "assets/heart_full.png"
+            }
+          },
+          {
+            "id": "hud_score",
             "type": "Label",
             "properties": {
-              "x": -80,
-              "y": -20,
-              "text": "GAME OVER",
-              "font_size": 16,
-              "color": "#ff0000",
+              "x": 100,
+              "y": 14,
+              "text": "Score: 0",
+              "font_size": 12,
+              "color": "#ffffff",
               "font": "Silkscreen"
             }
           },
           {
-            "id": "gameover_hint",
-            "type": "Label",
+            "id": "gameover_panel",
+            "type": "Node2D",
             "properties": {
-              "x": -90,
-              "y": 20,
-              "text": "Press R to restart",
-              "font_size": 16,
-              "color": "#aaaaaa",
-              "font": "Silkscreen"
-            }
+              "x": 320,
+              "y": 240,
+              "visible": false
+            },
+            "children": [
+              {
+                "id": "gameover_bg",
+                "type": "Block",
+                "properties": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 300,
+                  "height": 120,
+                  "color": "#000000"
+                }
+              },
+              {
+                "id": "gameover_text",
+                "type": "Label",
+                "properties": {
+                  "x": -36,
+                  "y": -8,
+                  "text": "GAME OVER",
+                  "font_size": 12,
+                  "color": "#ff0000",
+                  "font": "Silkscreen"
+                }
+              },
+              {
+                "id": "gameover_hint",
+                "type": "Label",
+                "properties": {
+                  "x": -44,
+                  "y": 8,
+                  "text": "Press R to restart",
+                  "font_size": 12,
+                  "color": "#aaaaaa",
+                  "font": "Silkscreen"
+                }
+              }
+            ]
           }
         ]
       },

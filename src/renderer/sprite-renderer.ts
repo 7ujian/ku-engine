@@ -63,17 +63,17 @@ export class SpriteRenderer {
       if (flipH || flipV) {
         ctx.translate(x, y);
         ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-        ctx.drawImage(img, sx, 0, frameWidth, img.height, -frameWidth / 2, -img.height / 2, frameWidth, img.height);
+        ctx.drawImage(img, sx, 0, frameWidth, img.height, Math.floor(-frameWidth / 2), Math.floor(-img.height / 2), frameWidth, img.height);
       } else {
-        ctx.drawImage(img, sx, 0, frameWidth, img.height, x - frameWidth / 2, y - img.height / 2, frameWidth, img.height);
+        ctx.drawImage(img, sx, 0, frameWidth, img.height, Math.floor(x - frameWidth / 2), Math.floor(y - img.height / 2), frameWidth, img.height);
       }
     } else {
       if (flipH || flipV) {
         ctx.translate(x, y);
         ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        ctx.drawImage(img, Math.floor(-img.width / 2), Math.floor(-img.height / 2));
       } else {
-        ctx.drawImage(img, x - img.width / 2, y - img.height / 2);
+        ctx.drawImage(img, Math.floor(x - img.width / 2), Math.floor(y - img.height / 2));
       }
     }
 
@@ -138,9 +138,9 @@ export class SpriteRenderer {
     if (flipH || flipV) {
       ctx.translate(x, y);
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      ctx.drawImage(img, Math.floor(-img.width / 2), Math.floor(-img.height / 2));
     } else {
-      ctx.drawImage(img, x - img.width / 2, y - img.height / 2);
+      ctx.drawImage(img, Math.floor(x - img.width / 2), Math.floor(y - img.height / 2));
     }
     ctx.restore();
   }
@@ -168,9 +168,9 @@ export class SpriteRenderer {
     if (flipH || flipV) {
       ctx.translate(x, y);
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-      ctx.drawImage(img, region.x, region.y, region.width, region.height, -region.width / 2, -region.height / 2, region.width, region.height);
+      ctx.drawImage(img, region.x, region.y, region.width, region.height, Math.floor(-region.width / 2), Math.floor(-region.height / 2), region.width, region.height);
     } else {
-      ctx.drawImage(img, region.x, region.y, region.width, region.height, x - region.width / 2, y - region.height / 2, region.width, region.height);
+      ctx.drawImage(img, region.x, region.y, region.width, region.height, Math.floor(x - region.width / 2), Math.floor(y - region.height / 2), region.width, region.height);
     }
 
     ctx.restore();
@@ -220,9 +220,9 @@ export class SpriteRenderer {
     if (flipH || flipV) {
       ctx.translate(x, y);
       ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-      ctx.drawImage(img, region.x, region.y, region.width, region.height, -region.width / 2, -region.height / 2, region.width, region.height);
+      ctx.drawImage(img, region.x, region.y, region.width, region.height, Math.floor(-region.width / 2), Math.floor(-region.height / 2), region.width, region.height);
     } else {
-      ctx.drawImage(img, region.x, region.y, region.width, region.height, x - region.width / 2, y - region.height / 2, region.width, region.height);
+      ctx.drawImage(img, region.x, region.y, region.width, region.height, Math.floor(x - region.width / 2), Math.floor(y - region.height / 2), region.width, region.height);
     }
 
     ctx.restore();

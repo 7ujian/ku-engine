@@ -1,11 +1,23 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
-import { Node } from '../engine/node.js';
+import { dirname, join, resolve } from 'node:path';
 import { SceneTree } from '../engine/scene-tree.js';
 import type { SceneFile, NodeData } from '../engine/types.js';
+import { Node } from '../engine/node.js';
 import { loadTiledMapCached, loadTiledMapCachedSync } from './tiled-cache.js';
 import { importTiledMapMerged } from './tiled-importer.js';
+
+const COMPUTED_PROPS = new Set(['computed_x', 'computed_y', 'computed_width', 'computed_height', 'computed_local_x', 'computed_local_y']);
+
+function stripComputed(data: NodeData): NodeData {
+  const { ...props } = data.properties;
+  for (const key of COMPUTED_PROPS) delete props[key];
+  return {
+    ...data,
+    properties: props,
+    ...(data.children ? { children: data.children.map(stripComputed) } : {}),
+  };
+}
 
 export async function loadScene(filePath: string, projectDir?: string): Promise<SceneTree> {
   const content = await readFile(filePath, 'utf-8');
@@ -160,7 +172,7 @@ export async function saveScene(tree: SceneTree, filePath: string, sceneName?: s
   await mkdir(dirname(filePath), { recursive: true });
   const data: SceneFile = {
     scene: sceneName ?? 'untitled',
-    root: tree.root.toJSON(),
+    root: stripComputed(tree.root.toJSON()),
   };
   await writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
 }
@@ -169,7 +181,7 @@ export function saveSceneSync(tree: SceneTree, filePath: string, sceneName?: str
   mkdirSync(dirname(filePath), { recursive: true });
   const data: SceneFile = {
     scene: sceneName ?? 'untitled',
-    root: tree.root.toJSON(),
+    root: stripComputed(tree.root.toJSON()),
   };
   writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
 }

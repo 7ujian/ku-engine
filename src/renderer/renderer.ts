@@ -786,7 +786,13 @@ export class Renderer {
 			if (isControlType(child.type)) {
 				this.drawControlTree(child, screenRect, dt);
 			} else {
-				this.drawNodeRecursive(child, IDENTITY, dt);
+				// Use internal method to get the labels array back for flushing
+				const layerLabels: Array<{ node: Node; wx: number; wy: number }> = [];
+				this._drawNodeRecursive(child, IDENTITY, dt, layerLabels);
+				// Flush collected labels (they're drawn last to stay on top)
+				for (const l of layerLabels) {
+					this.drawNode(l.node, l.wx, l.wy, 1, 1, dt);
+				}
 			}
 		}
 
